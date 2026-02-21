@@ -1,0 +1,37 @@
+# ==========================================
+# XRules API - Development Dockerfile
+# With hot reload using air
+# ==========================================
+
+FROM golang:1.21-alpine
+
+# Install dependencies
+RUN apk add --no-cache \
+    git \
+    ca-certificates \
+    tzdata \
+    wget
+
+# Install air for hot reload
+RUN go install github.com/cosmtrek/air@latest
+
+# Set timezone
+ENV TZ=Asia/Bangkok
+
+# Create app directory
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy air config
+COPY .air.toml ./
+
+# Expose port
+EXPOSE 8080
+
+# Run with air for hot reload
+CMD ["air", "-c", ".air.toml"]

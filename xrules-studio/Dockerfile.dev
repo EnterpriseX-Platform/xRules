@@ -1,0 +1,36 @@
+# ==========================================
+# XRules Studio - Development Dockerfile
+# With hot reload using Next.js dev server
+# ==========================================
+
+FROM node:20-alpine
+
+# Install dependencies
+RUN apk add --no-cache libc6-compat git
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy config files
+COPY tsconfig.json next.config.js tailwind.config.ts postcss.config.js ./
+COPY .eslintrc.json ./
+
+# Expose port
+EXPOSE 3000
+
+# Environment variables for development
+ENV NODE_ENV=development
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+ENV WATCHPACK_POLLING=true
+ENV CHOKIDAR_USEPOLLING=true
+ENV NEXT_WEBPACK_USEPOLLING=1
+
+# Run development server
+CMD ["npm", "run", "dev"]
