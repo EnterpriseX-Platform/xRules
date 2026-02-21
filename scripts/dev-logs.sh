@@ -14,10 +14,10 @@ if [ -z "$SERVICE" ]; then
     echo "📋 Viewing logs for all services..."
     echo "Press Ctrl+C to exit"
     echo ""
-    docker-compose -f docker-compose.dev.yml logs -f
+    docker compose -f docker-compose.dev.yml logs -f
 else
     echo "📋 Viewing logs for $SERVICE..."
     echo "Press Ctrl+C to exit"
     echo ""
-    docker-compose -f docker-compose.dev.yml logs -f "$SERVICE"
+    docker compose -f docker-compose.dev.yml logs -f "$SERVICE"
 fi

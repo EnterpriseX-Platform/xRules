@@ -33,7 +33,7 @@ nano .env
 
 This will:
 1. Build all Docker images
-2. Start PostgreSQL, Redis, MailHog, MinIO
+2. Start PostgreSQL, Redis
 3. Run database migrations
 4. Start Engine (Rust) with hot reload
 5. Start API (Go) with hot reload
@@ -50,8 +50,6 @@ This will:
 | **Engine Metrics** | http://localhost:9090 | Prometheus metrics |
 | **PostgreSQL** | localhost:5432 | Database |
 | **Redis** | localhost:6379 | Cache |
-| **MailHog** | http://localhost:8025 | Email testing |
-| **MinIO Console** | http://localhost:9001 | File storage |
 
 ## 🛠️ Development Commands
 

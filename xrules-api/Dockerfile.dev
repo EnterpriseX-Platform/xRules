@@ -12,8 +12,8 @@ RUN apk add --no-cache \
     tzdata \
     wget
 
-# Install air for hot reload
-RUN go install github.com/cosmtrek/air@latest
+# Install air for hot reload (pin to version compatible with Go 1.21)
+RUN go install github.com/cosmtrek/air@v1.49.0
 
 # Set timezone
 ENV TZ=Asia/Bangkok
@@ -22,7 +22,8 @@ ENV TZ=Asia/Bangkok
 WORKDIR /app
 
 # Copy go mod files
-COPY go.mod go.sum ./
+COPY go.mod ./
+COPY go.sum* ./
 
 # Download dependencies
 RUN go mod download

@@ -18,7 +18,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-xrules}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-xrules_dev_secret}
       POSTGRES_DB: ${POSTGRES_DB:-xrules}
-      POSTGRES_MULTIPLE_DATABASES: xrules_api,xrules_engine
     volumes:
       - postgres_dev_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d
@@ -165,40 +164,6 @@ services:
     stdin_open: true
     tty: true
 
-  # ==========================================
-  # Optional: Mailhog (Email Testing)
-  # ==========================================
-  
-  mailhog:
-    image: mailhog/mailhog:latest
-    container_name: xrules-mailhog-dev
-    restart: unless-stopped
-    ports:
-      - "1025:1025"  # SMTP
-      - "8025:8025"  # Web UI
-    networks:
-      - xrules-dev-network
-
-  # ==========================================
-  # Optional: MinIO (File Storage)
-  # ==========================================
-  
-  minio:
-    image: minio/minio:latest
-    container_name: xrules-minio-dev
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      - MINIO_ROOT_USER=${MINIO_USER:-minioadmin}
-      - MINIO_ROOT_PASSWORD=${MINIO_PASSWORD:-minioadmin}
-    volumes:
-      - minio_dev_data:/data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    networks:
-      - xrules-dev-network
-
 volumes:
   postgres_dev_data:
     driver: local
@@ -207,8 +172,6 @@ volumes:
   engine_target_cache:
     driver: local
   go_mod_cache:
-    driver: local
-  minio_dev_data:
     driver: local
 
 networks:

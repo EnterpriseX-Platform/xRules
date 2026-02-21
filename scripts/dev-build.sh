@@ -30,36 +30,36 @@ fi
 export $(grep -v '^#' .env.dev | xargs)
 
 echo -e "${BLUE}📦 Step 1: Building development images...${NC}"
-docker-compose -f docker-compose.dev.yml build --parallel
+docker compose -f docker-compose.dev.yml build --parallel
 
 echo -e "${BLUE}📦 Step 2: Starting infrastructure services...${NC}"
-docker-compose -f docker-compose.dev.yml up -d postgres redis mailhog minio
+docker compose -f docker-compose.dev.yml up -d postgres redis
 
 echo -e "${BLUE}⏳ Step 3: Waiting for database to be ready...${NC}"
 sleep 5
 
 # Wait for PostgreSQL
 echo "Waiting for PostgreSQL..."
-until docker-compose -f docker-compose.dev.yml exec -T postgres pg_isready -U "$POSTGRES_USER" > /dev/null 2>&1; do
+until docker compose -f docker-compose.dev.yml exec -T postgres pg_isready -U "$POSTGRES_USER" > /dev/null 2>&1; do
     sleep 1
 done
 echo -e "${GREEN}✅ PostgreSQL is ready${NC}"
 
 # Wait for Redis
 echo "Waiting for Redis..."
-until docker-compose -f docker-compose.dev.yml exec -T redis redis-cli ping > /dev/null 2>&1; do
+until docker compose -f docker-compose.dev.yml exec -T redis redis-cli ping > /dev/null 2>&1; do
     sleep 1
 done
 echo -e "${GREEN}✅ Redis is ready${NC}"
 
 echo -e "${BLUE}📦 Step 4: Starting xrules-engine...${NC}"
-docker-compose -f docker-compose.dev.yml up -d xrules-engine
+docker compose -f docker-compose.dev.yml up -d xrules-engine
 
 echo -e "${BLUE}📦 Step 5: Starting xrules-api...${NC}"
-docker-compose -f docker-compose.dev.yml up -d xrules-api
+docker compose -f docker-compose.dev.yml up -d xrules-api
 
 echo -e "${BLUE}📦 Step 6: Starting xrules-studio...${NC}"
-docker-compose -f docker-compose.dev.yml up -d xrules-studio
+docker compose -f docker-compose.dev.yml up -d xrules-studio
 
 echo ""
 echo -e "${GREEN}==========================================${NC}"
@@ -75,10 +75,6 @@ echo ""
 echo "🗄️  Infrastructure:"
 echo "  🐘 PostgreSQL:      localhost:5432"
 echo "  📦 Redis:           localhost:6379"
-echo "  📧 MailHog (SMTP):  localhost:1025"
-echo "  📧 MailHog (Web):   http://localhost:8025"
-echo "  📂 MinIO (API):     localhost:9000"
-echo "  📂 MinIO (Console): http://localhost:9001"
 echo ""
 echo "📋 Useful commands:"
 echo "  ./scripts/dev-logs.sh     - View all logs"

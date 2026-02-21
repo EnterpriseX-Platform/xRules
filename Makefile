@@ -50,7 +50,7 @@ build:
 # Start all services
 start:
 	@echo "▶️  Starting services..."
-	@docker-compose -f docker-compose.dev.yml up -d
+	@docker compose -f docker-compose.dev.yml up -d
 
 # Full development setup
 dev: build
@@ -87,21 +87,21 @@ logs-redis:
 
 test:
 	@echo "🧪 Running all tests..."
-	@docker-compose -f docker-compose.dev.yml exec -T xrules-api go test ./...
-	@docker-compose -f docker-compose.dev.yml exec -T xrules-engine cargo test
-	@docker-compose -f docker-compose.dev.yml exec -T xrules-studio npm test
+	@docker compose -f docker-compose.dev.yml exec -T xrules-api go test ./...
+	@docker compose -f docker-compose.dev.yml exec -T xrules-engine cargo test
+	@docker compose -f docker-compose.dev.yml exec -T xrules-studio npm test
 
 test-api:
 	@echo "🧪 Running API tests..."
-	@docker-compose -f docker-compose.dev.yml exec xrules-api go test ./...
+	@docker compose -f docker-compose.dev.yml exec xrules-api go test ./...
 
 test-engine:
 	@echo "🧪 Running Engine tests..."
-	@docker-compose -f docker-compose.dev.yml exec xrules-engine cargo test
+	@docker compose -f docker-compose.dev.yml exec xrules-engine cargo test
 
 test-studio:
 	@echo "🧪 Running Studio tests..."
-	@docker-compose -f docker-compose.dev.yml exec xrules-studio npm test
+	@docker compose -f docker-compose.dev.yml exec xrules-studio npm test
 
 # ==========================================
 # Database Commands
@@ -109,17 +109,17 @@ test-studio:
 
 db-connect:
 	@echo "🐘 Connecting to PostgreSQL..."
-	@docker-compose -f docker-compose.dev.yml exec postgres psql -U xrules -d xrules
+	@docker compose -f docker-compose.dev.yml exec postgres psql -U xrules -d xrules
 
 db-reset:
 	@echo "⚠️  Resetting database..."
-	@docker-compose -f docker-compose.dev.yml down -v postgres
-	@docker-compose -f docker-compose.dev.yml up -d postgres
+	@docker compose -f docker-compose.dev.yml down -v postgres
+	@docker compose -f docker-compose.dev.yml up -d postgres
 	@echo "✅ Database reset complete"
 
 db-migrate:
 	@echo "🔄 Running migrations..."
-	@docker-compose -f docker-compose.dev.yml exec xrules-api go run cmd/migrate/main.go
+	@docker compose -f docker-compose.dev.yml exec xrules-api go run cmd/migrate/main.go
 
 # ==========================================
 # Cleanup Commands
@@ -131,8 +131,8 @@ clean:
 
 clean-all:
 	@echo "🧹 Deep cleaning..."
-	@docker-compose -f docker-compose.dev.yml down -v --remove-orphans
-	@docker-compose -f docker-compose.prod.yml down -v --remove-orphans
+	@docker compose -f docker-compose.dev.yml down -v --remove-orphans
+	@docker compose -f docker compose.prod.yml down -v --remove-orphans
 	@docker system prune -f
 	@echo "✅ Cleanup complete"
 
@@ -142,11 +142,11 @@ clean-all:
 
 prod-build:
 	@echo "🏭 Building production images..."
-	@docker-compose build
+	@docker compose build
 
 prod-deploy:
 	@echo "🚀 Deploying production stack..."
-	@docker-compose up -d
+	@docker compose up -d
 
 # ==========================================
 # Utility Commands
@@ -154,54 +154,54 @@ prod-deploy:
 
 # Enter container shell
 shell-api:
-	@docker-compose -f docker-compose.dev.yml exec xrules-api sh
+	@docker compose -f docker-compose.dev.yml exec xrules-api sh
 
 shell-engine:
-	@docker-compose -f docker-compose.dev.yml exec xrules-engine sh
+	@docker compose -f docker-compose.dev.yml exec xrules-engine sh
 
 shell-studio:
-	@docker-compose -f docker-compose.dev.yml exec xrules-studio sh
+	@docker compose -f docker-compose.dev.yml exec xrules-studio sh
 
 # Restart services
 restart-api:
-	@docker-compose -f docker-compose.dev.yml restart xrules-api
+	@docker compose -f docker-compose.dev.yml restart xrules-api
 
 restart-engine:
-	@docker-compose -f docker-compose.dev.yml restart xrules-engine
+	@docker compose -f docker-compose.dev.yml restart xrules-engine
 
 restart-studio:
-	@docker-compose -f docker-compose.dev.yml restart xrules-studio
+	@docker compose -f docker-compose.dev.yml restart xrules-studio
 
 # View status
 status:
-	@docker-compose -f docker-compose.dev.yml ps
+	@docker compose -f docker-compose.dev.yml ps
 
 # Format code
 fmt-api:
-	@docker-compose -f docker-compose.dev.yml exec xrules-api go fmt ./...
+	@docker compose -f docker-compose.dev.yml exec xrules-api go fmt ./...
 
 fmt-engine:
-	@docker-compose -f docker-compose.dev.yml exec xrules-engine cargo fmt
+	@docker compose -f docker-compose.dev.yml exec xrules-engine cargo fmt
 
 fmt-studio:
-	@docker-compose -f docker-compose.dev.yml exec xrules-studio npm run lint:fix
+	@docker compose -f docker-compose.dev.yml exec xrules-studio npm run lint:fix
 
 # Lint code
 lint-api:
-	@docker-compose -f docker-compose.dev.yml exec xrules-api golangci-lint run
+	@docker compose -f docker-compose.dev.yml exec xrules-api golangci-lint run
 
 lint-engine:
-	@docker-compose -f docker-compose.dev.yml exec xrules-engine cargo clippy
+	@docker compose -f docker-compose.dev.yml exec xrules-engine cargo clippy
 
 lint-studio:
-	@docker-compose -f docker-compose.dev.yml exec xrules-studio npm run lint
+	@docker compose -f docker-compose.dev.yml exec xrules-studio npm run lint
 
 # Update dependencies
 update-api:
-	@docker-compose -f docker-compose.dev.yml exec xrules-api go get -u ./...
+	@docker compose -f docker-compose.dev.yml exec xrules-api go get -u ./...
 
 update-engine:
-	@docker-compose -f docker-compose.dev.yml exec xrules-engine cargo update
+	@docker compose -f docker-compose.dev.yml exec xrules-engine cargo update
 
 update-studio:
-	@docker-compose -f docker-compose.dev.yml exec xrules-studio npm update
+	@docker compose -f docker-compose.dev.yml exec xrules-studio npm update

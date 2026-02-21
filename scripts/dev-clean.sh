@@ -20,7 +20,7 @@ echo
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "🧹 Cleaning up..."
-    docker-compose -f docker-compose.dev.yml down -v --remove-orphans
+    docker compose -f docker-compose.dev.yml down -v --remove-orphans
     docker volume prune -f
     echo "✅ Clean complete"
 else

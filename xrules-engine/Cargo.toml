@@ -20,7 +20,7 @@ axum = { version = "0.7", features = ["ws", "http2"] }
 tonic = "0.11"
 tonic-types = "0.11"
 tower = { version = "0.4", features = ["full"] }
-tower-http = { version = "0.5", features = ["cors", "trace", "compression"] }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
 tonic-reflection = "0.11"
 
 # Serialization
@@ -32,7 +32,7 @@ serde_yaml = "0.9"
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "json", "migrate"] }
 
 # Redis
-fred = { version = "9.0", features = ["replicas", "sentinel"] }
+fred = { version = "9.0", features = ["replicas"] }
 
 # Kafka
 rdkafka = { version = "0.36", features = ["tokio", "tracing", "ssl-vendored"], optional = true }
