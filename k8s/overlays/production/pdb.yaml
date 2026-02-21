@@ -1,0 +1,47 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: xrules-engine-pdb
+  namespace: xrules-production
+  labels:
+    app.kubernetes.io/name: xrules-engine
+    app.kubernetes.io/component: pdb
+    app.kubernetes.io/part-of: xrules-v2
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: xrules-engine
+      app.kubernetes.io/component: engine
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: xrules-api-pdb
+  namespace: xrules-production
+  labels:
+    app.kubernetes.io/name: xrules-api
+    app.kubernetes.io/component: pdb
+    app.kubernetes.io/part-of: xrules-v2
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: xrules-api
+      app.kubernetes.io/component: api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: xrules-studio-pdb
+  namespace: xrules-production
+  labels:
+    app.kubernetes.io/name: xrules-studio
+    app.kubernetes.io/component: pdb
+    app.kubernetes.io/part-of: xrules-v2
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: xrules-studio
+      app.kubernetes.io/component: studio

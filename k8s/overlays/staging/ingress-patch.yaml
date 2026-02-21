@@ -1,0 +1,28 @@
+# Additional ingress configuration for staging
+# This file can contain custom ingress patches or additional ingresses
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: xrules-api-internal
+  namespace: xrules-staging
+  labels:
+    app.kubernetes.io/name: xrules-api
+    app.kubernetes.io/component: ingress-internal
+    app.kubernetes.io/part-of: xrules-v2
+  annotations:
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx-internal
+  rules:
+    - host: internal-api-staging.xrules.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: staging-xrules-api
+                port:
+                  number: 8080

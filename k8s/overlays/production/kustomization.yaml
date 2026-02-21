@@ -1,0 +1,117 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: xrules-production
+
+namePrefix: prod-
+
+resources:
+  - ../../base
+  - pdb.yaml
+  - resource-limits.yaml
+
+commonLabels:
+  environment: production
+
+images:
+  - name: xrules-engine
+    newName: xrules-engine
+    newTag: v1.0.0
+  - name: xrules-api
+    newName: xrules-api
+    newTag: v1.0.0
+  - name: xrules-studio
+    newName: xrules-studio
+    newTag: v1.0.0
+
+replicas:
+  - name: xrules-engine
+    count: 3
+  - name: xrules-api
+    count: 3
+  - name: xrules-studio
+    count: 3
+
+patches:
+  # Patch ingress hosts for production
+  - target:
+      kind: Ingress
+      name: xrules-api
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: api.xrules.io
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: api.xrules.io
+      - op: replace
+        path: /spec/tls/0/secretName
+        value: prod-xrules-api-tls
+  - target:
+      kind: Ingress
+      name: xrules-studio
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: xrules.io
+      - op: replace
+        path: /spec/rules/1/host
+        value: studio.xrules.io
+      - op: replace
+        path: /spec/tls/0/hosts
+        value: [xrules.io, studio.xrules.io]
+      - op: replace
+        path: /spec/tls/0/secretName
+        value: prod-xrules-studio-tls
+  
+  # Update HPA for production
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: xrules-engine-hpa
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 3
+      - op: replace
+        path: /spec/maxReplicas
+        value: 20
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: xrules-api-hpa
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 3
+      - op: replace
+        path: /spec/maxReplicas
+        value: 20
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: xrules-studio-hpa
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 3
+      - op: replace
+        path: /spec/maxReplicas
+        value: 10
+
+configMapGenerator:
+  - name: xrules-config
+    behavior: merge
+    literals:
+      - ENV=production
+      - NODE_ENV=production
+      - LOG_LEVEL=warn
+      - DATABASE_SSL_MODE=require
+      - FEATURE_ENABLE_AUDIT_LOG=true
+      - FEATURE_ENABLE_REALTIME=true
+      - API_RATE_LIMIT_MAX_REQUESTS=1000
+
+secretGenerator:
+  - name: xrules-secrets
+    behavior: merge
+    literals:
+      - DATABASE_PASSWORD=CHANGE_ME_IN_SECRET_MANAGER
+      - REDIS_PASSWORD=CHANGE_ME_IN_SECRET_MANAGER
+      - JWT_SECRET=CHANGE_ME_IN_SECRET_MANAGER

@@ -1,0 +1,69 @@
+server:
+  address: "0.0.0.0"
+  port: 8080
+  read_timeout: 30
+  write_timeout: 30
+  shutdown_timeout: 30
+  mode: "release"
+
+database:
+  host: "localhost"
+  port: 5432
+  user: "postgres"
+  password: "postgres"
+  database: "xrules"
+  ssl_mode: "disable"
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: 300
+
+redis:
+  host: "localhost"
+  port: 6379
+  password: ""
+  db: 0
+
+jwt:
+  secret: "your-secret-key-change-in-production"
+  access_token_ttl: 900      # 15 minutes
+  refresh_token_ttl: 604800  # 7 days
+
+log:
+  level: "info"
+  format: "json"
+
+# OAuth Configuration
+oauth:
+  # Google OAuth
+  google:
+    enabled: false
+    client_id: ""
+    client_secret: ""
+    redirect_url: "http://localhost:8080/auth/oauth/google/callback"
+
+  # GitHub OAuth
+  github:
+    enabled: false
+    client_id: ""
+    client_secret: ""
+    redirect_url: "http://localhost:8080/auth/oauth/github/callback"
+
+  # Microsoft/Azure AD OAuth
+  microsoft:
+    enabled: false
+    client_id: ""
+    client_secret: ""
+    redirect_url: "http://localhost:8080/auth/oauth/microsoft/callback"
+    tenant: "common"  # Use "common" for multi-tenant, or specific tenant ID
+
+  # Generic OIDC (for other identity providers)
+  oidc:
+    enabled: false
+    issuer_url: ""  # e.g., "https://accounts.google.com" or your custom IdP
+    client_id: ""
+    client_secret: ""
+    redirect_url: "http://localhost:8080/auth/oauth/oidc/callback"
+    scopes:
+      - "openid"
+      - "profile"
+      - "email"

@@ -1,0 +1,95 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: xrules-dev
+
+namePrefix: dev-
+
+resources:
+  - ../../base
+
+commonLabels:
+  environment: development
+
+images:
+  - name: xrules-engine
+    newName: xrules-engine
+    newTag: dev
+  - name: xrules-api
+    newName: xrules-api
+    newTag: dev
+  - name: xrules-studio
+    newName: xrules-studio
+    newTag: dev
+
+replicas:
+  - name: xrules-engine
+    count: 1
+  - name: xrules-api
+    count: 1
+  - name: xrules-studio
+    count: 1
+
+patches:
+  # Patch ingress hosts for development
+  - target:
+      kind: Ingress
+      name: xrules-api
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: api-dev.xrules.local
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: api-dev.xrules.local
+  - target:
+      kind: Ingress
+      name: xrules-studio
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: studio-dev.xrules.local
+      - op: replace
+        path: /spec/rules/1/host
+        value: dev.xrules.local
+      - op: replace
+        path: /spec/tls/0/hosts
+        value: [studio-dev.xrules.local, dev.xrules.local]
+  
+  # Remove SSL redirect for local development
+  - target:
+      kind: Ingress
+    patch: |-
+      - op: replace
+        path: /metadata/annotations/nginx.ingress.kubernetes.io~1ssl-redirect
+        value: "false"
+      - op: remove
+        path: /spec/tls
+  
+  # Disable HPA for development (use single replica)
+  - target:
+      kind: HorizontalPodAutoscaler
+    patch: |-
+      $patch: delete
+      apiVersion: autoscaling/v2
+      kind: HorizontalPodAutoscaler
+      metadata:
+        name: placeholder
+
+configMapGenerator:
+  - name: xrules-config
+    behavior: merge
+    literals:
+      - ENV=development
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+      - DATABASE_SSL_MODE=disable
+      - FEATURE_ENABLE_AUDIT_LOG=false
+
+secretGenerator:
+  - name: xrules-secrets
+    behavior: merge
+    literals:
+      - DATABASE_PASSWORD=dev_password
+      - REDIS_PASSWORD=dev_redis_pass
+      - JWT_SECRET=dev-jwt-secret-not-for-production

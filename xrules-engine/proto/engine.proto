@@ -1,0 +1,181 @@
+syntax = "proto3";
+package xrules.engine;
+
+option go_package = "github.com/xrules/engine/proto;engine";
+
+// ExecutionEngine service provides APIs for flow execution
+service ExecutionEngine {
+    // Execute a flow synchronously
+    rpc ExecuteFlow(ExecuteFlowRequest) returns (ExecuteFlowResponse);
+    
+    // Execute a flow with streaming logs
+    rpc ExecuteFlowStreaming(ExecuteFlowRequest) returns (stream ExecutionLogMessage);
+    
+    // Validate a flow definition
+    rpc ValidateFlow(ValidateFlowRequest) returns (ValidateFlowResponse);
+    
+    // Get execution status
+    rpc GetExecutionStatus(GetExecutionStatusRequest) returns (ExecutionStatusResponse);
+    
+    // Cancel a running execution
+    rpc CancelExecution(CancelExecutionRequest) returns (CancelExecutionResponse);
+    
+    // List executions
+    rpc ListExecutions(ListExecutionsRequest) returns (ListExecutionsResponse);
+    
+    // Get execution logs
+    rpc GetExecutionLogs(GetExecutionLogsRequest) returns (GetExecutionLogsResponse);
+    
+    // Stream execution updates
+    rpc StreamExecutionUpdates(StreamExecutionUpdatesRequest) returns (stream ExecutionUpdate);
+}
+
+// Health service
+service Health {
+    rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
+    rpc Watch(HealthCheckRequest) returns (stream HealthCheckResponse);
+}
+
+message ExecuteFlowRequest {
+    string flow_id = 1;
+    string project_id = 2;
+    string workspace_id = 3;
+    bytes flow_definition = 4;
+    bytes input_data = 5;
+    map<string, string> metadata = 6;
+    string execution_id = 7;  // Optional, will be generated if not provided
+}
+
+message ExecuteFlowResponse {
+    string execution_id = 1;
+    ExecutionStatus status = 2;
+    bytes output_data = 3;
+    string error_message = 4;
+    int64 start_time = 5;
+    int64 end_time = 6;
+    int64 duration_ms = 7;
+}
+
+message ExecutionLogMessage {
+    string execution_id = 1;
+    string node_id = 2;
+    string level = 3;
+    string message = 4;
+    int64 timestamp = 5;
+    map<string, string> metadata = 6;
+}
+
+message ValidateFlowRequest {
+    string flow_id = 1;
+    bytes flow_definition = 2;
+}
+
+message ValidateFlowResponse {
+    bool valid = 1;
+    repeated ValidationError errors = 2;
+}
+
+message ValidationError {
+    string node_id = 1;
+    string field = 2;
+    string message = 3;
+}
+
+message GetExecutionStatusRequest {
+    string execution_id = 1;
+}
+
+message ExecutionStatusResponse {
+    string execution_id = 1;
+    ExecutionStatus status = 2;
+    string flow_id = 3;
+    string project_id = 4;
+    int64 start_time = 5;
+    int64 end_time = 6;
+    int64 duration_ms = 7;
+    string error_message = 8;
+}
+
+message CancelExecutionRequest {
+    string execution_id = 1;
+    string reason = 2;
+}
+
+message CancelExecutionResponse {
+    bool success = 1;
+    ExecutionStatus status = 2;
+}
+
+message ListExecutionsRequest {
+    string flow_id = 1;
+    string project_id = 2;
+    ExecutionStatus status = 3;
+    int32 limit = 4;
+    int32 offset = 5;
+}
+
+message ListExecutionsResponse {
+    repeated ExecutionSummary executions = 1;
+    int32 total = 2;
+}
+
+message ExecutionSummary {
+    string execution_id = 1;
+    string flow_id = 2;
+    string project_id = 3;
+    ExecutionStatus status = 4;
+    int64 start_time = 5;
+    int64 end_time = 6;
+    int64 duration_ms = 7;
+}
+
+message GetExecutionLogsRequest {
+    string execution_id = 1;
+    string level = 2;  // Filter by level (DEBUG, INFO, WARN, ERROR)
+    int64 from_timestamp = 3;
+    int64 to_timestamp = 4;
+    int32 limit = 5;
+    int32 offset = 6;
+}
+
+message GetExecutionLogsResponse {
+    repeated ExecutionLogMessage logs = 1;
+    int32 total = 2;
+}
+
+message StreamExecutionUpdatesRequest {
+    string execution_id = 1;
+}
+
+message ExecutionUpdate {
+    string execution_id = 1;
+    ExecutionStatus status = 2;
+    string current_node_id = 3;
+    int64 progress_percent = 4;
+    int64 timestamp = 5;
+    string message = 6;
+}
+
+message HealthCheckRequest {
+    string service = 1;
+}
+
+message HealthCheckResponse {
+    ServingStatus status = 1;
+}
+
+enum ExecutionStatus {
+    PENDING = 0;
+    RUNNING = 1;
+    COMPLETED = 2;
+    FAILED = 3;
+    CANCELLED = 4;
+    TIMEOUT = 5;
+}
+
+enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+    SERVICE_UNKNOWN = 3;
+}

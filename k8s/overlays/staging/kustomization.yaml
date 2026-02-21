@@ -1,0 +1,82 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: xrules-staging
+
+namePrefix: staging-
+
+resources:
+  - ../../base
+  - ingress-patch.yaml
+
+commonLabels:
+  environment: staging
+
+images:
+  - name: xrules-engine
+    newName: xrules-engine
+    newTag: staging
+  - name: xrules-api
+    newName: xrules-api
+    newTag: staging
+  - name: xrules-studio
+    newName: xrules-studio
+    newTag: staging
+
+replicas:
+  - name: xrules-engine
+    count: 2
+  - name: xrules-api
+    count: 2
+  - name: xrules-studio
+    count: 2
+
+patches:
+  # Patch ingress hosts for staging
+  - target:
+      kind: Ingress
+      name: xrules-api
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: api-staging.xrules.io
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: api-staging.xrules.io
+      - op: replace
+        path: /spec/tls/0/secretName
+        value: staging-xrules-api-tls
+  - target:
+      kind: Ingress
+      name: xrules-studio
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: staging.xrules.io
+      - op: replace
+        path: /spec/rules/1/host
+        value: studio-staging.xrules.io
+      - op: replace
+        path: /spec/tls/0/hosts
+        value: [staging.xrules.io, studio-staging.xrules.io]
+      - op: replace
+        path: /spec/tls/0/secretName
+        value: staging-xrules-studio-tls
+
+configMapGenerator:
+  - name: xrules-config
+    behavior: merge
+    literals:
+      - ENV=staging
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - DATABASE_SSL_MODE=require
+      - FEATURE_ENABLE_AUDIT_LOG=true
+
+secretGenerator:
+  - name: xrules-secrets
+    behavior: merge
+    literals:
+      - DATABASE_PASSWORD=staging_db_password
+      - REDIS_PASSWORD=staging_redis_pass
+      - JWT_SECRET=staging-jwt-secret-change-me

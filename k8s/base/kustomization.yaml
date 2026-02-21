@@ -1,0 +1,48 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: xrules
+
+resources:
+  # Core infrastructure
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  
+  # PostgreSQL
+  - postgres/pvc.yaml
+  - postgres/statefulset.yaml
+  - postgres/service.yaml
+  
+  # Redis
+  - redis/deployment.yaml
+  - redis/service.yaml
+  
+  # XRules Engine
+  - xrules-engine/deployment.yaml
+  - xrules-engine/service.yaml
+  - xrules-engine/hpa.yaml
+  
+  # XRules API
+  - xrules-api/deployment.yaml
+  - xrules-api/service.yaml
+  - xrules-api/ingress.yaml
+  - xrules-api/hpa.yaml
+  
+  # XRules Studio
+  - xrules-studio/deployment.yaml
+  - xrules-studio/service.yaml
+  - xrules-studio/ingress.yaml
+  - xrules-studio/hpa.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: xrules-v2
+  app.kubernetes.io/managed-by: kustomize
+
+images:
+  - name: xrules-engine
+    newTag: latest
+  - name: xrules-api
+    newTag: latest
+  - name: xrules-studio
+    newTag: latest
