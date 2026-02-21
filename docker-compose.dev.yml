@@ -39,7 +39,7 @@ services:
     volumes:
       - redis_dev_data:/data
     ports:
-      - "6379:6379"
+      - "6380:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -119,7 +119,7 @@ services:
       - ./xrules-api:/app:cached
       - go_mod_cache:/go/pkg/mod
     ports:
-      - "8080:8080"
+      - "8082:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -156,7 +156,7 @@ services:
       - /app/node_modules
       - /app/.next
     ports:
-      - "3000:3000"
+      - "3002:3000"
     depends_on:
       - xrules-api
     networks:

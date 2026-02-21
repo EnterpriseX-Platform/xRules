@@ -14,8 +14,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies (use npm install instead of ci for flexibility)
+RUN npm install
 
 # Copy config files
 COPY tsconfig.json next.config.js tailwind.config.ts postcss.config.js ./
