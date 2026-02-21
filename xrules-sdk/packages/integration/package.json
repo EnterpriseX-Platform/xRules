@@ -1,0 +1,27 @@
+{
+  "name": "@xrules/integration",
+  "version": "0.1.0",
+  "description": "Integration SDK for XRules - Webhooks, APIs, and connectors",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "rollup -c",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@xrules/core": "workspace:*",
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "typescript": "^5.3.0",
+    "rollup": "^4.0.0",
+    "@rollup/plugin-typescript": "^11.0.0"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
+  "license": "MIT"
+}
