@@ -1,0 +1,31 @@
+{
+  "name": "@xrules/ai-assistant",
+  "version": "0.1.0",
+  "description": "AI Assistant for XRules SDK - LLM-powered rule generation and optimization",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "rollup -c",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@xrules/core": "workspace:*",
+    "@xrules/formula-engine": "workspace:*",
+    "openai": "^4.28.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "typescript": "^5.3.0",
+    "rollup": "^4.0.0",
+    "@rollup/plugin-typescript": "^11.0.0"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "license": "MIT"
+}
