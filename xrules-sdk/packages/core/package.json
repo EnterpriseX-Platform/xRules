@@ -1,0 +1,28 @@
+{
+  "name": "@xrules/core",
+  "version": "0.1.0",
+  "description": "Core types and utilities for XRules SDK",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rollup -c",
+    "test": "jest",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "uuid": "^9.0.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/uuid": "^9.0.0",
+    "typescript": "^5.3.0",
+    "rollup": "^4.0.0",
+    "@rollup/plugin-typescript": "^11.0.0"
+  },
+  "peerDependencies": {},
+  "license": "MIT"
+}
