@@ -45,7 +45,7 @@ export default async function WorkspacesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {workspaces.map((workspace) => (
-            <Link key={workspace.id} href={`/workspaces/${workspace.id}`}>
+            <Link key={workspace.id} href={`/studio/workspaces/${workspace.id}`}>
               <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
                 <CardHeader>
                   <div className="flex items-center gap-3">

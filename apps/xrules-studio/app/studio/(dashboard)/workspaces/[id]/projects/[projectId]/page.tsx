@@ -31,7 +31,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       <div className="flex justify-between items-start">
         <div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-            <Link href={`/workspaces/${params.id}`} className="hover:underline">
+            <Link href={`/studio/workspaces/${params.id}`} className="hover:underline">
               {project.workspace.name}
             </Link>
             <span>/</span>
@@ -73,7 +73,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           {project.rules.map((rule) => (
             <Link 
               key={rule.id} 
-              href={`/workspaces/${params.id}/projects/${project.id}/rules/${rule.id}`}
+              href={`/studio/workspaces/${params.id}/projects/${project.id}/rules/${rule.id}`}
             >
               <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
                 <CardHeader>

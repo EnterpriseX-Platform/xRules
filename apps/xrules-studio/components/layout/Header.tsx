@@ -39,7 +39,7 @@ export function Header({ className }: HeaderProps) {
   if (workspaceId && currentWorkspace) {
     breadcrumbs.push({
       label: currentWorkspace.name,
-      href: `/workspaces/${workspaceId}`,
+      href: `/studio/workspaces/${workspaceId}`,
     });
 
     if (projectId) {
@@ -51,7 +51,7 @@ export function Header({ className }: HeaderProps) {
       } else if (currentProject) {
         breadcrumbs.push({
           label: currentProject.name,
-          href: `/workspaces/${workspaceId}/projects/${projectId}`,
+          href: `/studio/workspaces/${workspaceId}/projects/${projectId}`,
         });
       }
 
@@ -60,7 +60,7 @@ export function Header({ className }: HeaderProps) {
         if (ruleId) {
           breadcrumbs.push({
             label: 'Rules',
-            href: `/workspaces/${workspaceId}/projects/${projectId}/rules`,
+            href: `/studio/workspaces/${workspaceId}/projects/${projectId}/rules`,
           });
           breadcrumbs.push({
             label: 'Editor',

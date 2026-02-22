@@ -1,27 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
-  experimental: {
-    appDir: true,
-  },
+  basePath: '/xrules',
   async rewrites() {
     return [
+      // Proxy to Rust Engine
       {
-        source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/:path*`,
+        source: '/proxy/engine/:path*',
+        destination: 'http://localhost:50051/:path*',
       },
-    ];
+    ]
   },
-  images: {
-    domains: ['localhost'],
-  },
-  // Disable type checking during build (we have TypeScript checking separately)
-  typescript: {
-    ignoreBuildErrors: false,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-};
+}
 
-module.exports = nextConfig;
+module.exports = nextConfig

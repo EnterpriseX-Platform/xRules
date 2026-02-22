@@ -33,12 +33,12 @@ export function Sidebar({ className }: SidebarProps) {
   const mainNavItems = [
     {
       title: 'Dashboard',
-      href: '/',
+      href: '/studio',
       icon: LayoutDashboard,
     },
     {
       title: 'Workspaces',
-      href: '/workspaces',
+      href: '/studio/workspaces',
       icon: Building2,
     },
   ];
@@ -47,17 +47,17 @@ export function Sidebar({ className }: SidebarProps) {
     ? [
         {
           title: 'Overview',
-          href: `/workspaces/${workspaceId}`,
+          href: `/studio/workspaces/${workspaceId}`,
           icon: LayoutDashboard,
         },
         {
           title: 'Projects',
-          href: `/workspaces/${workspaceId}/projects`,
+          href: `/studio/workspaces/${workspaceId}/projects`,
           icon: FolderKanban,
         },
         {
           title: 'Settings',
-          href: `/workspaces/${workspaceId}/settings`,
+          href: `/studio/workspaces/${workspaceId}/settings`,
           icon: Settings,
         },
       ]
