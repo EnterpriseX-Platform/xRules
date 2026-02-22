@@ -1,188 +1,24 @@
-version: '3.9'
+# ==========================================
+# XRules Development - PostgreSQL Only
+# ==========================================
 
 services:
-  # ==========================================
-  # Infrastructure
-  # ==========================================
-  
   postgres:
     image: postgres:16-alpine
     container_name: xrules-postgres
-    restart: unless-stopped
+    ports:
+      - "5433:5432"
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-xrules}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-xrules_secret}
-      POSTGRES_DB: ${POSTGRES_DB:-xrules}
+      POSTGRES_USER: xrules
+      POSTGRES_PASSWORD: xrules_secret
+      POSTGRES_DB: xrulesdb
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-scripts:/docker-entrypoint-initdb.d
-    ports:
-      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U xrules"]
       interval: 5s
       timeout: 5s
       retries: 5
-    networks:
-      - xrules-network
-
-  redis:
-    image: redis:7-alpine
-    container_name: xrules-redis
-    restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_secret}
-    volumes:
-      - redis_data:/data
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - xrules-network
-
-  # ==========================================
-  # XRules Services
-  # ==========================================
-
-  xrules-engine:
-    build:
-      context: ./xrules-engine
-      dockerfile: Dockerfile
-    container_name: xrules-engine
-    restart: unless-stopped
-    environment:
-      - RUST_LOG=${RUST_LOG:-info}
-      - DATABASE_URL=postgres://${POSTGRES_USER:-xrules}:${POSTGRES_PASSWORD:-xrules_secret}@postgres:5432/${POSTGRES_DB:-xrules}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379
-      - GRPC_PORT=50051
-      - METRICS_PORT=9090
-      - ENABLE_CACHING=true
-      - MAX_WORKERS=10
-    ports:
-      - "50051:50051"
-      - "9090:9090"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - xrules-network
-    healthcheck:
-      test: ["CMD", "grpc_health_probe", "-addr=:50051"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-  xrules-api:
-    build:
-      context: ./xrules-api
-      dockerfile: Dockerfile
-    container_name: xrules-api
-    restart: unless-stopped
-    environment:
-      - ENV=${ENV:-development}
-      - SERVER_PORT=8080
-      - DATABASE_HOST=postgres
-      - DATABASE_PORT=5432
-      - DATABASE_USER=${POSTGRES_USER:-xrules}
-      - DATABASE_PASSWORD=${POSTGRES_PASSWORD:-xrules_secret}
-      - DATABASE_NAME=${POSTGRES_DB:-xrules}
-      - DATABASE_SSL_MODE=disable
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_secret}
-      - REDIS_DB=0
-      - JWT_SECRET=${JWT_SECRET:-your-secret-jwt-key-change-in-production}
-      - JWT_EXPIRATION=24h
-      - ENGINE_GRPC_ADDR=xrules-engine:50051
-      - CORS_ORIGIN=http://localhost:3000
-    ports:
-      - "8080:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      xrules-engine:
-        condition: service_started
-    networks:
-      - xrules-network
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-  xrules-studio:
-    build:
-      context: ./xrules-studio
-      dockerfile: Dockerfile
-    container_name: xrules-studio
-    restart: unless-stopped
-    environment:
-      - NODE_ENV=${NODE_ENV:-production}
-      - NEXT_PUBLIC_API_URL=http://localhost:8080
-      - PORT=3000
-    ports:
-      - "3000:3000"
-    depends_on:
-      - xrules-api
-    networks:
-      - xrules-network
-
-  # ==========================================
-  # Observability (Optional)
-  # ==========================================
-
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: xrules-prometheus
-    restart: unless-stopped
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-    ports:
-      - "9091:9090"
-    networks:
-      - xrules-network
-    profiles:
-      - monitoring
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: xrules-grafana
-    restart: unless-stopped
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
-      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
-    ports:
-      - "3001:3000"
-    networks:
-      - xrules-network
-    profiles:
-      - monitoring
 
 volumes:
   postgres_data:
-    driver: local
-  redis_data:
-    driver: local
-  prometheus_data:
-    driver: local
-  grafana_data:
-    driver: local
-
-networks:
-  xrules-network:
-    driver: bridge
-    name: xrules-network
