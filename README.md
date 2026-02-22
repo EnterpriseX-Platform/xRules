@@ -24,7 +24,7 @@ XRULES/
 # 2. Start development
 ./scripts/dev.sh
 
-# 3. Open http://localhost:3000
+# 3. Open http://localhost:3041/xrules/studio
 ```
 
 ## 🛠️ Manual Setup
@@ -39,9 +39,17 @@ npm install
 npx prisma generate
 npx prisma db push
 
-# Start dev server
+# Start dev server (port 3041)
 npm run dev
 ```
+
+## 🌐 URLs
+
+| URL | Description |
+|-----|-------------|
+| http://localhost:3041/xrules/studio | Studio Frontend |
+| http://localhost:3041/xrules/studio/api/* | Internal API |
+| http://localhost:3041/xrules/proxy/engine/* | Proxy to Rust Engine |
 
 ## 🗄️ Database
 
