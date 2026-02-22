@@ -1,0 +1,19 @@
+{
+  "name": "xrules",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "db:setup": "cd apps/xrules-studio && npx prisma generate && npx prisma db push",
+    "db:migrate": "cd apps/xrules-studio && npx prisma migrate dev",
+    "db:studio": "cd apps/xrules-studio && npx prisma studio"
+  },
+  "devDependencies": {
+    "turbo": "^1.11.0"
+  }
+}

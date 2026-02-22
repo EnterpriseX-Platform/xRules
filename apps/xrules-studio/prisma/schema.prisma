@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  
+  workspaces    WorkspaceMember[]
+  createdRules  Rule[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model Workspace {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  settings    Json     @default("{}")
+  plan        Plan     @default(FREE)
+  
+  members     WorkspaceMember[]
+  projects    Project[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("workspaces")
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+model WorkspaceMember {
+  id          String        @id @default(uuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole @default(MEMBER)
+  
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime      @default(now())
+  
+  @@unique([workspaceId, userId])
+  @@map("workspace_members")
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+model Project {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String
+  description String?
+  
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  rules       Rule[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@unique([workspaceId, slug])
+  @@map("projects")
+}
+
+model Rule {
+  id          String     @id @default(uuid())
+  name        String
+  slug        String
+  description String?
+  type        RuleType   @default(DECISION_TABLE)
+  definition  Json       @default("{}")
+  inputSchema Json?
+  outputSchema Json?
+  status      RuleStatus @default(DRAFT)
+  version     Int        @default(1)
+  
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  createdById String
+  createdBy   User       @relation(fields: [createdById], references: [id])
+  
+  executions  Execution[]
+  
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  @@unique([projectId, slug])
+  @@map("rules")
+}
+
+enum RuleType {
+  DECISION_TABLE
+  DECISION_TREE
+  FORMULA
+  WORKFLOW
+}
+
+enum RuleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Execution {
+  id          String          @id @default(uuid())
+  input       Json
+  output      Json?
+  status      ExecutionStatus @default(PENDING)
+  duration    Int?
+  error       String?
+  
+  ruleId      String
+  rule        Rule            @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime        @default(now())
+  
+  @@map("executions")
+}
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  TIMEOUT
+}
