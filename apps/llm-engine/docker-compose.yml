@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  llm-engine:
+    build: .
+    container_name: xrules-llm-engine
+    ports:
+      - "50054:50054"
+    environment:
+      - PORT=50054
+      - HOST=0.0.0.0
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OLLAMA_URL=http://host.docker.internal:11434
+    networks:
+      - xrules-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; r = httpx.get('http://localhost:50054/health'); exit(0 if r.status_code == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  xrules-network:
+    external: true
+    name: xrules_default

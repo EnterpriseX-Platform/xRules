@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  ml-engine:
+    build: .
+    container_name: xrules-ml-engine
+    ports:
+      - "50053:50053"
+    environment:
+      - PORT=50053
+      - HOST=0.0.0.0
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./models:/app/models:ro
+      - ml-uploads:/app/uploads
+    networks:
+      - xrules-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; r = httpx.get('http://localhost:50053/health'); exit(0 if r.status_code == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  xrules-network:
+    external: true
+    name: xrules_default
+
+volumes:
+  ml-uploads:
+    driver: local
