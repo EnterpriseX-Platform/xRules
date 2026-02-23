@@ -1,6 +1,7 @@
 pub mod api;
 pub mod auth;
 pub mod engines;
+pub mod grpc;
 pub mod hub;
 pub mod protocol;
 pub mod standards;

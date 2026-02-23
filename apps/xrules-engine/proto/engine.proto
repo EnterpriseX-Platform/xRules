@@ -1,0 +1,98 @@
+syntax = "proto3";
+
+package xrules.engine.v1;
+
+option go_package = "github.com/xrules/platform/engine";
+
+// XRules Engine Service
+service EngineService {
+  // Execute a rule
+  rpc Execute(ExecuteRequest) returns (ExecuteResponse);
+  
+  // Stream execution for real-time updates
+  rpc StreamExecute(stream ExecuteRequest) returns (stream ExecuteResponse);
+  
+  // Health check
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+  
+  // List available engines
+  rpc ListEngines(ListEnginesRequest) returns (ListEnginesResponse);
+  
+  // Validate a rule
+  rpc Validate(ValidateRequest) returns (ValidateResponse);
+  
+  // Streaming inference for AI/ML models
+  rpc StreamingInference(stream InferenceRequest) returns (stream InferenceResponse);
+}
+
+// Execute request
+message ExecuteRequest {
+  string rule_id = 1;
+  bytes input = 2;  // JSON-encoded input
+  map<string, string> context = 3;
+  string engine_type = 4;  // Optional: rules, pmml, ml, llm, ai
+}
+
+// Execute response
+message ExecuteResponse {
+  bool success = 1;
+  bytes output = 2;  // JSON-encoded output
+  string error = 3;
+  int64 duration_ms = 4;
+  string engine_used = 5;
+  string request_id = 6;
+}
+
+// Health check request
+message HealthCheckRequest {}
+
+// Health check response
+message HealthCheckResponse {
+  string status = 1;
+  string service = 2;
+  string version = 3;
+  repeated string engines = 4;
+  int64 uptime_seconds = 5;
+}
+
+// List engines request
+message ListEnginesRequest {}
+
+// Engine info
+message EngineInfo {
+  string name = 1;
+  string engine_type = 2;
+  string status = 3;
+  repeated string standards = 4;
+  string version = 5;
+}
+
+// List engines response
+message ListEnginesResponse {
+  repeated EngineInfo engines = 1;
+}
+
+// Validate request
+message ValidateRequest {
+  string rule_id = 1;
+}
+
+// Validate response
+message ValidateResponse {
+  bool valid = 1;
+  repeated string errors = 2;
+}
+
+// Inference request for streaming
+message InferenceRequest {
+  string model_id = 1;
+  bytes input_data = 2;
+  map<string, string> metadata = 3;
+}
+
+// Inference response for streaming
+message InferenceResponse {
+  bytes output_data = 1;
+  bool is_last = 2;
+  string error = 3;
+}

@@ -6,11 +6,12 @@ use axum::{
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
-use tracing::info;
+use tracing::{info, error};
 
 mod api;
 mod auth;
 mod engines;
+mod grpc;
 mod hub;
 mod protocol;
 mod standards;
@@ -55,7 +56,7 @@ async fn main() {
     let auth_service = Arc::new(AuthService::new(auth_config.clone()));
     
     let state = AppState {
-        hub,
+        hub: hub.clone(),
         auth_service: auth_service.clone(),
         auth_config: auth_config.clone(),
     };
@@ -87,20 +88,38 @@ async fn main() {
         .nest("/api/v1", protected_routes)
         .layer(CorsLayer::permissive());
     
-    let port = std::env::var("PORT")
+    let http_port = std::env::var("PORT")
         .unwrap_or_else(|_| "50051".to_string())
         .parse::<u16>()
         .expect("PORT must be a number");
     
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
-    info!("XRules Engine Hub listening on {}", addr);
-    info!("Swagger UI available at http://{}/docs", addr);
-    info!("OpenAPI spec available at http://{}/api-docs/openapi.json", addr);
-    info!("Auth endpoints:");
-    info!("  POST http://{}/api/v1/auth/login", addr);
-    info!("  POST http://{}/api/v1/auth/refresh", addr);
-    info!("  POST http://{}/api/v1/auth/refresh", addr);
+    let grpc_port = std::env::var("GRPC_PORT")
+        .unwrap_or_else(|_| "50060".to_string())
+        .parse::<u16>()
+        .expect("GRPC_PORT must be a number");
     
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    info!("XRules Engine Hub starting...");
+    info!("HTTP API: http://0.0.0.0:{}", http_port);
+    info!("gRPC API: http://0.0.0.0:{}", grpc_port);
+    info!("Swagger UI: http://0.0.0.0:{}/docs", http_port);
+    
+    // Start both HTTP and gRPC servers
+    let http_server = tokio::spawn(async move {
+        let addr = SocketAddr::from(([0, 0, 0, 0], http_port));
+        let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+        info!("HTTP server listening on {}", addr);
+        axum::serve(listener, app).await.unwrap();
+    });
+    
+    let grpc_server = tokio::spawn(async move {
+        if let Err(e) = grpc::server::start_grpc_server(hub, grpc_port).await {
+            error!("gRPC server error: {}", e);
+        }
+    });
+    
+    // Wait for both servers
+    tokio::select! {
+        _ = http_server => {},
+        _ = grpc_server => {},
+    }
 }
