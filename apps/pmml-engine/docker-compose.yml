@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  pmml-engine:
+    build: .
+    container_name: xrules-pmml-engine
+    ports:
+      - "50052:50052"
+    environment:
+      - PORT=50052
+      - HOST=0.0.0.0
+      - R_ENVIRON=production
+    volumes:
+      - ./models:/app/models:ro
+      - pmml-models:/app/models/uploads
+    networks:
+      - xrules-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "Rscript", "-e", "library(httr); res <- GET('http://localhost:50052/health'); quit(status = ifelse(res$status_code == 200, 0, 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  xrules-network:
+    external: true
+    name: xrules_default
+
+volumes:
+  pmml-models:
+    driver: local

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PMML version="4.4" xmlns="http://www.dmg.org/PMML-4_4">
+  <Header copyright="XRules PMML Engine" description="Sample Decision Tree Model">
+    <Application name="XRules" version="0.1.0"/>
+    <Timestamp>2024-01-15T10:30:00Z</Timestamp>
+  </Header>
+  
+  <DataDictionary numberOfFields="3">
+    <DataField name="age" optype="continuous" dataType="double"/>
+    <DataField name="income" optype="continuous" dataType="double"/>
+    <DataField name="decision" optype="categorical" dataType="string">
+      <Value value="APPROVE"/>
+      <Value value="REVIEW"/>
+      <Value value="REJECT"/>
+    </DataField>
+  </DataDictionary>
+  
+  <TreeModel modelName="LoanDecisionTree" functionName="classification" algorithmName="decisionTree" splitCharacteristic="binarySplit">
+    <MiningSchema>
+      <MiningField name="age" usageType="active"/>
+      <MiningField name="income" usageType="active"/>
+      <MiningField name="decision" usageType="target"/>
+    </MiningSchema>
+    
+    <Node id="1" score="REVIEW" recordCount="100">
+      <True/>
+      <Node id="2" score="REJECT" recordCount="30">
+        <SimplePredicate field="age" operator="lessThan" value="18"/>
+      </Node>
+      <Node id="3" score="REVIEW" recordCount="70">
+        <SimplePredicate field="age" operator="greaterOrEqual" value="18"/>
+        <Node id="4" score="APPROVE" recordCount="40">
+          <SimplePredicate field="income" operator="greaterOrEqual" value="50000"/>
+        </Node>
+        <Node id="5" score="REVIEW" recordCount="30">
+          <SimplePredicate field="income" operator="lessThan" value="50000"/>
+        </Node>
+      </Node>
+    </Node>
+  </TreeModel>
+</PMML>
