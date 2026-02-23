@@ -1,0 +1,58 @@
+# Kafka Connect สำหรับ XRules Engine
+# ไม่ต้องแก้โค้ด แค่ deploy connector
+
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnect
+metadata:
+  name: xrules-connect
+  namespace: xrules
+spec:
+  version: 3.6.0
+  replicas: 2
+  bootstrapServers: kafka-cluster:9092
+  config:
+    group.id: xrules-connect-cluster
+    offset.storage.topic: xrules-connect-offsets
+    config.storage.topic: xrules-connect-configs
+    status.storage.topic: xrules-connect-status
+  
+---
+# Source Connector: อ่านจาก Kafka → ส่งไป XRules Engine
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: xrules-source-http
+  namespace: xrules
+  labels:
+    strimzi.io/cluster: xrules-connect
+spec:
+  class: org.apache.kafka.connect.http.HttpSourceConnector
+  tasksMax: 4
+  config:
+    http.request.url: http://xrules-engine:50051/api/v1/execute
+    http.request.method: POST
+    http.request.headers: "Content-Type: application/json, Authorization: Bearer ${JWT_TOKEN}"
+    kafka.topic: xrules-input
+    # Transform ข้อมูลก่อนส่ง
+    transforms: unwrap
+    transforms.unwrap.type: org.apache.kafka.connect.transforms.ExtractField$Value
+    transforms.unwrap.field: payload
+
+---
+# Sink Connector: รับผลลัพธ์จาก XRules → ส่งไป Kafka/Queue ต่างๆ
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: xrules-sink-router
+  namespace: xrules
+  labels:
+    strimzi.io/cluster: xrules-connect
+spec:
+  class: org.apache.kafka.connect.http.HttpSinkConnector
+  tasksMax: 4
+  config:
+    topics: xrules-output
+    http.request.url: http://xrules-engine:50051/api/v1/execute
+    http.request.method: POST
+    # Routing ผลลัพธ์ไป queue ต่างๆ ตามประเภท
+    behavior.on.error: log

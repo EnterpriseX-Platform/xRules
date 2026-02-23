@@ -1,0 +1,99 @@
+version: '3.8'
+
+# Analytics Stack: TimescaleDB + Grafana
+# ไม่ต้องสร้าง Analytic Engine ใช้ของสำเร็จรูปเลย
+
+services:
+  # TimescaleDB สำหรับเก็บ execution logs
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    container_name: xrules-timescaledb
+    environment:
+      POSTGRES_USER: xrules
+      POSTGRES_PASSWORD: xrules_secret
+      POSTGRES_DB: xrules_analytics
+    ports:
+      - "5434:5432"  # ใช้ port ต่างจาก main DB
+    volumes:
+      - timescale-data:/var/lib/postgresql/data
+      - ./scripts/init-timescale.sql:/docker-entrypoint-initdb.d/01-init.sql
+    networks:
+      - xrules-network
+    restart: unless-stopped
+
+  # Grafana สำหรับ visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: xrules-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: timescaledb,grafana-clock-panel
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - timescaledb
+    networks:
+      - xrules-network
+    restart: unless-stopped
+
+  # Kafka (ถ้าต้องการ event streaming)
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: xrules-kafka
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    networks:
+      - xrules-network
+    restart: unless-stopped
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: xrules-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+      - xrules-network
+    restart: unless-stopped
+
+  # Kafka Connect สำหรับ integration กับ XRules
+  kafka-connect:
+    image: confluentinc/cp-kafka-connect:latest
+    container_name: xrules-kafka-connect
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka:9092
+      CONNECT_GROUP_ID: xrules-connect
+      CONNECT_CONFIG_STORAGE_TOPIC: connect-configs
+      CONNECT_OFFSET_STORAGE_TOPIC: connect-offsets
+      CONNECT_STATUS_STORAGE_TOPIC: connect-status
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
+    ports:
+      - "8083:8083"
+    depends_on:
+      - kafka
+      - timescaledb
+    networks:
+      - xrules-network
+    restart: unless-stopped
+
+volumes:
+  timescale-data:
+  grafana-data:
+
+networks:
+  xrules-network:
+    external: true
+    name: xrules_default

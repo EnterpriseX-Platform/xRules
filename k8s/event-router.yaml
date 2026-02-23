@@ -1,0 +1,65 @@
+# Event Router สำหรับรองรับหลาย Message Queue
+# ใช้ Knative Eventing หรือ CloudEvents
+
+apiVersion: eventing.knative.dev/v1
+kind: Broker
+metadata:
+  name: xrules-broker
+  namespace: xrules
+spec:
+  config:
+    apiVersion: v1
+    kind: ConfigMap
+    name: config-br-default-channel
+---
+# Trigger: รับ event จาก Kafka → ส่งไป XRules
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: xrules-kafka-trigger
+  namespace: xrules
+spec:
+  broker: xrules-broker
+  filter:
+    attributes:
+      type: com.xrules.execute
+  subscriber:
+    ref:
+      apiVersion: v1
+      kind: Service
+      name: xrules-engine
+    uri: /api/v1/execute
+---
+# Trigger: รับ event จาก SQS (ผ่าน CloudEvents adapter)
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: xrules-sqs-trigger
+  namespace: xrules
+spec:
+  broker: xrules-broker
+  filter:
+    attributes:
+      source: aws.sqs
+  subscriber:
+    ref:
+      apiVersion: v1
+      kind: Service
+      name: xrules-engine
+---
+# CloudEvents Sink Binding สำหรับส่งผลลัพธ์ออกไป
+apiVersion: sources.knative.dev/v1
+kind: SinkBinding
+metadata:
+  name: xrules-output-binding
+  namespace: xrules
+spec:
+  subject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: xrules-engine
+  sink:
+    ref:
+      apiVersion: eventing.knative.dev/v1
+      kind: Broker
+      name: xrules-broker
