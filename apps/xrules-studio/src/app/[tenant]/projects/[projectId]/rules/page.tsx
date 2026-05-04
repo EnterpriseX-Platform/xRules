@@ -1,10 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, ChevronRight, FileText, Search, FolderTree, Folder, FolderPlus } from 'lucide-react';
+import {
+  Plus, ChevronRight, FileText, Search, FolderTree, Folder, FolderPlus,
+  Table, Network, BarChart3, Sigma, Code2, BookMarked, Bot, Brain,
+} from 'lucide-react';
 import { PageContent, PageHeader } from '@/components/layout/AppShell';
 import { StatusPill, Pill } from '@/components/ui/Pill';
 import { rulesApi, api } from '@/lib/api';
@@ -13,22 +16,54 @@ import { NewRuleDialog } from '@/components/rule/NewRuleDialog';
 const TYPE_TONE: Record<string, any> = {
   DECISION_TABLE: 'info',
   DECISION_TREE: 'mint',
+  SCORECARD: 'mint',
   FORMULA: 'warn',
   SCRIPT: 'subtle',
   LOOKUP: 'subtle',
   MODEL_CALL: 'danger',
-  AI_AGENT: 'accent',
+  AI_AGENT: 'info',
+};
+
+const TYPE_ICON: Record<string, any> = {
+  DECISION_TABLE: Table,
+  DECISION_TREE:  Network,
+  SCORECARD:      BarChart3,
+  FORMULA:        Sigma,
+  SCRIPT:         Code2,
+  LOOKUP:         BookMarked,
+  AI_AGENT:       Bot,
+  MODEL_CALL:     Brain,
+};
+
+// Static class map — Tailwind needs concrete classes for JIT.
+const TYPE_ICON_CLS: Record<string, string> = {
+  info:    'bg-info/10 border-info/30 text-info',
+  mint:    'bg-mint/10 border-mint/30 text-mint',
+  warn:    'bg-warn/10 border-warn/30 text-warn',
+  danger:  'bg-danger/10 border-danger/30 text-danger',
+  subtle:  'bg-muted border-border text-text',
 };
 
 export default function RulesPage() {
   const { tenant, projectId } = useParams<{ tenant: string; projectId: string }>();
   const sp = useSearchParams();
+  const router = useRouter();
   const typeFilter = sp.get('type') || '';
   const qc = useQueryClient();
   const [filter, setFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [folderId, setFolderId] = useState<string | null>(null);
+
+  // Open NewRuleDialog when URL has ?new=1 (from Topbar +New Rule shortcut).
+  useEffect(() => {
+    if (sp.get('new') === '1') {
+      setShowCreate(true);
+      const url = new URL(window.location.href);
+      url.searchParams.delete('new');
+      router.replace(url.pathname + url.search);
+    }
+  }, [sp, router]);
 
   const { data: rules = [], isLoading } = useQuery({
     queryKey: ['rules', projectId, filter],
@@ -130,6 +165,7 @@ export default function RulesPage() {
           <thead className="bg-muted/30 border-b border-border">
             <tr className="text-left">
               <th className="py-3 px-4 label-section w-12">#</th>
+              <th className="py-3 px-2 label-section w-10"></th>
               <th className="py-3 px-4 label-section">Rule</th>
               <th className="py-3 px-4 label-section">Type</th>
               <th className="py-3 px-4 label-section">Status</th>
@@ -138,16 +174,36 @@ export default function RulesPage() {
             </tr>
           </thead>
           <tbody>
-            {isLoading && <tr><td colSpan={6} className="text-center py-12 text-subtle font-mono text-sm">Loading…</td></tr>}
+            {isLoading && <tr><td colSpan={7} className="text-center py-12 text-subtle font-mono text-sm">Loading…</td></tr>}
             {!isLoading && filtered.length === 0 && (
-              <tr><td colSpan={6} className="text-center py-16">
-                <FileText className="h-10 w-10 mx-auto text-subtle/40 mb-2" />
-                <div className="text-sm text-subtle">No rules — create your first one</div>
+              <tr><td colSpan={7} className="text-center py-16">
+                <div className="max-w-sm mx-auto">
+                  <div className="h-14 w-14 mx-auto rounded-full bg-accent/10 flex items-center justify-center mb-3">
+                    <FileText className="h-6 w-6 text-accent" />
+                  </div>
+                  <div className="text-sm font-medium text-text mb-1">No rules yet</div>
+                  <div className="text-xs text-subtle leading-relaxed mb-4">
+                    Pick from 8 rule kinds — from simple decision tables to LLM-backed AI agents — to author your first decision.
+                  </div>
+                  <button className="btn-primary text-sm" onClick={() => setShowCreate(true)}>
+                    <Plus className="h-3.5 w-3.5" />
+                    Create your first rule
+                  </button>
+                </div>
               </td></tr>
             )}
-            {filtered.map((r: any, i: number) => (
+            {filtered.map((r: any, i: number) => {
+              const T = String(r.type || '').toUpperCase();
+              const Icon = TYPE_ICON[T] || FileText;
+              const tone = TYPE_TONE[T] || 'subtle';
+              return (
               <tr key={r.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                 <td className="py-3 px-4 row-index">{String(i + 1).padStart(2, '0')}</td>
+                <td className="py-3 px-2">
+                  <div className={`h-7 w-7 rounded flex items-center justify-center border ${TYPE_ICON_CLS[tone] || TYPE_ICON_CLS.subtle}`}>
+                    <Icon className="h-3.5 w-3.5" />
+                  </div>
+                </td>
                 <td className="py-3 px-4">
                   <Link href={`/${tenant}/projects/${projectId}/rules/${r.id}`} className="block group">
                     <div className="text-sm font-medium group-hover:text-accent">{r.name}</div>
@@ -155,7 +211,7 @@ export default function RulesPage() {
                   </Link>
                 </td>
                 <td className="py-3 px-4">
-                  <Pill tone={TYPE_TONE[r.type] || 'subtle'}>{r.type.replace('_', ' ')}</Pill>
+                  <Pill tone={tone}>{T.replace('_', ' ')}</Pill>
                 </td>
                 <td className="py-3 px-4"><StatusPill status={r.status} /></td>
                 <td className="py-3 px-4 text-right font-mono text-xs text-subtle tabular-nums">v{r.version}</td>
@@ -165,7 +221,8 @@ export default function RulesPage() {
                   </Link>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
