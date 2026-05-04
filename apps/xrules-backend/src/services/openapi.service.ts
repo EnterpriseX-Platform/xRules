@@ -4,13 +4,14 @@ import { NotFoundError } from '../utils/errors.js';
 import { assertProjectAccess } from './_access.js';
 import type { AuthUser } from '../middleware/auth.js';
 
-export async function ruleOpenapi(id: string, user?: AuthUser, baseUrl?: string) {
+export async function ruleOpenapi(id: string, user?: AuthUser, baseUrl?: string, apiKey?: { workspaceId: string }) {
   const rule = await prisma.rule.findUnique({
     where: { id },
     include: { project: { include: { workspace: true } } },
   });
   if (!rule) throw new NotFoundError('Rule');
   if (user) await assertProjectAccess(rule.projectId, user);
+  if (apiKey && rule.project.workspaceId !== apiKey.workspaceId) throw new NotFoundError('Rule');
 
   const inputSchema = rule.inputSchema || { type: 'object', additionalProperties: true };
   const outputSchema = rule.outputSchema || { type: 'object', additionalProperties: true };

@@ -102,6 +102,21 @@ router.post('/rules/:idOrAlias/v/:version/execute', apiKeyAuthMiddleware, async 
     if (rule.project.workspaceId !== req.apiKey!.workspaceId) {
       res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Rule not in API key workspace' } }); return;
     }
+    // Pin to a specific version by overlaying the RuleVersion snapshot.
+    const targetVersion = Number(req.params.version);
+    if (Number.isFinite(targetVersion) && targetVersion !== rule.version) {
+      const snap = await prisma.ruleVersion.findUnique({
+        where: { ruleId_version: { ruleId: rule.id, version: targetVersion } },
+      });
+      if (!snap) {
+        res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: `Version ${targetVersion} not found for rule` } }); return;
+      }
+      // Overlay the snapshotted definition + schemas onto the rule object
+      (rule as any).definition  = snap.definition;
+      (rule as any).inputSchema = snap.inputSchema;
+      (rule as any).outputSchema= snap.outputSchema;
+      (rule as any).version     = snap.version;
+    }
     const headers = parseSolverHeaders(req);
     const data = req.body?.data ?? req.body?.input;
     const isBulk = Array.isArray(data);

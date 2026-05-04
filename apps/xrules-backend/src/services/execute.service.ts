@@ -3,7 +3,7 @@ import { env } from '../config/env.js';
 import { prisma } from '../config/database.js';
 import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errors.js';
 import { callAIAgent } from './llm.service.js';
-import { runScripting } from './sandbox.service.js';
+import { runScripting, evalExpression } from './sandbox.service.js';
 import { dispatch as dispatchWebhook } from './webhooks.service.js';
 import type { AuthUser } from '../middleware/auth.js';
 
@@ -15,9 +15,9 @@ export async function tryLocalExecutor(rule: any, input: any, context: any): Pro
       input, ruleVariables: rule.ruleVariables, outputSchema: rule.outputSchema,
     });
     case 'SCORECARD': return runScorecard(rule.definition, input);
-    case 'SCRIPT':
-    case 'FORMULA': return runScripting(rule.definition, input, rule.ruleVariables);
-    case 'LOOKUP':  return runLookup(rule.definition, input);
+    case 'SCRIPT':    return runScripting(rule.definition, input, rule.ruleVariables);
+    case 'FORMULA':   return runFormula(rule.definition, input, rule.ruleVariables);
+    case 'LOOKUP':    return runLookup(rule.definition, input);
     default: return null;
   }
 }
@@ -49,6 +49,13 @@ function matchBand(value: any, m: any): boolean {
   }
   if ('in'  in m && Array.isArray(m.in))  return m.in.includes(value);
   return false;
+}
+
+// Formula: { source: '<expression>' } — single expression returning a value.
+// Distinguished from SCRIPT in that the source is an EXPRESSION (no braces, no return).
+function runFormula(def: any, input: any, vars?: any): any {
+  if (!def?.source) throw new Error('Formula rule has no source');
+  return evalExpression(def.source, { input, ruleVariables: vars || {}, Math, Date, JSON, parseInt, parseFloat, isNaN, isFinite });
 }
 
 // Lookup: { primaryKey, columns, rows: [{...}] } — exact match by primaryKey
