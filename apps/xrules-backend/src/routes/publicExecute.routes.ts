@@ -5,6 +5,8 @@ import { env } from '../config/env.js';
 import { apiKeyAuthMiddleware } from '../middleware/apiKeyAuth.js';
 import { NotFoundError } from '../utils/errors.js';
 import { parseSolverHeaders } from '../middleware/solverHeaders.js';
+import { tryLocalExecutor } from '../services/execute.service.js';
+import { dispatch as dispatchWebhook } from '../services/webhooks.service.js';
 
 const router = Router();
 
@@ -29,31 +31,41 @@ async function resolveRule(idOrAlias: string, workspaceId: string) {
 // Single-row solve (extracted to share with bulk).
 async function solveOne(rule: any, input: any, context: any, headers: ReturnType<typeof parseSolverHeaders>, apiKey: any, req: Request) {
   const startTime = Date.now();
-  const engineDefinition = transformForEngine(rule);
   const strategy = headers.strategy || rule.strategy || 'STANDARD';
+  const fullContext = {
+    ...context,
+    rule_id: rule.id, version: rule.version,
+    api_key_id: apiKey?.keyId,
+    correlation_id: headers.correlationId,
+    strategy,
+    lookup_method: headers.lookupMethod,
+  };
 
-  const engineResponse = await axios.post(
-    `${env.engineHubUrl}/api/v1/execute`,
-    {
-      rule: { type: rule.type, engine: rule.engine || 'rules', definition: engineDefinition },
-      input: input || {},
-      context: {
-        ...context,
-        rule_id: rule.id, version: rule.version,
-        api_key_id: apiKey?.keyId,
-        correlation_id: headers.correlationId,
-        strategy,
-        lookup_method: headers.lookupMethod,
+  // 1) In-process executors (AI_AGENT / SCORECARD / SCRIPT / FORMULA / LOOKUP).
+  let output: any;
+  const local = await tryLocalExecutor(rule, input, fullContext);
+  if (local !== null) {
+    output = local;
+  } else {
+    // 2) Rust engine for DECISION_TABLE / DECISION_TREE / etc.
+    const engineDefinition = transformForEngine(rule);
+    const engineResponse = await axios.post(
+      `${env.engineHubUrl}/api/v1/execute`,
+      {
+        rule: { type: rule.type, engine: rule.engine || 'rules', definition: engineDefinition },
+        input: input || {},
+        context: fullContext,
       },
-    },
-    { timeout: 30000 },
-  );
+      { timeout: 30000 },
+    );
+    output = engineResponse.data.output ?? engineResponse.data;
+  }
   const duration = Date.now() - startTime;
-  const output = engineResponse.data.output ?? engineResponse.data;
 
   // Audit gate — skip Execution row if X-Audit=false.
+  let executionId: string | undefined;
   if (headers.audit) {
-    await prisma.execution.create({
+    const exec = await prisma.execution.create({
       data: {
         ruleId: rule.id, ruleVersion: rule.version,
         input: (input || {}) as object, output: output as object,
@@ -63,7 +75,13 @@ async function solveOne(rule: any, input: any, context: any, headers: ReturnType
         userAgent: req.headers['user-agent'],
       },
     });
+    executionId = exec.id;
   }
+  // Webhook dispatch (fire-and-forget)
+  dispatchWebhook('execute.success', {
+    executionId, ruleId: rule.id, ruleSlug: rule.slug, ruleVersion: rule.version,
+    input, output, duration,
+  }, { workspaceId: rule.project.workspaceId, ruleId: rule.id });
   return { output, duration_ms: duration, version: rule.version, correlation_id: headers.correlationId };
 }
 
@@ -102,75 +120,27 @@ router.post('/rules/:idOrAlias/v/:version/execute', apiKeyAuthMiddleware, async 
 
 router.post('/rules/:id/execute', apiKeyAuthMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const ruleId = req.params.id;
-    const { input, context } = req.body;
-
-    // Check scope
     if (!req.apiKey!.scopes.includes('execute')) {
       res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'API key does not have execute scope' } });
       return;
     }
-
-    // Load rule (must belong to workspace of the API key)
-    const rule = await prisma.rule.findUnique({
-      where: { id: ruleId },
-      include: { project: { include: { workspace: true } } },
-    });
-
+    const rule = await resolveRule(req.params.id, req.apiKey!.workspaceId);
     if (!rule) throw new NotFoundError('Rule');
     if (rule.project.workspaceId !== req.apiKey!.workspaceId) {
       res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Rule not in API key workspace' } });
       return;
     }
-
-    const startTime = Date.now();
-
-    // Transform definition for engine
-    const engineDefinition = transformForEngine(rule);
-
-    // Call Engine Hub
-    const engineResponse = await axios.post(
-      `${env.engineHubUrl}/api/v1/execute`,
-      {
-        rule: {
-          type: rule.type,
-          engine: rule.engine || 'rules',
-          definition: engineDefinition,
-        },
-        input: input || {},
-        context: { ...context, rule_id: rule.id, version: rule.version, api_key_id: req.apiKey!.keyId },
-      },
-      { timeout: 30000, headers: { 'Content-Type': 'application/json' } },
-    );
-
-    const duration = Date.now() - startTime;
-    const output = engineResponse.data.output ?? engineResponse.data;
-
-    // Record execution
-    const execution = await prisma.execution.create({
-      data: {
-        ruleId: rule.id,
-        ruleVersion: rule.version,
-        input: (input || {}) as object,
-        output: output as object,
-        status: 'SUCCESS',
-        duration,
-        apiKeyId: (req as any).apiKey?.id,
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
-      },
-    });
-
-    res.json({
-      id: execution.id,
-      output,
-      duration_ms: duration,
-      version: rule.version,
-      engine: engineResponse.data.engine_used || rule.engine,
-      timestamp: execution.createdAt.toISOString(),
-    });
+    const headers = parseSolverHeaders(req);
+    // Accept both DR-style { data } and legacy { input } body shapes.
+    const data = req.body?.input ?? req.body?.data;
+    const isBulk = Array.isArray(data);
+    if (isBulk) {
+      const results = await Promise.all(data.map((row: any) => solveOne(rule, row, req.body?.context, headers, req.apiKey, req)));
+      res.json(results);
+    } else {
+      res.json(await solveOne(rule, data, req.body?.context, headers, req.apiKey, req));
+    }
   } catch (err: any) {
-    const duration = Date.now();
     if (err?.response?.data?.message) {
       res.status(err.response.status || 500).json({
         success: false,

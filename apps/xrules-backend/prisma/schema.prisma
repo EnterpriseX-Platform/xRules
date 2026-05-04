@@ -16,7 +16,7 @@ datasource db {
 // =============================================================================
 
 model User {
-  id            String    @id @default(uuid())
+  id            String    @id @default(cuid())
   email         String    @unique
   name          String?
   image         String?
@@ -38,7 +38,7 @@ model User {
 }
 
 model Workspace {
-  id          String   @id @default(uuid())
+  id          String   @id @default(cuid())
   name        String
   slug        String   @unique
   description String?
@@ -65,7 +65,7 @@ enum Plan {
 }
 
 model WorkspaceMember {
-  id          String        @id @default(uuid())
+  id          String        @id @default(cuid())
   workspaceId String
   userId      String
   role        WorkspaceRole @default(MEMBER)
@@ -91,7 +91,7 @@ enum WorkspaceRole {
 // =============================================================================
 
 model Project {
-  id          String    @id @default(uuid())
+  id          String    @id @default(cuid())
   name        String
   slug        String
   description String?
@@ -123,7 +123,7 @@ model Project {
 // Hierarchical folder organization (max 5 levels enforced in service layer).
 // Both rules and flows live inside folders; root folder = parentId NULL.
 model Folder {
-  id          String   @id @default(uuid())
+  id          String   @id @default(cuid())
   name        String
   position    Int      @default(0)
   projectId   String
@@ -148,7 +148,7 @@ model Folder {
 // =============================================================================
 
 model Rule {
-  id           String     @id @default(uuid())
+  id           String     @id @default(cuid())
   name         String
   slug         String
   // User-mutable identifier — drop-in replacement for id in solver requests.
@@ -229,7 +229,7 @@ enum RuleStatus {
 }
 
 model RuleVersion {
-  id            String     @id @default(uuid())
+  id            String     @id @default(cuid())
   version       Int
   definition    Json
   inputSchema   Json?
@@ -252,7 +252,7 @@ model RuleVersion {
 }
 
 model RuleDependency {
-  id        String @id @default(uuid())
+  id        String @id @default(cuid())
   fromId    String
   toId      String
   kind      String @default("call")
@@ -269,7 +269,7 @@ model RuleDependency {
 // =============================================================================
 
 model Flow {
-  id           String     @id @default(uuid())
+  id           String     @id @default(cuid())
   name         String
   slug         String
   alias        String?
@@ -303,7 +303,7 @@ model Flow {
 }
 
 model FlowVersion {
-  id           String     @id @default(uuid())
+  id           String     @id @default(cuid())
   version      Int
   graph        Json
   inputSchema  Json?
@@ -330,7 +330,7 @@ enum FlowKind {
 // =============================================================================
 
 model Job {
-  id          String     @id @default(uuid())
+  id          String     @id @default(cuid())
   state       JobState   @default(WAITING)
   statusCode  String?    // JOB_SUCCESS / JOB_ERROR / JOB_TIMEOUT / ...
   input       Json
@@ -370,7 +370,7 @@ enum JobState {
 // =============================================================================
 
 model Model {
-  id          String      @id @default(uuid())
+  id          String      @id @default(cuid())
   name        String
   slug        String
   type        ModelType
@@ -410,7 +410,7 @@ enum ModelStatus {
 // =============================================================================
 
 model Connection {
-  id          String         @id @default(uuid())
+  id          String         @id @default(cuid())
   name        String
   slug        String
   type        ConnectionType
@@ -441,7 +441,7 @@ enum ConnectionType {
 // =============================================================================
 
 model TestCase {
-  id              String     @id @default(uuid())
+  id              String     @id @default(cuid())
   name            String
   input           Json
   expected        Json?
@@ -471,7 +471,7 @@ enum TestStatus {
 }
 
 model Dataset {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   name      String
   slug      String
   format    String   @default("jsonl")
@@ -493,7 +493,7 @@ model Dataset {
 }
 
 model TestSuite {
-  id          String   @id @default(uuid())
+  id          String   @id @default(cuid())
   name        String
   slug        String
   description String?
@@ -524,7 +524,7 @@ model TestSuiteRule {
 }
 
 model TestRun {
-  id           String        @id @default(uuid())
+  id           String        @id @default(cuid())
   status       TestRunStatus @default(PENDING)
   passed       Int           @default(0)
   failed       Int           @default(0)
@@ -557,7 +557,7 @@ enum TestRunStatus {
 }
 
 model TestRunResult {
-  id          String     @id @default(uuid())
+  id          String     @id @default(cuid())
   rowIndex    Int
   ruleId      String
   ruleVersion Int
@@ -580,7 +580,7 @@ model TestRunResult {
 // =============================================================================
 
 model Scenario {
-  id          String   @id @default(uuid())
+  id          String   @id @default(cuid())
   name        String
   slug        String
   description String?
@@ -599,7 +599,7 @@ model Scenario {
 }
 
 model Simulation {
-  id          String           @id @default(uuid())
+  id          String           @id @default(cuid())
   name        String
   kind        SimulationKind
   config      Json
@@ -635,7 +635,7 @@ enum SimulationStatus {
 // =============================================================================
 
 model Release {
-  id          String        @id @default(uuid())
+  id          String        @id @default(cuid())
   name        String
   description String?
   manifest    Json
@@ -663,7 +663,7 @@ enum ReleaseStatus {
 }
 
 model Environment {
-  id          String   @id @default(uuid())
+  id          String   @id @default(cuid())
   name        String
   slug        String
   description String?
@@ -687,7 +687,7 @@ model Environment {
 // =============================================================================
 
 model Execution {
-  id           String          @id @default(uuid())
+  id           String          @id @default(cuid())
   input        Json
   output       Json?
   status       ExecutionStatus @default(PENDING)
@@ -725,7 +725,7 @@ enum ExecutionStatus {
 // =============================================================================
 
 model ApiKey {
-  id          String    @id @default(uuid())
+  id          String    @id @default(cuid())
   name        String
   keyHash     String    @unique
   prefix      String
@@ -746,7 +746,7 @@ model ApiKey {
 }
 
 model Webhook {
-  id          String   @id @default(uuid())
+  id          String   @id @default(cuid())
   name        String
   url         String
   events      String[]
@@ -764,7 +764,7 @@ model Webhook {
 }
 
 model AuditLog {
-  id          String   @id @default(uuid())
+  id          String   @id @default(cuid())
   action      String
   resource    String
   resourceId  String?

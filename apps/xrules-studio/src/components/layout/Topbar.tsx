@@ -40,7 +40,7 @@ export function Topbar() {
         <span className="live-pill">
           <span className="dot bg-ok" />
           <span>SOLVER</span>
-          <span className="text-text tabular-nums">{nowUtc()}</span>
+          <span className="text-text tabular-nums" suppressHydrationWarning>{nowUtc()}</span>
           <span className="text-subtle/60">UTC</span>
         </span>
         <span className="live-pill">

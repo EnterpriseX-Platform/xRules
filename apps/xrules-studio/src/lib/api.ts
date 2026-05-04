@@ -144,7 +144,8 @@ export const executionsApi = {
 };
 
 export const executeApi = {
-  // Test execute (auth-bearing route, not public solver)
+  // Test execute (auth-bearing route, not public solver).
+  // Backend expects { rule_id, input, context } at POST /execute.
   run: (ruleId: string, input: any, context: any = {}) =>
-    api.post<any>(`/execute/${ruleId}`, { input, context }),
+    api.post<any>(`/execute`, { rule_id: ruleId, input, context }),
 };

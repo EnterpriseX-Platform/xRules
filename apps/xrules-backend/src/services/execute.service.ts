@@ -9,7 +9,7 @@ import type { AuthUser } from '../middleware/auth.js';
 
 // In-process executors for rule kinds that don't go through the Rust engine:
 // AI Agent (LLM), Scorecard, Scripting Rule, Lookup Table.
-async function tryLocalExecutor(rule: any, input: any, context: any): Promise<any | null> {
+export async function tryLocalExecutor(rule: any, input: any, context: any): Promise<any | null> {
   switch (rule.type) {
     case 'AI_AGENT': return callAIAgent(rule.definition, {
       input, ruleVariables: rule.ruleVariables, outputSchema: rule.outputSchema,
