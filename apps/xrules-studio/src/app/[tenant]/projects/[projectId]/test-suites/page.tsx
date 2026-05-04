@@ -35,6 +35,8 @@ export default function TestSuitesPage() {
         isLoading={isLoading}
         emptyText="No test suites yet"
         emptyIcon={FlaskConical}
+        emptyBody="A test suite binds a rule (or several) to a dataset and runs every input row, producing pass/fail/error per result. Catch regressions before publishing."
+        emptyCta={<button className="btn-primary text-sm" onClick={() => setShowCreate(true)}><Plus className="h-3.5 w-3.5" />Create your first suite</button>}
         columns={[
           {
             header: 'Suite',

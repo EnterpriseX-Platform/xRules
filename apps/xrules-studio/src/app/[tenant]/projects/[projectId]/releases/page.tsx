@@ -35,8 +35,9 @@ export default function ReleasesPage() {
       <EntityTable
         rows={rows}
         isLoading={isLoading}
-        emptyText="No releases — snapshot current rules to deploy"
+        emptyText="No releases yet"
         emptyIcon={ScrollText}
+        emptyBody="A release pins {ruleId, version}[] (and flows + models). Pin one to an environment to deploy. Releases are immutable — perfect for rollback."
         columns={[
           { header: 'Release', cell: (r: any) => <div><div className="text-sm font-medium">{r.name}</div><div className="text-xs text-subtle font-mono">{new Date(r.createdAt).toLocaleString()}</div></div> },
           { header: 'Status', cell: (r: any) => <StatusPill status={r.status} /> },

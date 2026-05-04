@@ -33,8 +33,10 @@ export default function DatasetsPage() {
       <EntityTable
         rows={rows}
         isLoading={isLoading}
-        emptyText="No datasets yet — upload one to enable batch testing & replay"
+        emptyText="No datasets yet"
         emptyIcon={Database}
+        emptyBody="Upload a CSV or JSONL of input rows. Datasets feed test suites, simulation replay, and bulk solve."
+        emptyCta={<button className="btn-primary text-sm" onClick={() => setShowCreate(true)}><Plus className="h-3.5 w-3.5" />Upload your first dataset</button>}
         columns={[
           {
             header: 'Dataset',

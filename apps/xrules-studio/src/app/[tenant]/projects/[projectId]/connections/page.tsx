@@ -44,8 +44,10 @@ export default function ConnectionsPage() {
       <EntityTable
         rows={rows}
         isLoading={isLoading}
-        emptyText="No connections yet — add HTTP/DB/Kafka credentials to use in flows"
+        emptyText="No connections yet"
         emptyIcon={Plug}
+        emptyBody="Connections are encrypted credentials for HTTP / Postgres / Redis / Kafka / S3. Reference them from Flow HTTP / SQL nodes — secrets stay AES-256 at rest."
+        emptyCta={<button className="btn-primary text-sm" onClick={() => setShowCreate(true)}><Plus className="h-3.5 w-3.5" />Add a connection</button>}
         columns={[
           {
             header: 'Connection',

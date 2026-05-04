@@ -35,8 +35,10 @@ export default function ModelsPage() {
       <EntityTable
         rows={rows}
         isLoading={isLoading}
-        emptyText="No models yet — register your first one"
+        emptyText="No models yet"
         emptyIcon={Brain}
+        emptyBody="Register an ML or PMML artifact, then call it from a Rule of type MODEL_CALL."
+        emptyCta={<button className="btn-primary text-sm" onClick={() => setShowCreate(true)}><Plus className="h-3.5 w-3.5" />Register a model</button>}
         columns={[
           {
             header: 'Model',
