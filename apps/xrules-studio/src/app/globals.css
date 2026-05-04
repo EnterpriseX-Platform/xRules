@@ -1,0 +1,177 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==============================================================
+   XRULES Studio v2 — RunLoop-inspired theme
+   Tokens stored as `r g b` triplets so Tailwind alpha (`/<alpha>`)
+   keeps working.
+   ============================================================== */
+
+@layer base {
+  :root,
+  [data-theme="light"] {
+    /* Surfaces */
+    --c-bg:        250 250 251;   /* page bg */
+    --c-surface:   255 255 255;   /* card, table */
+    --c-elevated:  255 255 255;   /* popover */
+    --c-sidebar:   248 249 251;
+    --c-border:    229 231 235;
+    --c-muted:     243 244 246;
+
+    /* Text */
+    --c-text:      17  24  39;    /* near-black */
+    --c-subtle:    107 114 128;   /* muted gray */
+
+    /* Brand (indigo) */
+    --c-accent:    99  102 241;
+    --c-accent-fg: 255 255 255;
+
+    /* Status */
+    --c-ok:        16  185 129;
+    --c-warn:      245 158  11;
+    --c-danger:    239  68  68;
+    --c-info:       59 130 246;
+    --c-mint:       94 234 212;
+
+    /* Engine type colors */
+    --c-eng-rules:  99 102 241;
+    --c-eng-pmml:  139  92 246;
+    --c-eng-ml:     16 185 129;
+    --c-eng-llm:   245 158  11;
+
+    /* Subtle dot pattern visible on bg */
+    --c-dot: rgba(0, 0, 0, 0.05);
+  }
+
+  [data-theme="dark"] {
+    --c-bg:         15  17  23;     /* deep blue-black */
+    --c-surface:    20  23  31;
+    --c-elevated:   28  32  42;
+    --c-sidebar:    11  13  18;
+    --c-border:     38  43  54;
+    --c-muted:      31  35  45;
+
+    --c-text:       240 243 250;
+    --c-subtle:     156 163 175;
+
+    --c-accent:    129 140 248;
+    --c-accent-fg:  17  24  39;
+
+    --c-ok:         52 211 153;
+    --c-warn:      251 191  36;
+    --c-danger:    248 113 113;
+    --c-info:      147 197 253;
+    --c-mint:       94 234 212;
+
+    --c-eng-rules: 129 140 248;
+    --c-eng-pmml:  167 139 250;
+    --c-eng-ml:     52 211 153;
+    --c-eng-llm:   251 191  36;
+
+    --c-dot: rgba(255, 255, 255, 0.04);
+  }
+
+  html, body {
+    background-color: rgb(var(--c-bg));
+    color: rgb(var(--c-text));
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  body {
+    @apply font-sans antialiased;
+  }
+
+  /* Focus rings */
+  *:focus-visible {
+    outline: 2px solid rgb(var(--c-accent));
+    outline-offset: 2px;
+  }
+
+  /* Scrollbars (subtle) */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--c-border));
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--c-subtle));
+  }
+}
+
+@layer components {
+  /* Sidebar section label — uppercase + monospace */
+  .label-section {
+    @apply font-mono text-[11px] uppercase tracking-label text-subtle;
+  }
+
+  /* Sidebar nav row */
+  .nav-row {
+    @apply flex items-center gap-3 px-3 py-2 rounded text-sm font-mono uppercase tracking-label;
+    @apply text-subtle hover:text-text hover:bg-muted transition-colors;
+  }
+  .nav-row-active {
+    @apply bg-muted text-text;
+  }
+
+  /* Live status pill (top bar) */
+  .live-pill {
+    @apply inline-flex items-center gap-2 px-2 py-1 rounded font-mono text-[11px] uppercase tracking-label text-subtle;
+  }
+
+  /* Status dot */
+  .dot {
+    @apply inline-block h-1.5 w-1.5 rounded-full;
+  }
+
+  /* Card */
+  .card {
+    @apply rounded border border-border bg-surface;
+  }
+
+  /* Page header */
+  .h1-page {
+    @apply text-3xl font-bold tracking-tight;
+  }
+
+  /* Numbered row index */
+  .row-index {
+    @apply font-mono text-xs text-subtle tabular-nums;
+  }
+
+  /* Pill (for status badges) */
+  .pill {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded font-mono text-[10px] uppercase tracking-label;
+  }
+  .pill-ok      { @apply text-ok      bg-ok/10; }
+  .pill-warn    { @apply text-warn    bg-warn/10; }
+  .pill-danger  { @apply text-danger  bg-danger/10; }
+  .pill-info    { @apply text-info    bg-info/10; }
+  .pill-mint    { @apply text-mint    bg-mint/10; }
+  .pill-subtle  { @apply text-subtle  bg-muted; }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors;
+  }
+  .btn-primary  { @apply btn bg-accent text-accent-fg hover:opacity-90; }
+  .btn-ghost    { @apply btn text-subtle hover:text-text hover:bg-muted; }
+  .btn-outline  { @apply btn border border-border text-text hover:bg-muted; }
+
+  /* Input */
+  .input {
+    @apply h-9 px-3 rounded bg-muted text-sm text-text placeholder:text-subtle border border-transparent;
+    @apply focus:border-accent focus:bg-surface outline-none transition-colors;
+  }
+
+  /* Tab pill row */
+  .tabs-row { @apply flex items-center gap-1 p-1 rounded border border-border bg-surface w-fit; }
+  .tab      { @apply px-3 py-1 rounded text-xs font-mono uppercase tracking-label text-subtle hover:text-text cursor-pointer; }
+  .tab-active { @apply bg-accent/10 text-accent; }
+}

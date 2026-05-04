@@ -1,78 +1,57 @@
 import type { Config } from 'tailwindcss';
 
 const config: Config = {
-  darkMode: ['class'],
+  darkMode: ['class', '[data-theme="dark"]'],
   content: [
-    './pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './components/**/*.{js,ts,jsx,tsx,mdx}',
-    './app/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
-    container: {
-      center: true,
-      padding: '2rem',
-      screens: {
-        '2xl': '1400px',
-      },
-    },
     extend: {
+      fontFamily: {
+        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+      },
       colors: {
-        border: 'hsl(var(--border))',
-        input: 'hsl(var(--input))',
-        ring: 'hsl(var(--ring))',
-        background: 'hsl(var(--background))',
-        foreground: 'hsl(var(--foreground))',
-        primary: {
-          DEFAULT: 'hsl(var(--primary))',
-          foreground: 'hsl(var(--primary-foreground))',
+        bg:       'rgb(var(--c-bg) / <alpha-value>)',
+        surface:  'rgb(var(--c-surface) / <alpha-value>)',
+        elevated: 'rgb(var(--c-elevated) / <alpha-value>)',
+        sidebar:  'rgb(var(--c-sidebar) / <alpha-value>)',
+        border:   'rgb(var(--c-border) / <alpha-value>)',
+        muted:    'rgb(var(--c-muted) / <alpha-value>)',
+        text:     'rgb(var(--c-text) / <alpha-value>)',
+        subtle:   'rgb(var(--c-subtle) / <alpha-value>)',
+        accent:   'rgb(var(--c-accent) / <alpha-value>)',
+        'accent-fg': 'rgb(var(--c-accent-fg) / <alpha-value>)',
+        ok:       'rgb(var(--c-ok) / <alpha-value>)',
+        warn:     'rgb(var(--c-warn) / <alpha-value>)',
+        danger:   'rgb(var(--c-danger) / <alpha-value>)',
+        info:     'rgb(var(--c-info) / <alpha-value>)',
+        mint:     'rgb(var(--c-mint) / <alpha-value>)',
+        engine: {
+          rules: 'rgb(var(--c-eng-rules) / <alpha-value>)',
+          pmml:  'rgb(var(--c-eng-pmml) / <alpha-value>)',
+          ml:    'rgb(var(--c-eng-ml) / <alpha-value>)',
+          llm:   'rgb(var(--c-eng-llm) / <alpha-value>)',
         },
-        secondary: {
-          DEFAULT: 'hsl(var(--secondary))',
-          foreground: 'hsl(var(--secondary-foreground))',
-        },
-        destructive: {
-          DEFAULT: 'hsl(var(--destructive))',
-          foreground: 'hsl(var(--destructive-foreground))',
-        },
-        muted: {
-          DEFAULT: 'hsl(var(--muted))',
-          foreground: 'hsl(var(--muted-foreground))',
-        },
-        accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))',
-        },
-        popover: {
-          DEFAULT: 'hsl(var(--popover))',
-          foreground: 'hsl(var(--popover-foreground))',
-        },
-        card: {
-          DEFAULT: 'hsl(var(--card))',
-          foreground: 'hsl(var(--card-foreground))',
-        },
+      },
+      fontSize: {
+        '2xs': ['0.625rem', { lineHeight: '0.875rem' }],
       },
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        DEFAULT: '6px',
       },
-      keyframes: {
-        'accordion-down': {
-          from: { height: '0' },
-          to: { height: 'var(--radix-accordion-content-height)' },
-        },
-        'accordion-up': {
-          from: { height: 'var(--radix-accordion-content-height)' },
-          to: { height: '0' },
-        },
+      letterSpacing: {
+        label: '0.08em',
       },
-      animation: {
-        'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out',
+      backgroundImage: {
+        'dot-pattern': 'radial-gradient(circle, rgb(var(--c-dot)) 1px, transparent 1px)',
+      },
+      backgroundSize: {
+        'dot': '24px 24px',
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [],
 };
 
 export default config;
