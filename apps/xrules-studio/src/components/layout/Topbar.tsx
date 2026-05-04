@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Search, Plus, Sun, Moon, Bell, ChevronRight } from 'lucide-react';
@@ -98,35 +97,22 @@ export function Topbar() {
   const isRulesContext = pathname.includes('/rules');
   const onProjectsList = pathname.endsWith('/projects');
 
-  const [tick, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-
   return (
-    <header className="h-[60px] shrink-0 border-b border-border bg-bg flex items-center px-4 gap-4">
+    <header className="h-[56px] shrink-0 border-b border-border/70 bg-surface/80 backdrop-blur flex items-center px-5 gap-4">
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-1.5 text-xs min-w-0">
-        <span className="text-accent font-mono">{'>'}</span>
-        <span className="text-subtle font-mono">~</span>
+      <nav className="flex items-center gap-1.5 text-sm min-w-0">
         {crumbs.map((c, i) => (
           <span key={i} className="flex items-center gap-1.5 min-w-0">
-            <ChevronRight className="h-3 w-3 text-subtle/50 flex-shrink-0" />
+            {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-subtle/40 flex-shrink-0" />}
             {c.href ? (
               <Link
                 href={c.href}
-                className={c.mono
-                  ? 'font-mono uppercase tracking-label text-subtle hover:text-text transition-colors truncate'
-                  : 'text-text hover:text-accent transition-colors truncate'}
+                className="text-subtle hover:text-text transition-colors truncate"
               >
                 {c.label}
               </Link>
             ) : (
-              <span className={c.mono
-                ? 'font-mono uppercase tracking-label text-text truncate'
-                : 'text-text font-medium truncate'}
-              >
+              <span className="text-text font-medium truncate">
                 {c.label}
               </span>
             )}
@@ -134,31 +120,14 @@ export function Topbar() {
         ))}
       </nav>
 
-      {/* Live status pills */}
-      <div className="hidden md:flex items-center gap-2 ml-4 flex-shrink-0">
-        <span className="live-pill">
-          <span className="dot bg-ok" />
-          <span>SOLVER</span>
-          <span className="text-text tabular-nums" suppressHydrationWarning>{nowUtc()}</span>
-          <span className="text-subtle/60">UTC</span>
-        </span>
-        <span className="live-pill">
-          <span>v0.2.0</span>
-        </span>
-        <span className="live-pill">
-          <span className="text-subtle/60">t=</span>
-          <span className="text-text tabular-nums">{String(tick).padStart(4, '0')}</span>
-        </span>
-      </div>
-
       {/* Search palette */}
       <button
-        className="ml-auto relative w-80 max-w-full hidden lg:flex items-center input pl-9 pr-12 text-left"
+        className="ml-auto relative w-80 max-w-full hidden lg:flex items-center input pl-9 pr-12 text-left h-9"
         onClick={() => window.dispatchEvent(new CustomEvent('xrules:open-palette'))}
       >
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-subtle" />
-        <span className="text-subtle text-xs">search rules, flows, projects…</span>
-        <span className="absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[10px] text-subtle bg-surface border border-border rounded px-1.5 py-0.5">
+        <span className="text-subtle text-sm">Search…</span>
+        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-subtle bg-surface border border-border/70 rounded px-1.5 py-0.5">
           ⌘K
         </span>
       </button>
@@ -185,16 +154,9 @@ export function Topbar() {
         <span className="absolute top-1.5 right-1.5 dot bg-danger" />
       </button>
 
-      <div className="h-7 w-7 rounded bg-accent/10 text-accent flex items-center justify-center text-sm font-mono">
+      <div className="h-8 w-8 rounded-full bg-accent/10 text-accent flex items-center justify-center text-sm font-medium">
         {user?.email?.[0]?.toUpperCase() || 'A'}
       </div>
     </header>
   );
-}
-
-function nowUtc() {
-  const d = new Date();
-  return [d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()]
-    .map((n) => String(n).padStart(2, '0'))
-    .join(':');
 }

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import {
   LayoutDashboard, FolderKanban, FileText, Workflow, Brain, Database,
   FlaskConical, Sparkles, ListTree, GitBranch, Activity,
@@ -21,7 +21,6 @@ export function Sidebar({ tenant }: { tenant: string }) {
   const pathname = usePathname();
   const project = useProject((s) => s.currentProjectId);
   const setProject = useProject((s) => s.setCurrentProject);
-  const [now, setNow] = useState<string>('');
 
   const { data: projects } = useQuery({
     queryKey: ['projects'],
@@ -35,20 +34,6 @@ export function Sidebar({ tenant }: { tenant: string }) {
       setProject(projects[0].id);
     }
   }, [projects, project, setProject]);
-
-  // Live clock for status footer
-  useEffect(() => {
-    const tick = () => {
-      const d = new Date();
-      const hh = String(d.getUTCHours()).padStart(2, '0');
-      const mm = String(d.getUTCMinutes()).padStart(2, '0');
-      const ss = String(d.getUTCSeconds()).padStart(2, '0');
-      setNow(`${hh}:${mm}:${ss}`);
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, []);
 
   const currentProject = projects?.find((p: any) => p.id === project);
   const projBase = `/${tenant}/projects/${project || '_'}`;
@@ -106,9 +91,11 @@ export function Sidebar({ tenant }: { tenant: string }) {
   return (
     <aside className="w-[240px] shrink-0 border-r border-border bg-sidebar flex flex-col">
       {/* Brand */}
-      <div className="h-[60px] px-4 flex items-center gap-2.5 border-b border-border">
+      <div className="h-[60px] px-4 flex items-center gap-2.5 border-b border-border/70">
         <Logo className="h-7 w-7" />
-        <span className="font-bold tracking-tight">XRules</span>
+        <span className="text-[15px] font-semibold tracking-tight">
+          XRULES<span className="text-accent">.io</span>
+        </span>
         <span className="ml-auto pill pill-info text-[9px]">BETA</span>
       </div>
 
@@ -141,24 +128,13 @@ export function Sidebar({ tenant }: { tenant: string }) {
         <NavSection label="System" items={system} pathname={pathname} />
       </div>
 
-      {/* Status footer */}
-      <div className="border-t border-border px-4 py-3 space-y-1.5">
-        <div className="label-section mb-2">Status</div>
-        <div className="flex items-center justify-between font-mono text-[11px]">
-          <div className="flex items-center gap-2">
-            <span className="dot bg-ok" />
-            <span className="uppercase tracking-label text-subtle">Solver</span>
-          </div>
-          <span className="text-ok">ONLINE</span>
+      {/* Status footer — minimal */}
+      <div className="border-t border-border/70 px-4 py-3 flex items-center justify-between text-[11px] text-subtle">
+        <div className="flex items-center gap-1.5">
+          <span className="dot bg-ok" />
+          <span>Engine online</span>
         </div>
-        <div className="flex items-center justify-between font-mono text-[11px]">
-          <div className="flex items-center gap-2">
-            <span className="dot bg-info" />
-            <span className="uppercase tracking-label text-subtle">Clock</span>
-          </div>
-          <span className="text-text tabular-nums">{now}</span>
-        </div>
-        <div className="pt-2 text-[10px] font-mono text-subtle/70">rust · axum · v0.2</div>
+        <span className="opacity-60">v0.2</span>
       </div>
     </aside>
   );

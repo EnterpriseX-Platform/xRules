@@ -22,8 +22,14 @@ export default function LoginPage() {
     try {
       const res = await authApi.login(email, password);
       const tenant = res.user?.tenantId || 'default';
-      setAuth(res.access_token || res.token, res.user, { id: '', slug: tenant, name: tenant });
-      router.push(`/${tenant}`);
+      setAuth(
+        res.access_token || res.token,
+        res.user,
+        { id: '', slug: tenant, name: tenant },
+        res.refresh_token,
+      );
+      const next = new URLSearchParams(window.location.search).get('next');
+      router.push(next || `/${tenant}`);
     } catch (e: any) {
       setError(e.message || 'Login failed');
     } finally {
@@ -32,17 +38,19 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg bg-dot-pattern bg-dot flex items-center justify-center p-6">
+    <div className="min-h-screen bg-bg flex items-center justify-center p-6">
       <div className="card w-full max-w-md p-8 space-y-6 relative">
         <div className="flex items-center gap-2.5">
           <Logo className="h-8 w-8" />
-          <span className="font-bold text-lg">XRules</span>
+          <span className="text-lg font-semibold tracking-tight">
+            XRULES<span className="text-accent">.io</span>
+          </span>
           <span className="ml-auto pill pill-info text-[9px]">BETA</span>
         </div>
 
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Sign in</h1>
-          <p className="text-sm text-subtle font-mono">decision management platform</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
+          <p className="text-sm text-subtle">Open-source decision management platform</p>
         </div>
 
         <form onSubmit={submit} className="space-y-4">

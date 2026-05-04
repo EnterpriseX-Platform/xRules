@@ -106,23 +106,23 @@
 }
 
 @layer components {
-  /* Sidebar section label — uppercase + monospace */
+  /* Sidebar / column section label — clean, semibold sans, modest size */
   .label-section {
-    @apply font-mono text-[11px] uppercase tracking-label text-subtle;
+    @apply text-[11px] font-semibold uppercase tracking-wider text-subtle/80;
   }
 
-  /* Sidebar nav row */
+  /* Sidebar nav row — sentence case, sans, soft active */
   .nav-row {
-    @apply flex items-center gap-3 px-3 py-2 rounded text-sm font-mono uppercase tracking-label;
-    @apply text-subtle hover:text-text hover:bg-muted transition-colors;
+    @apply flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] font-medium;
+    @apply text-subtle hover:text-text hover:bg-muted/70 transition-colors;
   }
   .nav-row-active {
-    @apply bg-muted text-text;
+    @apply bg-accent/10 text-accent;
   }
 
-  /* Live status pill (top bar) */
+  /* Status pill (top bar / footer) */
   .live-pill {
-    @apply inline-flex items-center gap-2 px-2 py-1 rounded font-mono text-[11px] uppercase tracking-label text-subtle;
+    @apply inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium text-subtle;
   }
 
   /* Status dot */
@@ -130,24 +130,24 @@
     @apply inline-block h-1.5 w-1.5 rounded-full;
   }
 
-  /* Card */
+  /* Card — softer borders + bigger radius for modern feel */
   .card {
-    @apply rounded border border-border bg-surface;
+    @apply rounded-lg border border-border/70 bg-surface shadow-[0_1px_2px_0_rgb(0_0_0/0.02)];
   }
 
   /* Page header */
   .h1-page {
-    @apply text-3xl font-bold tracking-tight;
+    @apply text-2xl font-semibold tracking-tight;
   }
 
   /* Numbered row index */
   .row-index {
-    @apply font-mono text-xs text-subtle tabular-nums;
+    @apply text-xs text-subtle/70 tabular-nums;
   }
 
-  /* Pill (for status badges) */
+  /* Pill (status badges) — sans-serif, sentence-case (callers control text) */
   .pill {
-    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded font-mono text-[10px] uppercase tracking-label;
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium;
   }
   .pill-ok      { @apply text-ok      bg-ok/10; }
   .pill-warn    { @apply text-warn    bg-warn/10; }
@@ -158,20 +158,20 @@
 
   /* Buttons */
   .btn {
-    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors;
+    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all;
   }
-  .btn-primary  { @apply btn bg-accent text-accent-fg hover:opacity-90; }
+  .btn-primary  { @apply btn bg-accent text-accent-fg hover:opacity-90 shadow-sm; }
   .btn-ghost    { @apply btn text-subtle hover:text-text hover:bg-muted; }
   .btn-outline  { @apply btn border border-border text-text hover:bg-muted; }
 
   /* Input */
   .input {
-    @apply h-9 px-3 rounded bg-muted text-sm text-text placeholder:text-subtle border border-transparent;
-    @apply focus:border-accent focus:bg-surface outline-none transition-colors;
+    @apply h-9 px-3 rounded-md bg-muted/60 text-sm text-text placeholder:text-subtle border border-transparent;
+    @apply focus:border-accent/60 focus:bg-surface focus:ring-2 focus:ring-accent/15 outline-none transition;
   }
 
   /* Tab pill row */
-  .tabs-row { @apply flex items-center gap-1 p-1 rounded border border-border bg-surface w-fit; }
-  .tab      { @apply px-3 py-1 rounded text-xs font-mono uppercase tracking-label text-subtle hover:text-text cursor-pointer; }
+  .tabs-row { @apply flex items-center gap-1 p-1 rounded-md border border-border/70 bg-surface w-fit; }
+  .tab      { @apply px-3 py-1 rounded text-xs font-medium text-subtle hover:text-text cursor-pointer transition-colors; }
   .tab-active { @apply bg-accent/10 text-accent; }
 }

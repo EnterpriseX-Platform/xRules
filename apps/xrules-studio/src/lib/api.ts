@@ -18,7 +18,57 @@ function token(): string | null {
   return localStorage.getItem('xrules_token');
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+function refreshToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  // The persisted zustand auth store keeps refresh_token alongside the
+  // access token. Read from there because it survives reloads.
+  try {
+    const auth = JSON.parse(localStorage.getItem('xrules-auth') || '{}');
+    return auth?.state?.refreshToken || localStorage.getItem('xrules_refresh_token');
+  } catch {
+    return localStorage.getItem('xrules_refresh_token');
+  }
+}
+
+// Single in-flight refresh promise so concurrent 401s share one refresh.
+let refreshing: Promise<string | null> | null = null;
+async function tryRefresh(): Promise<string | null> {
+  if (refreshing) return refreshing;
+  const rt = refreshToken();
+  if (!rt) return null;
+  refreshing = (async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: rt }),
+      });
+      if (!res.ok) return null;
+      const json = await res.json();
+      const newAccess = json?.data?.access_token;
+      const newRefresh = json?.data?.refresh_token;
+      if (newAccess) {
+        localStorage.setItem('xrules_token', newAccess);
+        // also write into zustand persist payload so the next load picks it up
+        try {
+          const auth = JSON.parse(localStorage.getItem('xrules-auth') || '{}');
+          auth.state = auth.state || {};
+          auth.state.token = newAccess;
+          if (newRefresh) auth.state.refreshToken = newRefresh;
+          localStorage.setItem('xrules-auth', JSON.stringify(auth));
+        } catch {}
+        if (newRefresh) localStorage.setItem('xrules_refresh_token', newRefresh);
+        return newAccess;
+      }
+      return null;
+    } finally {
+      refreshing = null;
+    }
+  })();
+  return refreshing;
+}
+
+async function request<T>(path: string, init?: RequestInit, _retried = false): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(init?.headers as Record<string, string> | undefined),
@@ -27,8 +77,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (t) headers['Authorization'] = `Bearer ${t}`;
 
   const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
-  const json = await res.json().catch(() => ({}));
 
+  // 401 — try a single refresh + retry. If refresh fails, redirect to /login.
+  if (res.status === 401 && !_retried && !path.startsWith('/auth/')) {
+    const fresh = await tryRefresh();
+    if (fresh) return request<T>(path, init, true);
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+      const next = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = `/login?next=${next}`;
+    }
+  }
+
+  const json = await res.json().catch(() => ({}));
   if (!res.ok || json.success === false) {
     const err = json.error || {};
     throw new ApiError(err.message || res.statusText, res.status, err.code);

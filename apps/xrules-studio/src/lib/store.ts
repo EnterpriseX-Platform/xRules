@@ -5,9 +5,10 @@ import { persist } from 'zustand/middleware';
 
 interface AuthState {
   token: string | null;
+  refreshToken: string | null;
   user: { id: string; email: string; name?: string } | null;
   workspace: { id: string; slug: string; name: string } | null;
-  setAuth: (token: string, user: any, workspace: any) => void;
+  setAuth: (token: string, user: any, workspace: any, refreshToken?: string) => void;
   clear: () => void;
 }
 
@@ -15,19 +16,22 @@ export const useAuth = create<AuthState>()(
   persist(
     (set) => ({
       token: null,
+      refreshToken: null,
       user: null,
       workspace: null,
-      setAuth: (token, user, workspace) => {
+      setAuth: (token, user, workspace, refreshToken) => {
         if (typeof window !== 'undefined') {
           localStorage.setItem('xrules_token', token);
+          if (refreshToken) localStorage.setItem('xrules_refresh_token', refreshToken);
         }
-        set({ token, user, workspace });
+        set({ token, user, workspace, refreshToken: refreshToken ?? null });
       },
       clear: () => {
         if (typeof window !== 'undefined') {
           localStorage.removeItem('xrules_token');
+          localStorage.removeItem('xrules_refresh_token');
         }
-        set({ token: null, user: null, workspace: null });
+        set({ token: null, refreshToken: null, user: null, workspace: null });
       },
     }),
     { name: 'xrules-auth' },
