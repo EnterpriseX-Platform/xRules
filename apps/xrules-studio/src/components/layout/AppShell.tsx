@@ -2,6 +2,7 @@
 
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { AssistantPanel } from '@/components/assistant/AssistantPanel';
 
 export function AppShell({ tenant, children }: { tenant: string; children: React.ReactNode }) {
   return (
@@ -13,6 +14,7 @@ export function AppShell({ tenant, children }: { tenant: string; children: React
           {children}
         </main>
       </div>
+      <AssistantPanel />
     </div>
   );
 }

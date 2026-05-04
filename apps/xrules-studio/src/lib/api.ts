@@ -142,3 +142,9 @@ export const executionsApi = {
     return api.get<any[]>(`/executions?${qs}`);
   },
 };
+
+export const executeApi = {
+  // Test execute (auth-bearing route, not public solver)
+  run: (ruleId: string, input: any, context: any = {}) =>
+    api.post<any>(`/execute/${ruleId}`, { input, context }),
+};

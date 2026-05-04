@@ -1,0 +1,42 @@
+{
+  "name": "@xrules/sdk",
+  "version": "0.1.0",
+  "description": "Official TypeScript SDK for XRules — decision management platform",
+  "license": "AGPL-3.0",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.esm.json",
+    "test": "node --test dist/index.test.js"
+  },
+  "keywords": [
+    "xrules",
+    "decision-management",
+    "rules-engine",
+    "dmn",
+    "scoring"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/xrules"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^20.10.0"
+  }
+}

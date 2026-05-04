@@ -100,7 +100,7 @@ Workspace-scoped: `ApiKey`, `Webhook`, `WorkspaceMember`, `AuditLog`, `Execution
 - **Schema source of truth**: `apps/xrules-backend/prisma/schema.prisma`. Studio consumes types via API; never imports `@prisma/client`.
 - **TypeScript imports**: `@/*` → `src/*` in studio.
 - **Frontend routing**: `/[tenant]/projects/[projectId]/...` — every project nested route lives here. Auth pages at root (`/login`, `/signup`).
-- **Rule type values**: `DECISION_TABLE | DECISION_TREE | FORMULA | SCRIPT | LOOKUP | MODEL_CALL`. (`WORKFLOW` is gone — flows are first-class.)
+- **Rule type values** (8): `DECISION_TABLE | DECISION_TREE | SCORECARD | FORMULA | SCRIPT | LOOKUP | AI_AGENT | MODEL_CALL`. (`WORKFLOW` is gone — flows are first-class.)
 - **Rule status**: `DRAFT → READY → PUBLISHED → ARCHIVED`. Publish creates a `RuleVersion` snapshot.
 - **Execution endpoint**: `POST /api/v1/rules/:id/execute` (current version) or `POST /api/v1/rules/:id/v/:n/execute` (pinned). Auth via `X-API-Key` header.
 - **Per-rule OpenAPI**: `GET /api/v1/rules/:id/openapi.json` — generated from `inputSchema` + `outputSchema`.
@@ -140,6 +140,12 @@ CONNECTION_ENC_KEY=<random-32-chars>
 PORT=4000
 ```
 
+Optional (LLM features):
+```
+ANTHROPIC_API_KEY=...    # enables AI Agent rule + AI Assistant chat
+OPENAI_API_KEY=...       # alt provider; either one works
+```
+
 ## Test Users (seeded)
 
 | Username | Password | Roles |
@@ -148,14 +154,59 @@ PORT=4000
 | editor | editor123 | Editor |
 | viewer | viewer123 | Viewer |
 
-## v2 Status & Known Gaps
+## v2 Sidebar IA
 
-- ✅ Schema, backend routes, frontend layout & pages compile clean.
-- ⚠ Test suite runner currently produces PENDING results — engine integration for batch execution is stubbed in `services/testsuites.service.ts::runSuite`.
-- ⚠ DRD page is placeholder — needs ReactFlow render of `RuleDependency` edges.
-- ⚠ Webhooks are schema-only — no dispatcher yet.
-- ⚠ Simulation `CHAMPION_CHALLENGER` mode (live A/B) not yet implemented; `DIFF`, `REPLAY`, `SWEEP` are.
+Build → Test → Deploy → Integrate → Monitor.
+
+- **Build**: Rules · Flows · Models · Templates
+- **Test**: Test Suites · Datasets · Simulations · Bench
+- **Deploy**: Releases · Environments
+- **Integrate**: Endpoints · API Keys · Webhooks · Connections · API Docs
+- **Monitor**: Executions · Jobs · Audit Log · Tools · DRD
+
+Each Rule type has its own designer (`components/rule/*Designer.tsx`):
+`TableDesigner`, `TreeDesigner`, `ScorecardDesigner`, `LookupDesigner`, `ScriptingDesigner` (covers SCRIPT + FORMULA), `AIAgentDesigner`. `MODEL_CALL` falls back to raw JSON editor.
+
+## In-process executors (backend)
+
+`apps/xrules-backend/src/services/execute.service.ts::tryLocalExecutor` handles non-Rust rule kinds:
+
+- `AI_AGENT` → `services/llm.service.ts::callAIAgent` (OpenAI / Anthropic)
+- `SCORECARD` → in-file `runScorecard` (attribute/band/threshold)
+- `SCRIPT` / `FORMULA` → `services/sandbox.service.ts::runScripting` (Node `vm`)
+- `LOOKUP` → in-file `runLookup` (primary-key match)
+
+Other kinds (`DECISION_TABLE`, `DECISION_TREE`) go to the Rust engine via Hub gRPC.
+
+## Webhooks
+
+`services/webhooks.service.ts` — fire-and-forget dispatcher. HMAC-SHA256 signs the body; sends `X-XRules-Signature: sha256=…` and `X-XRules-Event` headers. Retries: 1s / 5s / 30s / 5m / 30m. Events: `execute.success`, `execute.error`. Per-webhook `ruleIds` filter.
+
+## AI Assistant
+
+`services/assistant.service.ts` + `routes/assistant.routes.ts` — `POST /assistant/chat` takes `{projectId, messages[]}` and replies via Anthropic (default) or OpenAI. The system prompt embeds the project's rules + flows so the assistant can answer "what does rule X do" or "generate a Decision Table for Y".
+
+Frontend dock at `components/assistant/AssistantPanel.tsx` is mounted inside `AppShell`. Toggle with the floating Sparkles button or `⌘;` / `Ctrl+;`.
+
+## SDKs
+
+- TypeScript: `sdks/typescript/` — `@xrules/sdk`, exposes `XRulesClient` with `.execute()`, `.batchExecute()`, `.getOpenApi()`.
+- Python: `sdks/python/` — `xrules`, exposes `XRulesClient` (sync) + `AsyncXRulesClient` (async, httpx-backed).
+
+Both target the public Solver API (`/api/v1/rules/...`) with `X-API-Key` auth.
+
+## v2.1 Status & Known Gaps
+
+- ✅ Phase 1 — Distribution (LICENSE/README/CI/Docker/Helm/install.sh) — committed.
+- ✅ Phase 2 — IA restructure (sidebar 5-section, +New card picker, Integrations area, Templates).
+- ✅ Phase 3 — Backend completion (AI Agent LLM, Webhook dispatcher with HMAC + retry, JS sandbox, real Test Suite runner).
+- ✅ Phase 4 — Frontend (Scorecard designer, DRD ReactFlow viewer with topo layout, Tools page, Bench page).
+- ✅ Phase 5 — AI Assistant (project-context-aware chat, floating dock).
+- ✅ Phase 6 — SDKs (TS + Python published-shape skeletons).
+- ✅ Phase 7 — Docs (Quickstart, Concepts, API Reference).
+- ⚠ Visual Debug Overlay for Decision Table (highlight matched rows in the executor trace) — deferred.
+- ⚠ Mapping UI panels for input/output transformation — partial coverage via Flow node config.
+- ⚠ Simulation `CHAMPION_CHALLENGER` mode (live A/B) not implemented; `DIFF`, `REPLAY`, `SWEEP` are.
 - ⚠ Connections UI list-only; no create/edit dialog yet.
-- ⚠ Flow detail page (designer) not migrated to v2 — list page exists.
 
 When extending, prefer adding to `services/_access.ts` over duplicating membership checks.

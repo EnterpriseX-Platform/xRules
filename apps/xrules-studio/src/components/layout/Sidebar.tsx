@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FolderKanban, FileText, Workflow, Brain, Database,
   FlaskConical, Sparkles, ListTree, GitBranch, Activity,
   KeyRound, Plug, Webhook, BookOpen, ScrollText, Settings, ChevronDown,
-  Table, Network, Code2, BookMarked, Bot, Zap, Briefcase,
+  Table, Network, Code2, BookMarked, Bot, Zap, Briefcase, Wrench, Gauge,
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { useAuth, useProject } from '@/lib/store';
@@ -53,49 +53,53 @@ export function Sidebar({ tenant }: { tenant: string }) {
   const currentProject = projects?.find((p: any) => p.id === project);
   const projBase = `/${tenant}/projects/${project || '_'}`;
 
+  // User-journey IA: Build → Test → Deploy → Integrate → Monitor.
   const main: NavItem[] = [
     { href: `/${tenant}`, label: 'Dashboard', icon: LayoutDashboard },
     { href: `/${tenant}/projects`, label: 'Projects', icon: FolderKanban },
   ];
 
-  // DR-style nav: rules split by kind. Filters list page via ?type= param.
-  const ruleKinds: NavItem[] = project ? [
-    { href: `${projBase}/rules?type=DECISION_TABLE`, label: 'Decision Tables', icon: Table },
-    { href: `${projBase}/rules?type=DECISION_TREE`,  label: 'Decision Trees',  icon: Network },
-    { href: `${projBase}/rules?type=SCRIPT`,         label: 'Scripting Rules', icon: Code2 },
-    { href: `${projBase}/rules?type=LOOKUP`,         label: 'Lookup Tables',   icon: BookMarked },
-    { href: `${projBase}/rules?type=AI_AGENT`,       label: 'AI Agents',       icon: Bot },
+  // BUILD — author rules, flows, supporting artifacts
+  const build: NavItem[] = project ? [
+    { href: `${projBase}/rules`,       label: 'Rules',       icon: FileText },
+    { href: `${projBase}/flows`,       label: 'Flows',       icon: Workflow },
+    { href: `${projBase}/models`,      label: 'Models',      icon: Brain },
+    { href: `${projBase}/templates`,   label: 'Templates',   icon: BookOpen },
   ] : [];
 
-  const flows: NavItem[] = project ? [
-    { href: `${projBase}/flows?kind=DECISION`,    label: 'Decision Flows',    icon: Workflow },
-    { href: `${projBase}/flows?kind=INTEGRATION`, label: 'Integration Flows', icon: Zap },
-    { href: `${projBase}/jobs`,                   label: 'Jobs',              icon: Briefcase },
-  ] : [];
-
-  const inProject: NavItem[] = project ? [
-    { href: `${projBase}/rules`, label: 'All Rules', icon: FileText },
-    { href: `${projBase}/models`, label: 'Models', icon: Brain },
-    { href: `${projBase}/datasets`, label: 'Datasets', icon: Database },
+  // TEST — make sure they work before shipping
+  const test: NavItem[] = project ? [
     { href: `${projBase}/test-suites`, label: 'Test Suites', icon: FlaskConical },
+    { href: `${projBase}/datasets`,    label: 'Datasets',    icon: Database },
     { href: `${projBase}/simulations`, label: 'Simulations', icon: Sparkles },
-    { href: `${projBase}/executions`, label: 'Executions', icon: Activity },
-    { href: `${projBase}/drd`, label: 'DRD', icon: ListTree },
+    { href: `${projBase}/bench`,       label: 'Bench',       icon: Gauge },
   ] : [];
 
-  const integrations: NavItem[] = project ? [
-    { href: `${projBase}/connections`, label: 'Connections', icon: Plug },
-    { href: `${projBase}/api-docs`, label: 'API Docs', icon: BookOpen },
-  ] : [];
-
-  const release: NavItem[] = project ? [
+  // DEPLOY — pin a snapshot to environments
+  const deploy: NavItem[] = project ? [
+    { href: `${projBase}/releases`,     label: 'Releases',     icon: ScrollText },
     { href: `${projBase}/environments`, label: 'Environments', icon: GitBranch },
-    { href: `${projBase}/releases`, label: 'Releases', icon: ScrollText },
+  ] : [];
+
+  // INTEGRATE — both inbound (endpoints, keys, webhooks, sdk) and outbound (connections)
+  const integrate: NavItem[] = project ? [
+    { href: `${projBase}/integrations/endpoints`,   label: 'Endpoints',    icon: Zap },
+    { href: `${projBase}/integrations/api-keys`,    label: 'API Keys',     icon: KeyRound },
+    { href: `${projBase}/integrations/webhooks`,    label: 'Webhooks',     icon: Webhook },
+    { href: `${projBase}/integrations/connections`, label: 'Connections',  icon: Plug },
+    { href: `${projBase}/integrations/api-docs`,    label: 'API Docs',     icon: BookMarked },
+  ] : [];
+
+  // MONITOR — see what's running and what happened
+  const monitor: NavItem[] = project ? [
+    { href: `${projBase}/executions`, label: 'Executions', icon: Activity },
+    { href: `${projBase}/jobs`,       label: 'Jobs',       icon: Briefcase },
+    { href: `${projBase}/audit`,      label: 'Audit Log',  icon: ListTree },
+    { href: `${projBase}/tools`,      label: 'Tools',      icon: Wrench },
+    { href: `${projBase}/drd`,        label: 'DRD',        icon: Network },
   ] : [];
 
   const system: NavItem[] = [
-    { href: `/${tenant}/settings/api-keys`, label: 'API Keys', icon: KeyRound },
-    { href: `/${tenant}/settings/webhooks`, label: 'Webhooks', icon: Webhook },
     { href: `/${tenant}/settings`, label: 'Settings', icon: Settings },
   ];
 
@@ -129,11 +133,11 @@ export function Sidebar({ tenant }: { tenant: string }) {
         </div>
 
         <NavSection label="Main Menu" items={main} pathname={pathname} />
-        {project && <NavSection label="Rules" items={ruleKinds} pathname={pathname} />}
-        {project && <NavSection label="Flows & Jobs" items={flows} pathname={pathname} />}
-        {project && <NavSection label="In Project" items={inProject} pathname={pathname} />}
-        {project && <NavSection label="Release" items={release} pathname={pathname} />}
-        {project && <NavSection label="Integrations" items={integrations} pathname={pathname} />}
+        {project && <NavSection label="Build"     items={build}     pathname={pathname} />}
+        {project && <NavSection label="Test"      items={test}      pathname={pathname} />}
+        {project && <NavSection label="Deploy"    items={deploy}    pathname={pathname} />}
+        {project && <NavSection label="Integrate" items={integrate} pathname={pathname} />}
+        {project && <NavSection label="Monitor"   items={monitor}   pathname={pathname} />}
         <NavSection label="System" items={system} pathname={pathname} />
       </div>
 

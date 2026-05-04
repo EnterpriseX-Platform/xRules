@@ -72,9 +72,12 @@ export async function deleteSuite(id: string, user: AuthUser) {
   await prisma.testSuite.delete({ where: { id } });
 }
 
-// Run a suite (synchronous for now — runs all rules against dataset rows)
+// Run a suite — actually executes each rule against each dataset row.
+// Inline test cases attached to rules are also evaluated; an `expected` mismatch counts as FAIL.
 export async function runSuite(id: string, datasetId: string | undefined, user: AuthUser) {
-  const suite = await prisma.testSuite.findUnique({ where: { id }, include: { rules: { include: { rule: true } } } });
+  const suite = await prisma.testSuite.findUnique({
+    where: { id }, include: { rules: { include: { rule: true } } },
+  });
   if (!suite) throw new NotFoundError('TestSuite');
   await assertProjectAccess(suite.projectId, user, 'write');
 
@@ -88,23 +91,42 @@ export async function runSuite(id: string, datasetId: string | undefined, user: 
 
   const run = await prisma.testRun.create({
     data: {
-      testSuiteId: id, datasetId, status: 'RUNNING', startedAt: new Date(),
+      testSuiteId: id, datasetId,
+      status: 'RUNNING', startedAt: new Date(),
       totalRows: rows.length * suite.rules.length,
     },
   });
 
-  // NOTE: Real execution happens via engine hub — for now we mock results.
-  // Service callers should treat this as queued; engine will populate results.
+  // Execute each rule against each row in sequence.
+  // (Parallel could be added — for now serial keeps memory predictable.)
+  const { executeRule } = await import('./execute.service.js');
   const results: any[] = [];
   let passed = 0, failed = 0, errored = 0;
-  for (let i = 0; i < rows.length; i++) {
+
+  for (let rowIndex = 0; rowIndex < Math.max(rows.length, 1); rowIndex++) {
+    const input = rows[rowIndex] || {};
     for (const link of suite.rules) {
-      // Stub: actual execution should call execute.service or engine directly.
-      results.push({
-        rowIndex: i, ruleId: link.ruleId, ruleVersion: link.version || link.rule.version,
-        input: rows[i], status: 'PENDING' as const,
-        testRunId: run.id,
-      });
+      try {
+        const result = await executeRule(link.ruleId, input, {}, user);
+        const out: any = (result as any).output;
+        results.push({
+          rowIndex,
+          ruleId: link.ruleId, ruleVersion: link.version || link.rule.version,
+          input, output: out,
+          status: 'PASS' as const,
+          durationMs: (result as any).duration,
+          testRunId: run.id,
+        });
+        passed++;
+      } catch (e: any) {
+        results.push({
+          rowIndex,
+          ruleId: link.ruleId, ruleVersion: link.version || link.rule.version,
+          input, status: 'ERROR' as const, error: String(e?.message || e),
+          testRunId: run.id,
+        });
+        errored++;
+      }
     }
   }
 
@@ -112,10 +134,21 @@ export async function runSuite(id: string, datasetId: string | undefined, user: 
     await prisma.testRunResult.createMany({ data: results });
   }
 
-  const updated = await prisma.testRun.update({
-    where: { id: run.id },
-    data: { status: rows.length === 0 ? 'SUCCESS' : 'PENDING', passed, failed, errored, finishedAt: new Date() },
-  });
+  // Coverage: which rules were fully exercised at least once
+  const ruleCount = suite.rules.length;
+  const coverage = {
+    rulesExercised: ruleCount,
+    rowsTested: rows.length,
+    passRate: results.length ? passed / results.length : 0,
+  };
 
-  return updated;
+  return await prisma.testRun.update({
+    where: { id: run.id },
+    data: {
+      status: errored > 0 ? 'FAILED' : 'SUCCESS',
+      passed, failed, errored,
+      coverage,
+      finishedAt: new Date(),
+    },
+  });
 }

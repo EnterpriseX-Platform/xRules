@@ -3,6 +3,15 @@ node_modules/
 .pnp
 .pnp.js
 
+# Python build/cache
+__pycache__/
+*.egg-info/
+*.pyc
+.venv/
+
+# Rust target
+target/
+
 # Production builds
 .next/
 dist/

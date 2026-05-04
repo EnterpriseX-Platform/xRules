@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, ChevronRight, FileText, Search, FolderTree, Folder, FolderPlus } from 'lucide-react';
 import { PageContent, PageHeader } from '@/components/layout/AppShell';
 import { StatusPill, Pill } from '@/components/ui/Pill';
 import { rulesApi, api } from '@/lib/api';
+import { NewRuleDialog } from '@/components/rule/NewRuleDialog';
 
 const TYPE_TONE: Record<string, any> = {
   DECISION_TABLE: 'info',
@@ -91,6 +92,20 @@ export default function RulesPage() {
 
         {/* Main */}
         <div>
+          {/* Type filter chips — always visible regardless of ?type= URL param */}
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <span className="label-section mr-1">Type</span>
+            <TypeChip current={typeFilter} value="" tenant={tenant} projectId={projectId}>All</TypeChip>
+            <TypeChip current={typeFilter} value="DECISION_TABLE" tenant={tenant} projectId={projectId} tone="info">Decision Table</TypeChip>
+            <TypeChip current={typeFilter} value="DECISION_TREE"  tenant={tenant} projectId={projectId} tone="mint">Decision Tree</TypeChip>
+            <TypeChip current={typeFilter} value="SCORECARD"      tenant={tenant} projectId={projectId} tone="accent">Scorecard</TypeChip>
+            <TypeChip current={typeFilter} value="FORMULA"        tenant={tenant} projectId={projectId} tone="warn">Formula</TypeChip>
+            <TypeChip current={typeFilter} value="SCRIPT"         tenant={tenant} projectId={projectId} tone="subtle">Scripting</TypeChip>
+            <TypeChip current={typeFilter} value="LOOKUP"         tenant={tenant} projectId={projectId} tone="subtle">Lookup</TypeChip>
+            <TypeChip current={typeFilter} value="AI_AGENT"       tenant={tenant} projectId={projectId} tone="accent">AI Agent</TypeChip>
+            <TypeChip current={typeFilter} value="MODEL_CALL"     tenant={tenant} projectId={projectId} tone="danger">Model Call</TypeChip>
+          </div>
+
           <div className="flex items-center gap-3 mb-4">
             <div className="tabs-row">
               {['all', 'published', 'draft', 'archived'].map((t) => (
@@ -160,7 +175,7 @@ export default function RulesPage() {
       </div>
 
       {showCreate && (
-        <CreateRuleDialog
+        <NewRuleDialog
           projectId={projectId}
           folderId={folderId}
           onClose={() => setShowCreate(false)}
@@ -168,6 +183,28 @@ export default function RulesPage() {
         />
       )}
     </PageContent>
+  );
+}
+
+function TypeChip({ current, value, tenant, projectId, tone, children }: {
+  current: string; value: string; tenant: string; projectId: string;
+  tone?: 'info' | 'mint' | 'accent' | 'warn' | 'danger' | 'subtle';
+  children: React.ReactNode;
+}) {
+  const active = current === value;
+  const href = value
+    ? `/${tenant}/projects/${projectId}/rules?type=${value}`
+    : `/${tenant}/projects/${projectId}/rules`;
+  const toneCls = active
+    ? tone === 'info'   ? 'bg-info/15 text-info border-info/40'
+    : tone === 'mint'   ? 'bg-mint/15 text-mint border-mint/40'
+    : tone === 'accent' ? 'bg-accent/15 text-accent border-accent/40'
+    : tone === 'warn'   ? 'bg-warn/15 text-warn border-warn/40'
+    : tone === 'danger' ? 'bg-danger/15 text-danger border-danger/40'
+    : 'bg-text/10 text-text border-border'
+    : 'bg-transparent text-subtle border-border hover:border-text/40';
+  return (
+    <Link href={href} className={`pill border ${toneCls}`}>{children}</Link>
   );
 }
 
@@ -199,51 +236,3 @@ function FolderTreeView({ folders, folderId, setFolderId, depth, parentId }: {
   );
 }
 
-function CreateRuleDialog({ projectId, folderId, onClose, onCreated }: { projectId: string; folderId?: string | null; onClose: () => void; onCreated: () => void }) {
-  const [name, setName] = useState('');
-  const [type, setType] = useState('DECISION_TABLE');
-  const [description, setDescription] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const mut = useMutation({
-    mutationFn: () => rulesApi.create({ name, type, description, projectId, folderId }),
-    onSuccess: () => { onCreated(); onClose(); },
-    onError: (e: any) => setError(e.message),
-  });
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-6 z-50" onClick={onClose}>
-      <div className="card w-full max-w-md p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-xl font-bold">New Rule</h2>
-        <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); mut.mutate(); }}>
-          <div>
-            <label className="label-section block mb-1.5">Name</label>
-            <input required className="input w-full" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-          </div>
-          <div>
-            <label className="label-section block mb-1.5">Type</label>
-            <select className="input w-full" value={type} onChange={(e) => setType(e.target.value)}>
-              <option value="DECISION_TABLE">Decision Table</option>
-              <option value="DECISION_TREE">Decision Tree</option>
-              <option value="FORMULA">Formula</option>
-              <option value="SCRIPT">Scripting Rule</option>
-              <option value="LOOKUP">Lookup Table</option>
-              <option value="AI_AGENT">AI Agent</option>
-              <option value="MODEL_CALL">Model Call</option>
-            </select>
-          </div>
-          <div>
-            <label className="label-section block mb-1.5">Description</label>
-            <textarea className="input w-full h-20 py-2" value={description} onChange={(e) => setDescription(e.target.value)} />
-          </div>
-          {error && <div className="pill pill-danger">{error}</div>}
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
-            <button type="submit" disabled={mut.isPending} className="btn-primary disabled:opacity-50">
-              {mut.isPending ? 'Creating…' : 'Create'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}

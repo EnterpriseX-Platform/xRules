@@ -2,7 +2,63 @@ import axios from 'axios';
 import { env } from '../config/env.js';
 import { prisma } from '../config/database.js';
 import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errors.js';
+import { callAIAgent } from './llm.service.js';
+import { runScripting } from './sandbox.service.js';
+import { dispatch as dispatchWebhook } from './webhooks.service.js';
 import type { AuthUser } from '../middleware/auth.js';
+
+// In-process executors for rule kinds that don't go through the Rust engine:
+// AI Agent (LLM), Scorecard, Scripting Rule, Lookup Table.
+async function tryLocalExecutor(rule: any, input: any, context: any): Promise<any | null> {
+  switch (rule.type) {
+    case 'AI_AGENT': return callAIAgent(rule.definition, {
+      input, ruleVariables: rule.ruleVariables, outputSchema: rule.outputSchema,
+    });
+    case 'SCORECARD': return runScorecard(rule.definition, input);
+    case 'SCRIPT':
+    case 'FORMULA': return runScripting(rule.definition, input, rule.ruleVariables);
+    case 'LOOKUP':  return runLookup(rule.definition, input);
+    default: return null;
+  }
+}
+
+// Scorecard: { attributes: [{ name, bands: [{ match, points }] }], thresholds: [{ score, decision }] }
+function runScorecard(def: any, input: any): any {
+  let score = 0;
+  for (const attr of (def?.attributes || [])) {
+    const v = input[attr.name];
+    for (const band of (attr.bands || [])) {
+      if (matchBand(v, band.match)) { score += Number(band.points || 0); break; }
+    }
+  }
+  // Thresholds sorted high → low; pick first whose score >= score
+  const sorted = [...(def?.thresholds || [])].sort((a, b) => Number(b.score) - Number(a.score));
+  let decision: any = null;
+  for (const t of sorted) if (score >= Number(t.score)) { decision = t.decision; break; }
+  return { score, decision };
+}
+function matchBand(value: any, m: any): boolean {
+  if (!m) return false;
+  if ('eq'  in m) return value === m.eq;
+  if ('lt'  in m) return Number(value) <  Number(m.lt);
+  if ('lte' in m) return Number(value) <= Number(m.lte);
+  if ('gt'  in m) return Number(value) >  Number(m.gt);
+  if ('gte' in m) return Number(value) >= Number(m.gte);
+  if ('btw' in m && Array.isArray(m.btw)) {
+    const [lo, hi] = m.btw; return Number(value) >= Number(lo) && Number(value) <= Number(hi);
+  }
+  if ('in'  in m && Array.isArray(m.in))  return m.in.includes(value);
+  return false;
+}
+
+// Lookup: { primaryKey, columns, rows: [{...}] } — exact match by primaryKey
+function runLookup(def: any, input: any): any {
+  const pk = def?.primaryKey;
+  if (!pk) return null;
+  const key = input[pk];
+  const found = (def?.rows || []).find((r: any) => r[pk] === key);
+  return found || null;
+}
 
 export async function executeRule(ruleId: string, input: any, context: any, user: AuthUser) {
   if (!ruleId || !input) {
@@ -31,7 +87,12 @@ export async function executeRule(ruleId: string, input: any, context: any, user
   try {
     let output: any;
 
-    // Try to call the Engine Hub
+    // 1) In-process executors for non-Rust rule kinds (AI Agent / Scorecard / Script / Lookup)
+    const local = await tryLocalExecutor(rule, input, context);
+    if (local !== null) {
+      output = local;
+    } else
+    // 2) Rust engine for everything else (Decision Table / Tree / Flow primitives)
     try {
       const engineDefinition = transformDefinitionForEngine(rule);
 
@@ -79,6 +140,13 @@ export async function executeRule(ruleId: string, input: any, context: any, user
       },
     });
 
+    // Fire-and-forget webhook dispatch
+    dispatchWebhook('execute.success', {
+      executionId: execution.id,
+      ruleId: rule.id, ruleSlug: rule.slug, ruleVersion: rule.version,
+      input, output, duration,
+    }, { workspaceId: rule.project.workspaceId, ruleId: rule.id });
+
     return {
       id: execution.id,
       ruleId: rule.id,
@@ -93,7 +161,7 @@ export async function executeRule(ruleId: string, input: any, context: any, user
     const duration = Date.now() - startTime;
     const errorMsg = execError instanceof Error ? execError.message : 'Execution failed';
 
-    await prisma.execution.create({
+    const failed = await prisma.execution.create({
       data: {
         ruleId: rule.id,
         ruleVersion: rule.version,
@@ -103,6 +171,12 @@ export async function executeRule(ruleId: string, input: any, context: any, user
         error: errorMsg,
       },
     });
+
+    dispatchWebhook('execute.error', {
+      executionId: failed.id,
+      ruleId: rule.id, ruleSlug: rule.slug, ruleVersion: rule.version,
+      input, error: errorMsg, duration,
+    }, { workspaceId: rule.project.workspaceId, ruleId: rule.id });
 
     throw execError;
   }

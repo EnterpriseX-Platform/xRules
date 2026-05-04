@@ -70,3 +70,55 @@ export async function dependencies(ruleId: string, _version: number | undefined,
     flows: flowsThatCallRule,
   };
 }
+
+// DRD — full graph of a project: all rules (nodes) + all RuleDependency edges,
+// plus inferred edges from flow graphs (nodes that ref ruleId/ruleSlug/ruleAlias).
+export async function projectDrd(projectId: string, user: AuthUser) {
+  await assertProjectAccess(projectId, user);
+
+  const [rules, edges, flows] = await Promise.all([
+    prisma.rule.findMany({
+      where: { projectId },
+      select: { id: true, name: true, slug: true, alias: true, type: true, status: true, version: true },
+    }),
+    prisma.ruleDependency.findMany({
+      where: { from: { projectId }, to: { projectId } },
+      select: { fromId: true, toId: true, kind: true },
+    }),
+    prisma.flow.findMany({
+      where: { projectId },
+      select: { id: true, name: true, slug: true, graph: true },
+    }),
+  ]);
+
+  // Inferred flow → rule "calls" edges. Use composite ids "flow:<id>" for flow nodes.
+  const flowNodes: any[] = flows.map(f => ({
+    id: `flow:${f.id}`, name: f.name, slug: f.slug, type: 'FLOW', isFlow: true,
+  }));
+  const inferredEdges: { fromId: string; toId: string; kind: string }[] = [];
+  const ruleBySlug = new Map(rules.map(r => [r.slug, r]));
+  const ruleByAlias = new Map(rules.filter(r => r.alias).map(r => [r.alias!, r]));
+
+  for (const f of flows) {
+    const nodes = ((f.graph as any)?.nodes || []) as any[];
+    for (const n of nodes) {
+      const d = n?.data || {};
+      let target: any = null;
+      if (d.ruleId)    target = rules.find(r => r.id === d.ruleId);
+      if (!target && d.ruleSlug)  target = ruleBySlug.get(d.ruleSlug);
+      if (!target && d.ruleAlias) target = ruleByAlias.get(d.ruleAlias);
+      if (target) inferredEdges.push({ fromId: `flow:${f.id}`, toId: target.id, kind: 'flow_call' });
+    }
+  }
+
+  return {
+    nodes: [
+      ...rules.map(r => ({ ...r, isFlow: false })),
+      ...flowNodes,
+    ],
+    edges: [
+      ...edges,
+      ...inferredEdges,
+    ],
+  };
+}

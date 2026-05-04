@@ -26,6 +26,8 @@ import jobsRoutes from './jobs.routes.js';
 import toolsRoutes from './tools.routes.js';
 import compareRoutes from './compare.routes.js';
 import biRoutes from './bi.routes.js';
+import webhooksRoutes from './webhooks.routes.js';
+import assistantRoutes from './assistant.routes.js';
 
 const router = Router();
 
@@ -66,5 +68,7 @@ router.use('/jobs', jobsRoutes);
 router.use('/tools', toolsRoutes);
 router.use('/', compareRoutes); // /rules/:id/compare
 router.use('/bi', biRoutes);    // /bi/audit/v2
+router.use('/webhooks', webhooksRoutes);
+router.use('/assistant', assistantRoutes);
 
 export default router;

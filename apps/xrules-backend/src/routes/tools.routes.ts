@@ -18,4 +18,10 @@ r.get('/dependencies/:ruleId/:version?', authMiddleware, async (req, res, next) 
   } catch (e) { next(e); }
 });
 
+r.get('/drd/:projectId', authMiddleware, async (req, res, next) => {
+  try {
+    res.json({ success: true, data: await svc.projectDrd(req.params.projectId, req.user!) });
+  } catch (e) { next(e); }
+});
+
 export default r;

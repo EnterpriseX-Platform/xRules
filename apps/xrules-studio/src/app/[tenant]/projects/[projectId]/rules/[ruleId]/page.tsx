@@ -14,6 +14,7 @@ import { TreeDesigner } from '@/components/rule/TreeDesigner';
 import { ScriptingDesigner } from '@/components/rule/ScriptingDesigner';
 import { LookupDesigner } from '@/components/rule/LookupDesigner';
 import { AIAgentDesigner } from '@/components/rule/AIAgentDesigner';
+import { ScorecardDesigner } from '@/components/rule/ScorecardDesigner';
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
@@ -172,6 +173,14 @@ function DefinitionTab({ rule, projectId }: { rule: any; projectId: string }) {
         projectId={projectId}
         inputSchema={rule.inputSchema}
         ruleVariables={rule.ruleVariables}
+        onChange={(def) => mut.mutate({ definition: def })}
+      />
+    );
+  }
+  if (t === 'SCORECARD') {
+    return (
+      <ScorecardDesigner
+        definition={rule.definition}
         onChange={(def) => mut.mutate({ definition: def })}
       />
     );
