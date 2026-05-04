@@ -21,6 +21,11 @@ import environmentsRoutes from './environments.routes.js';
 import simulationsRoutes from './simulations.routes.js';
 import openapiRoutes from './openapi.routes.js';
 import usersRoutes from './users.routes.js';
+import foldersRoutes from './folders.routes.js';
+import jobsRoutes from './jobs.routes.js';
+import toolsRoutes from './tools.routes.js';
+import compareRoutes from './compare.routes.js';
+import biRoutes from './bi.routes.js';
 
 const router = Router();
 
@@ -28,11 +33,11 @@ const router = Router();
 router.use('/auth', authRoutes);
 router.use('/auth', usersRoutes);
 
-// Public API (API key auth)
+// Public API (Solver / API key)
 router.use('/api/v1', publicExecuteRoutes);
 router.use('/api/v1', openapiRoutes);
 
-// Internal admin/UI API (JWT auth)
+// Internal admin/UI
 router.use('/dashboard', dashboardRoutes);
 router.use('/api-keys', apikeysRoutes);
 router.use('/projects', projectsRoutes);
@@ -47,6 +52,7 @@ router.use('/models', modelsRoutes);
 router.use('/analytics', analyticsRoutes);
 
 // v2 entities
+router.use('/folders', foldersRoutes);
 router.use('/test-suites', testsuitesRoutes);
 router.use('/datasets', datasetsRoutes);
 router.use('/scenarios', scenariosRoutes);
@@ -54,5 +60,11 @@ router.use('/connections', connectionsRoutes);
 router.use('/releases', releasesRoutes);
 router.use('/environments', environmentsRoutes);
 router.use('/simulations', simulationsRoutes);
+
+// Phase 4-5 features
+router.use('/jobs', jobsRoutes);
+router.use('/tools', toolsRoutes);
+router.use('/', compareRoutes); // /rules/:id/compare
+router.use('/bi', biRoutes);    // /bi/audit/v2
 
 export default router;

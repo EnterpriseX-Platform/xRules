@@ -110,12 +110,37 @@ model Project {
   scenarios    Scenario[]
   releases     Release[]
   environments Environment[]
+  folders      Folder[]
+  jobs         Job[]
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   @@unique([workspaceId, slug])
   @@map("projects")
+}
+
+// Hierarchical folder organization (max 5 levels enforced in service layer).
+// Both rules and flows live inside folders; root folder = parentId NULL.
+model Folder {
+  id          String   @id @default(uuid())
+  name        String
+  position    Int      @default(0)
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  parentId    String?
+  parent      Folder?  @relation("folder_tree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Folder[] @relation("folder_tree")
+
+  rules       Rule[]
+  flows       Flow[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([projectId, parentId])
+  @@map("folders")
 }
 
 // =============================================================================
@@ -126,18 +151,34 @@ model Rule {
   id           String     @id @default(uuid())
   name         String
   slug         String
+  // User-mutable identifier — drop-in replacement for id in solver requests.
+  // Format: [a-z0-9-], unique within project (recommended, warned if not).
+  alias        String?
   description  String?
   type         RuleType   @default(DECISION_TABLE)
+  // Solver adapter (was "engine") — kept for back-compat, prefer .solver
   engine       String     @default("rules")
+  solver       String     @default("rules")
   definition   Json       @default("{}")
+  // Per-version reusable values (number/string/bool/array/object).
+  // Snapshotted into RuleVersion on publish. Read-only at runtime.
+  ruleVariables Json?
   inputSchema  Json?
   outputSchema Json?
+  // Per-rule default execution strategy. May be overridden by X-Strategy header.
+  strategy     ExecutionStrategy @default(STANDARD)
+  // Lock prevents edits without explicit unlock.
+  locked       Boolean    @default(false)
+  lockedById   String?
   tags         String[]   @default([])
   status       RuleStatus @default(DRAFT)
   version      Int        @default(1)
 
   projectId    String
   project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  folderId     String?
+  folder       Folder?    @relation(fields: [folderId], references: [id])
 
   createdById  String
   createdBy    User       @relation(fields: [createdById], references: [id])
@@ -153,8 +194,20 @@ model Rule {
   updatedAt    DateTime   @updatedAt
 
   @@unique([projectId, slug])
+  @@unique([projectId, alias])
   @@index([projectId, status])
+  @@index([folderId])
   @@map("rules")
+}
+
+// Execution strategy applies to Decision Tables; some apply to Lookup Tables only.
+enum ExecutionStrategy {
+  STANDARD          // returns all matching rows (default)
+  FIRST_MATCH       // returns first matching row only (Decision Tables)
+  ARRAY             // merges all matches into single object with array values
+  EVALUATE_ALL      // returns every row with _match flag (audit/debug)
+  LOOKUP_VALUE      // Lookup tables — returns matched value
+  LOOKUP_EXISTS     // Lookup tables — returns boolean
 }
 
 enum RuleType {
@@ -164,6 +217,7 @@ enum RuleType {
   SCRIPT
   LOOKUP
   MODEL_CALL
+  AI_AGENT          // first-class LLM-backed rule
 }
 
 enum RuleStatus {
@@ -174,22 +228,23 @@ enum RuleStatus {
 }
 
 model RuleVersion {
-  id           String     @id @default(uuid())
-  version      Int
-  definition   Json
-  inputSchema  Json?
-  outputSchema Json?
-  status       RuleStatus
-  message      String?
-  changeStats  Json?
+  id            String     @id @default(uuid())
+  version       Int
+  definition    Json
+  inputSchema   Json?
+  outputSchema  Json?
+  ruleVariables Json?
+  status        RuleStatus
+  message       String?
+  changeStats   Json?
 
-  ruleId       String
-  rule         Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  ruleId        String
+  rule          Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 
-  createdById  String
-  createdBy    User       @relation("rule_version_author", fields: [createdById], references: [id])
+  createdById   String
+  createdBy     User       @relation("rule_version_author", fields: [createdById], references: [id])
 
-  createdAt    DateTime   @default(now())
+  createdAt     DateTime   @default(now())
 
   @@unique([ruleId, version])
   @@map("rule_versions")
@@ -216,23 +271,33 @@ model Flow {
   id           String     @id @default(uuid())
   name         String
   slug         String
+  alias        String?
   description  String?
+  // DECISION = sync, no jobs, hard timeout. INTEGRATION = async, Job-backed, can be long-running.
+  kind         FlowKind   @default(DECISION)
   graph        Json       @default("{}")
   inputSchema  Json?
   outputSchema Json?
   tags         String[]   @default([])
   status       RuleStatus @default(DRAFT)
+  locked       Boolean    @default(false)
   version      Int        @default(1)
 
   projectId    String
   project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
+  folderId     String?
+  folder       Folder?    @relation(fields: [folderId], references: [id])
+
   versions     FlowVersion[]
+  jobs         Job[]
 
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
   @@unique([projectId, slug])
+  @@unique([projectId, alias])
+  @@index([folderId])
   @@map("flows")
 }
 
@@ -252,6 +317,51 @@ model FlowVersion {
 
   @@unique([flowId, version])
   @@map("flow_versions")
+}
+
+enum FlowKind {
+  DECISION       // synchronous, hard timeout, returns immediately
+  INTEGRATION    // asynchronous, backed by a Job, can run long
+}
+
+// =============================================================================
+// JOB — async execution record for Integration Flows
+// =============================================================================
+
+model Job {
+  id          String     @id @default(uuid())
+  state       JobState   @default(WAITING)
+  statusCode  String?    // JOB_SUCCESS / JOB_ERROR / JOB_TIMEOUT / ...
+  input       Json
+  output      Json?
+  error       String?
+  trace       Json?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  flowId      String?
+  flow        Flow?      @relation(fields: [flowId], references: [id])
+  flowVersion Int?
+
+  apiKeyId    String?
+  correlationId String?
+
+  createdAt   DateTime   @default(now())
+
+  @@index([projectId, state, createdAt])
+  @@map("jobs")
+}
+
+enum JobState {
+  WAITING
+  RUNNING
+  COMPLETED
+  ERROR
+  CANCELLED
+  CANCELLING
 }
 
 // =============================================================================
@@ -330,13 +440,18 @@ enum ConnectionType {
 // =============================================================================
 
 model TestCase {
-  id         String     @id @default(uuid())
-  name       String
-  input      Json
-  expected   Json?
-  assertions Json?
-  lastResult Json?
-  lastStatus TestStatus @default(PENDING)
+  id              String     @id @default(uuid())
+  name            String
+  input           Json
+  expected        Json?
+  assertions      Json?
+  // JSONPath strings whose values are excluded when comparing actual vs expected.
+  // E.g. ["$.timestamp", "$.requestId"]. Critical for non-deterministic outputs.
+  ignoredOutputs  String[]   @default([])
+  // Optional per-case strategy override.
+  strategy        ExecutionStrategy?
+  lastResult      Json?
+  lastStatus      TestStatus @default(PENDING)
 
   ruleId     String
   rule       Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)

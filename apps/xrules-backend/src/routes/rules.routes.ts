@@ -72,4 +72,32 @@ router.post('/:id/restore', authMiddleware, async (req: Request, res: Response, 
   } catch (err) { next(err); }
 });
 
+// Lock / unlock — when locked, edits via PUT are rejected unless user toggles unlock first.
+router.patch('/:id/lock', authMiddleware, async (req, res, next) => {
+  try {
+    const result = await rulesService.setLock(req.params.id, true, req.user!);
+    res.json({ success: true, data: result });
+  } catch (err) { next(err); }
+});
+
+router.patch('/:id/unlock', authMiddleware, async (req, res, next) => {
+  try {
+    const result = await rulesService.setLock(req.params.id, false, req.user!);
+    res.json({ success: true, data: result });
+  } catch (err) { next(err); }
+});
+
+// Resolve a rule by alias within the user's tenant project space (cheap shortcut).
+router.get('/by-alias/:alias', authMiddleware, async (req, res, next) => {
+  try {
+    const projectId = req.query.project_id as string;
+    if (!projectId) {
+      res.status(400).json({ success: false, error: { code: 'INVALID_INPUT', message: 'project_id required' } });
+      return;
+    }
+    const result = await rulesService.findByAlias(projectId, req.params.alias, req.user!);
+    res.json({ success: true, data: result });
+  } catch (err) { next(err); }
+});
+
 export default router;

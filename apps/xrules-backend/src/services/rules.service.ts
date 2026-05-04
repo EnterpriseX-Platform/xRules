@@ -8,15 +8,24 @@ function formatRule(rule: any) {
     id: rule.id,
     name: rule.name,
     slug: rule.slug,
+    alias: rule.alias,
     description: rule.description,
     type: rule.type.toLowerCase(),
-    engine: rule.engine || 'rules',
+    // "engine" kept for back-compat; "solver" is the new canonical name (DR convention).
+    engine: rule.engine || rule.solver || 'rules',
+    solver: rule.solver || rule.engine || 'rules',
+    strategy: (rule.strategy || 'STANDARD').toLowerCase(),
+    locked: rule.locked || false,
+    lockedById: rule.lockedById,
+    folderId: rule.folderId,
+    tags: rule.tags || [],
     status: rule.status.toLowerCase(),
     version: rule.version,
     projectId: rule.projectId,
     workspaceId: rule.project?.workspaceId,
     workspaceSlug: rule.project?.workspace?.slug,
     definition: rule.definition,
+    ruleVariables: rule.ruleVariables,
     inputSchema: rule.inputSchema,
     outputSchema: rule.outputSchema,
     createdBy: rule.createdBy ? {
@@ -28,6 +37,56 @@ function formatRule(rule: any) {
     createdAt: rule.createdAt.toISOString(),
     updatedAt: rule.updatedAt.toISOString(),
   };
+}
+
+// Generate a URL-safe alias from a name. Same rules as slug (a-z 0-9 -).
+function generateAlias(name: string): string {
+  return generateSlug(name);
+}
+
+export async function setLock(id: string, locked: boolean, user: AuthUser) {
+  const rule = await prisma.rule.findUnique({
+    where: { id }, include: { project: true },
+  });
+  if (!rule) throw new NotFoundError('Rule');
+  await checkMembership(rule.project.workspaceId, user.userId, ['OWNER', 'ADMIN', 'MEMBER', 'EDITOR']);
+  const updated = await prisma.rule.update({
+    where: { id },
+    data: {
+      locked,
+      lockedById: locked ? user.userId : null,
+    },
+    include: { project: { include: { workspace: true } }, createdBy: true, _count: { select: { executions: true } } },
+  });
+  return formatRule(updated);
+}
+
+export async function findByAlias(projectId: string, alias: string, user: AuthUser) {
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
+  if (!project) throw new NotFoundError('Project');
+  await checkMembership(project.workspaceId, user.userId);
+  const rule = await prisma.rule.findUnique({
+    where: { projectId_alias: { projectId, alias } },
+    include: { project: { include: { workspace: true } }, createdBy: true, _count: { select: { executions: true } } },
+  });
+  if (!rule) throw new NotFoundError('Rule');
+  return formatRule(rule);
+}
+
+export async function setAlias(id: string, alias: string, user: AuthUser) {
+  const sanitized = alias.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
+  if (!sanitized) throw new ValidationError('alias must contain at least one a-z/0-9 character');
+  const rule = await prisma.rule.findUnique({
+    where: { id }, include: { project: true },
+  });
+  if (!rule) throw new NotFoundError('Rule');
+  await checkMembership(rule.project.workspaceId, user.userId, ['OWNER', 'ADMIN', 'MEMBER', 'EDITOR']);
+  const updated = await prisma.rule.update({
+    where: { id },
+    data: { alias: sanitized },
+    include: { project: { include: { workspace: true } }, createdBy: true, _count: { select: { executions: true } } },
+  });
+  return formatRule(updated);
 }
 
 async function checkMembership(workspaceId: string, userId: string, requiredRoles?: string[]) {
@@ -122,15 +181,24 @@ export async function createRule(
     counter++;
   }
 
+  // Auto-generate alias matching slug; user can rename later (DR convention).
+  let alias = baseSlug;
+  let aliasCounter = 1;
+  while (await prisma.rule.findUnique({ where: { projectId_alias: { projectId: data.project_id, alias } } })) {
+    alias = `${baseSlug}-${aliasCounter}`;
+    aliasCounter++;
+  }
+
   const ruleType = (data.type || 'DECISION_TABLE').toUpperCase() as any;
+  const solver = data.engine || (ruleType === 'AI_AGENT' ? 'ai' : ruleType === 'LOOKUP' ? 'lookup' : 'rules');
 
   const rule = await prisma.rule.create({
     data: {
       name: data.name,
-      slug,
+      slug, alias,
       description: data.description,
       type: ruleType,
-      engine: data.engine || 'rules',
+      engine: solver, solver,
       definition: data.definition || {},
       inputSchema: data.input_schema || {},
       outputSchema: data.output_schema || {},
@@ -166,6 +234,10 @@ export async function updateRule(
     throw new NotFoundError('Rule');
   }
 
+  if (rule.locked && rule.lockedById !== user.userId) {
+    throw new ValidationError('Rule is locked. Unlock it before editing.');
+  }
+
   await checkMembership(rule.project.workspaceId, user.userId, ['OWNER', 'ADMIN', 'MEMBER']);
 
   const updateData: any = {};
@@ -174,7 +246,15 @@ export async function updateRule(
   if (data.definition) updateData.definition = data.definition;
   if (data.input_schema) updateData.inputSchema = data.input_schema;
   if (data.output_schema) updateData.outputSchema = data.output_schema;
-  if (data.engine) updateData.engine = data.engine;
+  if (data.engine) { updateData.engine = data.engine; updateData.solver = data.engine; }
+  if ((data as any).alias !== undefined) {
+    const a = String((data as any).alias).toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
+    if (a) updateData.alias = a;
+  }
+  if ((data as any).strategy) updateData.strategy = String((data as any).strategy).toUpperCase();
+  if ((data as any).ruleVariables !== undefined) updateData.ruleVariables = (data as any).ruleVariables;
+  if ((data as any).folderId !== undefined) updateData.folderId = (data as any).folderId;
+  if ((data as any).tags !== undefined) updateData.tags = (data as any).tags;
   if (data.status) {
     updateData.status = data.status.toUpperCase();
     if (data.status.toUpperCase() === 'PUBLISHED' && rule.status !== 'PUBLISHED') {

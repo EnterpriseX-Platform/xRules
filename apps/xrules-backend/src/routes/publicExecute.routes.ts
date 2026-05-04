@@ -4,8 +4,68 @@ import { prisma } from '../config/database.js';
 import { env } from '../config/env.js';
 import { apiKeyAuthMiddleware } from '../middleware/apiKeyAuth.js';
 import { NotFoundError } from '../utils/errors.js';
+import { parseSolverHeaders } from '../middleware/solverHeaders.js';
 
 const router = Router();
+
+// Resolve a rule by id OR alias within a project (alias precedence after id miss).
+async function resolveRule(idOrAlias: string, workspaceId: string) {
+  let rule = await prisma.rule.findUnique({
+    where: { id: idOrAlias },
+    include: { project: { include: { workspace: true } } },
+  });
+  if (!rule) {
+    // Try alias (project-scoped) — pick first match in workspace.
+    const matches = await prisma.rule.findMany({
+      where: { alias: idOrAlias, project: { workspaceId } },
+      include: { project: { include: { workspace: true } } },
+      take: 1,
+    });
+    rule = matches[0] || null;
+  }
+  return rule;
+}
+
+// Single-row solve (extracted to share with bulk).
+async function solveOne(rule: any, input: any, context: any, headers: ReturnType<typeof parseSolverHeaders>, apiKey: any, req: Request) {
+  const startTime = Date.now();
+  const engineDefinition = transformForEngine(rule);
+  const strategy = headers.strategy || rule.strategy || 'STANDARD';
+
+  const engineResponse = await axios.post(
+    `${env.engineHubUrl}/api/v1/execute`,
+    {
+      rule: { type: rule.type, engine: rule.engine || 'rules', definition: engineDefinition },
+      input: input || {},
+      context: {
+        ...context,
+        rule_id: rule.id, version: rule.version,
+        api_key_id: apiKey?.keyId,
+        correlation_id: headers.correlationId,
+        strategy,
+        lookup_method: headers.lookupMethod,
+      },
+    },
+    { timeout: 30000 },
+  );
+  const duration = Date.now() - startTime;
+  const output = engineResponse.data.output ?? engineResponse.data;
+
+  // Audit gate — skip Execution row if X-Audit=false.
+  if (headers.audit) {
+    await prisma.execution.create({
+      data: {
+        ruleId: rule.id, ruleVersion: rule.version,
+        input: (input || {}) as object, output: output as object,
+        status: 'SUCCESS', duration,
+        apiKeyId: (apiKey?.id as any) || null,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+    });
+  }
+  return { output, duration_ms: duration, version: rule.version, correlation_id: headers.correlationId };
+}
 
 /**
  * Public execute endpoint — authenticates via API key (X-API-Key header).
@@ -13,6 +73,33 @@ const router = Router();
  *
  * POST /api/v1/rules/:id/execute
  */
+// DR-style versioned alias path: POST /api/v1/rules/:idOrAlias/v/:version/execute
+router.post('/rules/:idOrAlias/v/:version/execute', apiKeyAuthMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.apiKey!.scopes.includes('execute')) {
+      res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'API key does not have execute scope' } }); return;
+    }
+    const rule = await resolveRule(req.params.idOrAlias, req.apiKey!.workspaceId);
+    if (!rule) throw new NotFoundError('Rule');
+    if (rule.project.workspaceId !== req.apiKey!.workspaceId) {
+      res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Rule not in API key workspace' } }); return;
+    }
+    const headers = parseSolverHeaders(req);
+    const data = req.body?.data ?? req.body?.input;
+    const isBulk = Array.isArray(data);
+    if (isBulk) {
+      const results = await Promise.all(data.map((row: any) => solveOne(rule, row, req.body?.context, headers, req.apiKey, req)));
+      res.json(results);
+    } else {
+      res.json(await solveOne(rule, data, req.body?.context, headers, req.apiKey, req));
+    }
+  } catch (err: any) {
+    if (err?.response?.data?.message) {
+      res.status(err.response.status || 500).json({ success: false, error: { code: 'ENGINE_ERROR', message: err.response.data.message } });
+    } else { next(err); }
+  }
+});
+
 router.post('/rules/:id/execute', apiKeyAuthMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const ruleId = req.params.id;

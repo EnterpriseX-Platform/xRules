@@ -9,7 +9,11 @@ function format(flow: any) {
     id: flow.id,
     name: flow.name,
     slug: flow.slug,
+    alias: flow.alias,
     description: flow.description,
+    kind: (flow.kind || 'DECISION').toLowerCase(),
+    locked: flow.locked || false,
+    folderId: flow.folderId,
     graph: flow.graph,
     inputSchema: flow.inputSchema,
     outputSchema: flow.outputSchema,
@@ -22,10 +26,11 @@ function format(flow: any) {
   };
 }
 
-export async function listFlows(projectId: string, user: AuthUser, status?: string) {
+export async function listFlows(projectId: string, user: AuthUser, status?: string, kind?: string) {
   await assertProjectAccess(projectId, user);
   const where: any = { projectId };
   if (status) where.status = status.toUpperCase();
+  if (kind) where.kind = kind.toUpperCase();
   const flows = await prisma.flow.findMany({ where, orderBy: { updatedAt: 'desc' } });
   return flows.map(format);
 }
@@ -49,16 +54,23 @@ export async function createFlow(
   while (await prisma.flow.findUnique({ where: { projectId_slug: { projectId: data.projectId, slug } } })) {
     slug = `${baseSlug}-${counter}`; counter++;
   }
+  let alias = baseSlug;
+  let aliasCounter = 1;
+  while (await prisma.flow.findUnique({ where: { projectId_alias: { projectId: data.projectId, alias } } })) {
+    alias = `${baseSlug}-${aliasCounter}`; aliasCounter++;
+  }
+  const kind = ((data as any).kind || 'DECISION').toUpperCase() as any;
   const flow = await prisma.flow.create({
     data: {
       name: data.name,
-      slug,
+      slug, alias, kind,
       description: data.description,
       graph: data.graph || { nodes: [], edges: [] },
       inputSchema: data.inputSchema,
       outputSchema: data.outputSchema,
       tags: data.tags || [],
       projectId: data.projectId,
+      folderId: (data as any).folderId,
     },
   });
   return format(flow);
