@@ -2,9 +2,9 @@
 
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Sparkles, BookOpen, History, Settings, Code2, ListChecks, Save, Rocket, Lock, Unlock, GitCompare } from 'lucide-react';
+import { Send, Sparkles, BookOpen, History, Settings, Code2, ListChecks, Save, Rocket, Lock, Unlock, GitCompare, Check, X } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { PageContent } from '@/components/layout/AppShell';
 import { StatusPill, Pill } from '@/components/ui/Pill';
@@ -246,25 +246,39 @@ function SchemasTab({ rule }: { rule: any }) {
 }
 
 function TestTab({ rule }: { rule: any }) {
-  const [input, setInput] = useState('{}');
+  const sampleInput = useMemo(() => sampleFromSchema(rule.inputSchema), [rule.inputSchema]);
+  const [input, setInput] = useState(() => JSON.stringify(sampleInput, null, 2));
   const [output, setOutput] = useState<any>(null);
   const [duration, setDuration] = useState<number | null>(null);
+  const [executionId, setExecutionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
 
   async function run() {
-    setRunning(true); setError(null); setOutput(null);
+    setRunning(true); setError(null); setOutput(null); setExecutionId(null);
     try {
       const t0 = Date.now();
       const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}/execute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('xrules_token')}` },
-        body: JSON.stringify({ ruleId: rule.id, input: JSON.parse(input), context: {} }),
+        body: JSON.stringify({ rule_id: rule.id, input: JSON.parse(input), context: {} }),
       });
       const json = await res.json();
       setDuration(Date.now() - t0);
-      if (!json.success) setError(json.error?.message || 'Failed');
-      else setOutput(json.data?.output);
+      if (!json.success && json.error) {
+        setError(json.error.message || 'Failed');
+      } else {
+        const data = json.data || json;
+        setOutput(data.output);
+        setExecutionId(data.id || null);
+        // Persist trace globally so TableDesigner picks it up on remount.
+        try {
+          (window as any).__xrulesLastTrace = { ruleId: rule.id, input: JSON.parse(input), output: data.output };
+        } catch {}
+        window.dispatchEvent(new CustomEvent('xrules:test-trace', {
+          detail: { ruleId: rule.id, output: data.output, input: JSON.parse(input) }
+        }));
+      }
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -272,11 +286,19 @@ function TestTab({ rule }: { rule: any }) {
     }
   }
 
+  function reset() {
+    setInput(JSON.stringify(sampleInput, null, 2));
+    setOutput(null); setError(null); setDuration(null); setExecutionId(null);
+  }
+
   return (
     <div className="grid grid-cols-2 gap-4">
       <div className="card overflow-hidden">
         <div className="px-4 py-2.5 border-b border-border flex items-center justify-between">
-          <span className="label-section">Input</span>
+          <div className="flex items-center gap-2">
+            <span className="label-section">Input JSON</span>
+            <button onClick={reset} className="btn-ghost text-[11px] text-subtle hover:text-text">reset</button>
+          </div>
           <button onClick={run} disabled={running} className="btn-primary text-xs disabled:opacity-50">
             <Send className="h-3 w-3" />
             {running ? 'Running…' : 'Run'}
@@ -288,16 +310,57 @@ function TestTab({ rule }: { rule: any }) {
       <div className="card overflow-hidden">
         <div className="px-4 py-2.5 border-b border-border flex items-center justify-between">
           <span className="label-section">Output</span>
-          {duration !== null && <span className="font-mono text-[11px] text-subtle tabular-nums">{duration}ms</span>}
+          <div className="flex items-center gap-3 font-mono text-[11px] text-subtle tabular-nums">
+            {duration !== null && <span>{duration}ms</span>}
+            {executionId && <span className="opacity-60">{executionId.slice(0, 10)}…</span>}
+          </div>
         </div>
         <div className="p-4 h-[450px] overflow-auto font-mono text-xs">
-          {error && <div className="pill pill-danger mb-2">{error}</div>}
-          {output && <pre className="text-text whitespace-pre-wrap">{JSON.stringify(output, null, 2)}</pre>}
-          {!output && !error && <div className="text-subtle">Click Run to execute the rule</div>}
+          {error && (
+            <div className="pill pill-danger mb-2">
+              <X className="h-3 w-3" /> {error}
+            </div>
+          )}
+          {output !== null && output !== undefined && (
+            <>
+              <div className="pill pill-ok mb-2">
+                <Check className="h-3 w-3" /> Success
+              </div>
+              <pre className="text-text whitespace-pre-wrap leading-relaxed">{JSON.stringify(output, null, 2)}</pre>
+            </>
+          )}
+          {output === null && !error && !running && (
+            <div className="text-subtle">
+              Click <span className="font-medium text-text">Run</span> to execute the rule with the input on the left.
+              <div className="text-[10px] mt-2 opacity-70">
+                Sample input is pre-filled from the rule's input schema.
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
+}
+
+// Generate a plausible sample object from a JSON Schema 2020-12 subset.
+function sampleFromSchema(schema: any): any {
+  if (!schema || typeof schema !== 'object') return {};
+  if (schema.example !== undefined) return schema.example;
+  if (schema.default !== undefined) return schema.default;
+  if (schema.type === 'object' || schema.properties) {
+    const out: any = {};
+    for (const [k, v] of Object.entries<any>(schema.properties || {})) {
+      out[k] = sampleFromSchema(v);
+    }
+    return out;
+  }
+  if (schema.type === 'array') return [sampleFromSchema(schema.items || {})];
+  if (schema.type === 'string') return schema.enum?.[0] || schema.format === 'date-time' ? new Date().toISOString() : '';
+  if (schema.type === 'number' || schema.type === 'integer') return schema.minimum ?? 0;
+  if (schema.type === 'boolean') return false;
+  if (schema.enum) return schema.enum[0];
+  return null;
 }
 
 function SimulateTab({ rule, projectId }: { rule: any; projectId: string }) {

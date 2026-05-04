@@ -5,7 +5,10 @@
 // Colors: condition cells (LHS) tinted yellow; result cells (RHS) tinted green.
 // Rule definition shape kept compatible:
 //   { hitPolicy: 'FIRST'|'ARRAY'|..., inputs:[{name,type,label}], outputs:[...], rules:[{id,inputs:[...],outputs:[...]}] }
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+
+// Module-level cache so the trace highlight survives DEFINITION ↔ TEST tab switches.
+let lastTrace: Record<string, any> | null = null;
 import { Plus, Trash2, Copy, Check, AlertTriangle, Search, ArrowDown } from 'lucide-react';
 import { OPERATORS, HIT_POLICIES, formatCellExpression, parseCellExpression } from './operators';
 import { cn } from '@/lib/cn';
@@ -38,6 +41,50 @@ export function TableDesigner({
   })));
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
+
+  // Trace overlay — when the Test tab runs the rule, highlight rows whose
+  // conditions all match the test input. Approximate (doesn't yet honour
+  // engine's hit policy) but visually useful.
+  // Read persisted trace from window so it survives tab switches.
+  const [traceInput, setTraceInput] = useState<Record<string, any> | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return (window as any).__xrulesLastTrace?.input || null;
+  });
+  useEffect(() => {
+    const persisted = (window as any).__xrulesLastTrace;
+    if (persisted?.input) setTraceInput(persisted.input);
+    const handler = (e: any) => {
+      if (e.detail?.input && typeof e.detail.input === 'object') {
+        setTraceInput(e.detail.input);
+      }
+    };
+    window.addEventListener('xrules:test-trace', handler);
+    return () => window.removeEventListener('xrules:test-trace', handler);
+  }, []);
+  const matchedRowIds = useMemo(() => {
+    if (!traceInput) return new Set<string>();
+    const out = new Set<string>();
+    for (const row of rows) {
+      let allMatch = true;
+      let anyConditionEvaluated = false;
+      for (let i = 0; i < inputs.length; i++) {
+        const col = inputs[i];
+        const cell = row.inputs?.[i];
+        if (cell === undefined || cell === null) continue;
+        // Wildcard cells — these always pass.
+        if (typeof cell === 'string') {
+          const trimmed = cell.trim();
+          if (!trimmed || trimmed === 'ANY' || trimmed === '*' || trimmed === '_') continue;
+        }
+        if (typeof cell === 'object' && (cell.op === 'ANY' || cell.value === undefined || cell.value === null || cell.value === '')) continue;
+        anyConditionEvaluated = true;
+        const inp = traceInput[col.name];
+        if (!evalCellMatch(cell, inp)) { allMatch = false; break; }
+      }
+      if (allMatch && anyConditionEvaluated) out.add(row.id);
+    }
+    return out;
+  }, [traceInput, rows, inputs]);
 
   // Push a snapshot up to parent whenever we mutate
   function emit(next: Partial<{ hitPolicy: string; inputs: Column[]; outputs: Column[]; rows: Row[] }>) {
@@ -217,12 +264,14 @@ export function TableDesigner({
               const isDup = duplicates.has(r.id);
               const visible = filteredRowIds.has(r.id);
               if (!visible) return null;
+              const isMatched = matchedRowIds.has(r.id);
               return (
                 <tr key={r.id} className={cn(
-                  'border-b border-border/50',
-                  isDup && 'bg-warn/5',
-                  isElse && 'bg-mint/5',
-                  selected.has(r.id) && 'bg-accent/5',
+                  'border-b border-border/50 transition-colors',
+                  isMatched && 'ring-2 ring-ok/40 bg-ok/10',
+                  !isMatched && isDup && 'bg-warn/5',
+                  !isMatched && isElse && 'bg-mint/5',
+                  !isMatched && selected.has(r.id) && 'bg-accent/5',
                 )}>
                   <td className="px-2 py-1.5 align-middle">
                     <input
@@ -395,4 +444,43 @@ function normalizeColumns(stored: any[] | undefined, schema: any, side: ColumnSi
     }));
   }
   return [];
+}
+
+// Approximate condition evaluator for the trace overlay. Mirrors the
+// engine's match semantics for the most common operators.
+function evalCellMatch(cell: any, value: any): boolean {
+  if (cell === undefined || cell === null) return true;
+  if (typeof cell === 'string') {
+    const v = cell.trim();
+    if (!v || v === '_' || v === '*' || v.toLowerCase() === 'any') return true;
+    if (v === '_else_' || v === 'ELSE') return true;
+    if (v.startsWith('>=')) return Number(value) >= Number(v.slice(2));
+    if (v.startsWith('<=')) return Number(value) <= Number(v.slice(2));
+    if (v.startsWith('>'))  return Number(value) >  Number(v.slice(1));
+    if (v.startsWith('<'))  return Number(value) <  Number(v.slice(1));
+    if (v.startsWith('=='))  return String(value) === v.slice(2).trim();
+    if (v.startsWith('=')) return String(value) === v.slice(1).trim();
+    if (v.startsWith('!=')) return String(value) !== v.slice(2).trim();
+    if (v.startsWith('in:')) return v.slice(3).split(',').map(s=>s.trim()).includes(String(value));
+    if (v.includes('..')) {
+      const [lo, hi] = v.split('..').map(Number);
+      const n = Number(value);
+      return Number.isFinite(n) && n >= lo && n <= hi;
+    }
+    return String(value) === v;
+  }
+  if (typeof cell === 'object') {
+    if (cell.op === 'ANY' || cell.op === '*') return true;
+    if (cell.op === 'eq' || cell.op === '=') return value === cell.value || String(value) === String(cell.value);
+    if (cell.op === '>=' || cell.op === 'gte') return Number(value) >= Number(cell.value);
+    if (cell.op === '<=' || cell.op === 'lte') return Number(value) <= Number(cell.value);
+    if (cell.op === '>'  || cell.op === 'gt')  return Number(value) >  Number(cell.value);
+    if (cell.op === '<'  || cell.op === 'lt')  return Number(value) <  Number(cell.value);
+    if (cell.op === 'in' && Array.isArray(cell.value)) return cell.value.includes(value);
+    if (cell.op === 'between' && Array.isArray(cell.value)) {
+      const [lo, hi] = cell.value;
+      return Number(value) >= Number(lo) && Number(value) <= Number(hi);
+    }
+  }
+  return false;
 }
