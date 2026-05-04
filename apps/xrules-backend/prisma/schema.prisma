@@ -1,0 +1,667 @@
+// XRules v2 — Decision Management Platform
+// Single source of truth for the data model.
+// Studio (frontend) consumes types via API, not direct Prisma access.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// IDENTITY & TENANCY
+// =============================================================================
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  password      String?
+  emailVerified DateTime?
+
+  workspaces    WorkspaceMember[]
+  createdRules  Rule[]
+  ruleVersions  RuleVersion[]     @relation("rule_version_author")
+  models        Model[]           @relation("model_author")
+  apiKeys       ApiKey[]          @relation("apikey_author")
+  releases      Release[]         @relation("release_author")
+  auditLogs     AuditLog[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model Workspace {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  settings    Json     @default("{}")
+  plan        Plan     @default(FREE)
+
+  members     WorkspaceMember[]
+  projects    Project[]
+  apiKeys     ApiKey[]
+  webhooks    Webhook[]
+  auditLogs   AuditLog[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("workspaces")
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+model WorkspaceMember {
+  id          String        @id @default(uuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole @default(MEMBER)
+
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime      @default(now())
+
+  @@unique([workspaceId, userId])
+  @@map("workspace_members")
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+// =============================================================================
+// PROJECT — domain grouping
+// =============================================================================
+
+model Project {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String
+  description String?
+  color       String?
+  icon        String?
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  rules        Rule[]
+  flows        Flow[]
+  models       Model[]
+  connections  Connection[]
+  datasets     Dataset[]
+  testSuites   TestSuite[]
+  scenarios    Scenario[]
+  releases     Release[]
+  environments Environment[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([workspaceId, slug])
+  @@map("projects")
+}
+
+// =============================================================================
+// RULE — atomic decision unit
+// =============================================================================
+
+model Rule {
+  id           String     @id @default(uuid())
+  name         String
+  slug         String
+  description  String?
+  type         RuleType   @default(DECISION_TABLE)
+  engine       String     @default("rules")
+  definition   Json       @default("{}")
+  inputSchema  Json?
+  outputSchema Json?
+  tags         String[]   @default([])
+  status       RuleStatus @default(DRAFT)
+  version      Int        @default(1)
+
+  projectId    String
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdById  String
+  createdBy    User       @relation(fields: [createdById], references: [id])
+
+  versions       RuleVersion[]
+  testCases      TestCase[]
+  testSuiteLinks TestSuiteRule[]
+  executions     Execution[]
+  dependsOn      RuleDependency[] @relation("dep_from")
+  dependedBy     RuleDependency[] @relation("dep_to")
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([projectId, slug])
+  @@index([projectId, status])
+  @@map("rules")
+}
+
+enum RuleType {
+  DECISION_TABLE
+  DECISION_TREE
+  FORMULA
+  SCRIPT
+  LOOKUP
+  MODEL_CALL
+}
+
+enum RuleStatus {
+  DRAFT
+  READY
+  PUBLISHED
+  ARCHIVED
+}
+
+model RuleVersion {
+  id           String     @id @default(uuid())
+  version      Int
+  definition   Json
+  inputSchema  Json?
+  outputSchema Json?
+  status       RuleStatus
+  message      String?
+  changeStats  Json?
+
+  ruleId       String
+  rule         Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  createdById  String
+  createdBy    User       @relation("rule_version_author", fields: [createdById], references: [id])
+
+  createdAt    DateTime   @default(now())
+
+  @@unique([ruleId, version])
+  @@map("rule_versions")
+}
+
+model RuleDependency {
+  id        String @id @default(uuid())
+  fromId    String
+  toId      String
+  kind      String @default("call")
+
+  from      Rule   @relation("dep_from", fields: [fromId], references: [id], onDelete: Cascade)
+  to        Rule   @relation("dep_to",   fields: [toId],   references: [id], onDelete: Cascade)
+
+  @@unique([fromId, toId, kind])
+  @@map("rule_dependencies")
+}
+
+// =============================================================================
+// FLOW — orchestration
+// =============================================================================
+
+model Flow {
+  id           String     @id @default(uuid())
+  name         String
+  slug         String
+  description  String?
+  graph        Json       @default("{}")
+  inputSchema  Json?
+  outputSchema Json?
+  tags         String[]   @default([])
+  status       RuleStatus @default(DRAFT)
+  version      Int        @default(1)
+
+  projectId    String
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  versions     FlowVersion[]
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([projectId, slug])
+  @@map("flows")
+}
+
+model FlowVersion {
+  id           String     @id @default(uuid())
+  version      Int
+  graph        Json
+  inputSchema  Json?
+  outputSchema Json?
+  status       RuleStatus
+  message      String?
+
+  flowId       String
+  flow         Flow       @relation(fields: [flowId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime   @default(now())
+
+  @@unique([flowId, version])
+  @@map("flow_versions")
+}
+
+// =============================================================================
+// MODEL — uploaded artifact
+// =============================================================================
+
+model Model {
+  id          String      @id @default(uuid())
+  name        String
+  slug        String
+  type        ModelType
+  version     String      @default("1.0.0")
+  config      Json        @default("{}")
+  status      ModelStatus @default(INACTIVE)
+  metadata    Json?
+  artifactUri String?
+
+  projectId   String
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdById String
+  createdBy   User        @relation("model_author", fields: [createdById], references: [id])
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([projectId, slug])
+  @@map("models")
+}
+
+enum ModelType {
+  ML
+  LLM
+  PMML
+}
+
+enum ModelStatus {
+  ACTIVE
+  INACTIVE
+  DEPRECATED
+}
+
+// =============================================================================
+// CONNECTION — outbound credentials
+// =============================================================================
+
+model Connection {
+  id          String         @id @default(uuid())
+  name        String
+  slug        String
+  type        ConnectionType
+  configEnc   String
+  meta        Json           @default("{}")
+
+  projectId   String
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([projectId, slug])
+  @@map("connections")
+}
+
+enum ConnectionType {
+  HTTP
+  POSTGRES
+  MYSQL
+  REDIS
+  KAFKA
+  S3
+}
+
+// =============================================================================
+// TESTING
+// =============================================================================
+
+model TestCase {
+  id         String     @id @default(uuid())
+  name       String
+  input      Json
+  expected   Json?
+  assertions Json?
+  lastResult Json?
+  lastStatus TestStatus @default(PENDING)
+
+  ruleId     String
+  rule       Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@map("test_cases")
+}
+
+enum TestStatus {
+  PENDING
+  PASS
+  FAIL
+  ERROR
+}
+
+model Dataset {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String
+  format    String   @default("jsonl")
+  uri       String?
+  inline    Json?
+  rowCount  Int      @default(0)
+  schema    Json?
+
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  testRuns  TestRun[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, slug])
+  @@map("datasets")
+}
+
+model TestSuite {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String
+  description String?
+
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  rules       TestSuiteRule[]
+  runs        TestRun[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([projectId, slug])
+  @@map("test_suites")
+}
+
+model TestSuiteRule {
+  testSuiteId String
+  ruleId      String
+  version     Int?
+
+  testSuite   TestSuite @relation(fields: [testSuiteId], references: [id], onDelete: Cascade)
+  rule        Rule      @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@id([testSuiteId, ruleId])
+  @@map("test_suite_rules")
+}
+
+model TestRun {
+  id           String        @id @default(uuid())
+  status       TestRunStatus @default(PENDING)
+  passed       Int           @default(0)
+  failed       Int           @default(0)
+  errored      Int           @default(0)
+  totalRows    Int           @default(0)
+  coverage     Json?
+  startedAt    DateTime?
+  finishedAt   DateTime?
+
+  testSuiteId  String
+  testSuite    TestSuite     @relation(fields: [testSuiteId], references: [id], onDelete: Cascade)
+
+  datasetId    String?
+  dataset      Dataset?      @relation(fields: [datasetId], references: [id])
+
+  results      TestRunResult[]
+
+  createdAt    DateTime      @default(now())
+
+  @@index([testSuiteId, createdAt])
+  @@map("test_runs")
+}
+
+enum TestRunStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+model TestRunResult {
+  id          String     @id @default(uuid())
+  rowIndex    Int
+  ruleId      String
+  ruleVersion Int
+  input       Json
+  output      Json?
+  expected    Json?
+  status      TestStatus
+  error       String?
+  durationMs  Int?
+
+  testRunId   String
+  testRun     TestRun    @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+
+  @@index([testRunId, status])
+  @@map("test_run_results")
+}
+
+// =============================================================================
+// SIMULATION
+// =============================================================================
+
+model Scenario {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String
+  description String?
+  input       Json
+  context     Json?
+  tags        String[] @default([])
+
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([projectId, slug])
+  @@map("scenarios")
+}
+
+model Simulation {
+  id          String           @id @default(uuid())
+  name        String
+  kind        SimulationKind
+  config      Json
+  status      SimulationStatus @default(PENDING)
+  result      Json?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+
+  projectId   String
+
+  createdAt   DateTime         @default(now())
+
+  @@index([projectId, createdAt])
+  @@map("simulations")
+}
+
+enum SimulationKind {
+  DIFF
+  REPLAY
+  CHAMPION_CHALLENGER
+  SWEEP
+}
+
+enum SimulationStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+// =============================================================================
+// RELEASE & ENVIRONMENT
+// =============================================================================
+
+model Release {
+  id          String        @id @default(uuid())
+  name        String
+  description String?
+  manifest    Json
+  status      ReleaseStatus @default(DRAFT)
+
+  projectId   String
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdById String
+  createdBy   User          @relation("release_author", fields: [createdById], references: [id])
+
+  pinnedIn    Environment[]
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([projectId, name])
+  @@map("releases")
+}
+
+enum ReleaseStatus {
+  DRAFT
+  PUBLISHED
+  REVOKED
+}
+
+model Environment {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String
+  description String?
+  overrides   Json?
+
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  releaseId   String?
+  release     Release? @relation(fields: [releaseId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([projectId, slug])
+  @@map("environments")
+}
+
+// =============================================================================
+// EXECUTION LOG
+// =============================================================================
+
+model Execution {
+  id           String          @id @default(uuid())
+  input        Json
+  output       Json?
+  status       ExecutionStatus @default(PENDING)
+  duration     Int?
+  error        String?
+
+  ruleId       String
+  rule         Rule            @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  ruleVersion  Int
+  environment  String?
+
+  trace        Json?
+
+  apiKeyId     String?
+  ipAddress    String?
+  userAgent    String?
+
+  createdAt    DateTime        @default(now())
+
+  @@index([ruleId, createdAt])
+  @@index([environment, createdAt])
+  @@map("executions")
+}
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  TIMEOUT
+}
+
+// =============================================================================
+// API KEYS, WEBHOOKS, AUDIT
+// =============================================================================
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  name        String
+  keyHash     String    @unique
+  prefix      String
+  scopes      String[]  @default(["execute"])
+  projectIds  String[]  @default([])
+  expiresAt   DateTime?
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  createdById String
+  createdBy   User      @relation("apikey_author", fields: [createdById], references: [id])
+
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@map("api_keys")
+}
+
+model Webhook {
+  id          String   @id @default(uuid())
+  name        String
+  url         String
+  events      String[]
+  secret      String
+  active      Boolean  @default(true)
+  ruleIds     String[] @default([])
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("webhooks")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  action      String
+  resource    String
+  resourceId  String?
+  details     Json?
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@map("audit_logs")
+}
