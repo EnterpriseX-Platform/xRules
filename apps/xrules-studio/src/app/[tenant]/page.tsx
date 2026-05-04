@@ -15,9 +15,13 @@ export default function DashboardPage() {
     retry: false,
   });
 
-  const stats = data?.stats || {
-    projectCount: 0, ruleCount: 0, flowCount: 0,
-    modelCount: 0, executionCount: 0, memberCount: 0,
+  const raw = data?.stats || {};
+  const stats = {
+    projects:   raw.projects   ?? raw.projectCount   ?? 0,
+    rules:      raw.rules      ?? raw.ruleCount      ?? 0,
+    flows:      raw.flows      ?? raw.flowCount      ?? 0,
+    models:     raw.models     ?? raw.modelCount     ?? 0,
+    executions: raw.executions ?? raw.executionCount ?? 0,
   };
 
   return (
@@ -26,25 +30,25 @@ export default function DashboardPage() {
         title="Dashboard"
         description="Overview of decisions executed across your workspace"
         stats={[
-          { label: 'Projects',    value: stats.projectCount },
-          { label: 'Rules',       value: stats.ruleCount },
-          { label: 'Flows',       value: stats.flowCount },
-          { label: 'Executions',  value: stats.executionCount },
+          { label: 'Projects',    value: stats.projects },
+          { label: 'Rules',       value: stats.rules },
+          { label: 'Flows',       value: stats.flows },
+          { label: 'Executions',  value: stats.executions },
         ]}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <KpiCard label="Projects"   value={stats.projectCount} icon={FolderKanban} tone="info" />
-        <KpiCard label="Rules"      value={stats.ruleCount}    icon={FileText}     tone="info" />
-        <KpiCard label="Flows"      value={stats.flowCount}    icon={Workflow}     tone="mint" />
-        <KpiCard label="Models"     value={stats.modelCount}   icon={Brain}        tone="warn" />
+        <KpiCard label="Projects" value={stats.projects} icon={FolderKanban} tone="info" />
+        <KpiCard label="Rules"    value={stats.rules}    icon={FileText}     tone="info" />
+        <KpiCard label="Flows"    value={stats.flows}    icon={Workflow}     tone="mint" />
+        <KpiCard label="Models"   value={stats.models}   icon={Brain}        tone="warn" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 card p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-mono uppercase tracking-label text-subtle">Recent Executions</h2>
-            <span className="font-mono text-[10px] text-subtle tabular-nums">{stats.executionCount.toLocaleString()} TOTAL</span>
+            <span className="font-mono text-[10px] text-subtle tabular-nums">{Number(stats.executions).toLocaleString()} TOTAL</span>
           </div>
           <RecentTable rows={data?.recentExecutions || []} loading={isLoading} />
         </div>

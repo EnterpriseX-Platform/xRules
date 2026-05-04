@@ -124,7 +124,8 @@ export const apiKeysApi = {
 };
 
 export const dashboardApi = {
-  get: (workspaceSlug: string) => api.get<any>(`/dashboard?workspace=${workspaceSlug}`),
+  get: (workspaceSlug: string) =>
+    api.get<any>(`/dashboard${workspaceSlug ? `?workspace=${workspaceSlug}` : ''}`),
 };
 
 export const authApi = {

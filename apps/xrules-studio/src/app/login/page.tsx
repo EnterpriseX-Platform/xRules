@@ -21,8 +21,8 @@ export default function LoginPage() {
     setError(null);
     try {
       const res = await authApi.login(email, password);
-      const tenant = res.workspace?.slug || res.user?.tenantId || 'default';
-      setAuth(res.token, res.user, res.workspace);
+      const tenant = res.user?.tenantId || 'default';
+      setAuth(res.access_token || res.token, res.user, { id: '', slug: tenant, name: tenant });
       router.push(`/${tenant}`);
     } catch (e: any) {
       setError(e.message || 'Login failed');

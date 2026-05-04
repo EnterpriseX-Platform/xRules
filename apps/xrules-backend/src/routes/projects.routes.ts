@@ -6,11 +6,11 @@ const router = Router();
 
 router.get('/', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const workspaceSlug = req.query.workspace as string;
+    const workspaceSlug = (req.query.workspace as string) || req.user!.tenantId;
     if (!workspaceSlug) {
       res.status(400).json({
         success: false,
-        error: { code: 'INVALID_INPUT', message: 'Workspace slug is required' },
+        error: { code: 'INVALID_INPUT', message: 'Workspace slug is required (or set tenantId on user)' },
       });
       return;
     }
