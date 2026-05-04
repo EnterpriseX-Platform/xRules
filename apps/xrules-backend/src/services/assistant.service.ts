@@ -53,7 +53,7 @@ export async function chat(
   const systemPrompt = SYSTEM_PROMPT_TEMPLATE.replace('{{PROJECT_CONTEXT}}', ctx);
 
   if (provider === 'anthropic') {
-    return chatAnthropic(apiKey, opts.model || 'claude-haiku-4-5', systemPrompt, messages);
+    return chatAnthropic(apiKey, opts.model || 'claude-haiku-4-5', systemPrompt, messages, projectId, user);
   }
   return chatOpenAI(apiKey, opts.model || 'gpt-4o-mini', systemPrompt, messages);
 }
@@ -92,31 +92,123 @@ async function buildProjectContext(projectId: string): Promise<string> {
   return lines.join('\n');
 }
 
-async function chatAnthropic(apiKey: string, model: string, system: string, messages: ChatMessage[]) {
+// Tools the assistant can call on the user's behalf.
+const ANTHROPIC_TOOLS = [
+  {
+    name: 'list_rules',
+    description: 'List all rules in the current project. Returns name, slug, type, status, version.',
+    input_schema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'get_rule',
+    description: 'Fetch a single rule by slug or id, including its definition and schemas. Use when the user asks "what does rule X do" or before generating a similar rule.',
+    input_schema: {
+      type: 'object',
+      required: ['slug'],
+      properties: { slug: { type: 'string', description: 'Rule slug or id' } },
+    },
+  },
+  {
+    name: 'execute_rule',
+    description: 'Execute a rule with the given input and return the output. Use when the user asks "run X with these inputs" or to demo a rule.',
+    input_schema: {
+      type: 'object',
+      required: ['slug', 'input'],
+      properties: {
+        slug: { type: 'string', description: 'Rule slug or id' },
+        input: { type: 'object', description: 'Input JSON matching the rule input schema' },
+      },
+    },
+  },
+] as const;
+
+async function runTool(name: string, args: any, projectId: string, user: AuthUser): Promise<any> {
+  switch (name) {
+    case 'list_rules': {
+      const rules = await prisma.rule.findMany({
+        where: { projectId },
+        select: { id: true, name: true, slug: true, alias: true, type: true, status: true, version: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 100,
+      });
+      return rules.map(r => ({ ...r, type: r.type.toLowerCase(), status: r.status.toLowerCase() }));
+    }
+    case 'get_rule': {
+      const ref = String(args?.slug || '');
+      const looksLikeId = /^[a-z0-9]{20,30}$/i.test(ref);
+      const rule = looksLikeId
+        ? await prisma.rule.findUnique({ where: { id: ref } })
+        : await prisma.rule.findFirst({ where: { OR: [{ slug: ref }, { alias: ref }], projectId } });
+      if (!rule) return { error: `Rule '${ref}' not found in project` };
+      return {
+        id: rule.id, name: rule.name, slug: rule.slug, alias: rule.alias,
+        type: rule.type.toLowerCase(), status: rule.status.toLowerCase(), version: rule.version,
+        description: rule.description,
+        inputSchema: rule.inputSchema, outputSchema: rule.outputSchema,
+        definition: rule.definition,
+      };
+    }
+    case 'execute_rule': {
+      const ref = String(args?.slug || '');
+      const { executeRule } = await import('./execute.service.js');
+      try {
+        const result = await executeRule(ref, args?.input || {}, {}, user);
+        return { success: true, output: (result as any).output, duration_ms: (result as any).duration };
+      } catch (e: any) {
+        return { success: false, error: String(e?.message || e) };
+      }
+    }
+  }
+  return { error: `Unknown tool: ${name}` };
+}
+
+async function chatAnthropic(apiKey: string, model: string, system: string, messages: ChatMessage[], projectId?: string, user?: AuthUser) {
   // Anthropic format: messages with alternating user/assistant; system separate.
-  const filtered = messages.filter(m => m.role !== 'system').map(m => ({
+  let workingMessages: any[] = messages.filter(m => m.role !== 'system').map(m => ({
     role: m.role,
     content: m.content,
   }));
-  const resp = await axios.post(
-    'https://api.anthropic.com/v1/messages',
-    {
-      model,
-      max_tokens: 2048,
-      system,
-      messages: filtered,
-    },
-    {
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
+
+  const enableTools = !!projectId && !!user;
+  // Tool-use loop. Anthropic returns tool_use blocks; we run them and feed
+  // results back as tool_result content. Loop up to 4 turns to avoid runaway.
+  const trace: Array<{ tool: string; input: any; output: any }> = [];
+  for (let turn = 0; turn < 4; turn++) {
+    const body: any = { model, max_tokens: 2048, system, messages: workingMessages };
+    if (enableTools) body.tools = ANTHROPIC_TOOLS;
+
+    const resp = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      body,
+      {
+        headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+        timeout: 60_000,
       },
-      timeout: 60_000,
-    },
-  );
-  const text = resp.data?.content?.[0]?.text || '';
-  return { reply: text, provider: 'anthropic', model };
+    );
+    const content = resp.data?.content || [];
+    const stopReason = resp.data?.stop_reason;
+
+    if (stopReason !== 'tool_use') {
+      const text = content.find((c: any) => c.type === 'text')?.text || '';
+      return { reply: text, provider: 'anthropic', model, trace };
+    }
+
+    // Append assistant turn (with tool_use) and run each tool
+    workingMessages.push({ role: 'assistant', content });
+    const toolResults: any[] = [];
+    for (const block of content) {
+      if (block.type !== 'tool_use') continue;
+      const out = await runTool(block.name, block.input, projectId!, user!);
+      trace.push({ tool: block.name, input: block.input, output: out });
+      toolResults.push({
+        type: 'tool_result',
+        tool_use_id: block.id,
+        content: JSON.stringify(out).slice(0, 8000), // cap size
+      });
+    }
+    workingMessages.push({ role: 'user', content: toolResults });
+  }
+  return { reply: '(stopped after 4 tool-use turns)', provider: 'anthropic', model, trace };
 }
 
 async function chatOpenAI(apiKey: string, model: string, system: string, messages: ChatMessage[]) {

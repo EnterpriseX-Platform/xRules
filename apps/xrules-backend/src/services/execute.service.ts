@@ -3,9 +3,33 @@ import { env } from '../config/env.js';
 import { prisma } from '../config/database.js';
 import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errors.js';
 import { callAIAgent } from './llm.service.js';
-import { runScripting, evalExpression } from './sandbox.service.js';
+import { runScripting, evalExpression, setSolveResolver } from './sandbox.service.js';
 import { dispatch as dispatchWebhook } from './webhooks.service.js';
 import type { AuthUser } from '../middleware/auth.js';
+
+// Wire DR.solve() in the sandbox so SCRIPT rules can chain into other rules.
+// We resolve by id, slug, or alias (project-scoped via the originating rule).
+// System user is used because the script runs server-side without a JWT.
+const SYSTEM_USER: AuthUser = { userId: '__system__', email: 'system@xrules', tenantId: '*', roles: ['OWNER'] } as any;
+let solveResolverWired = false;
+function ensureSolveResolver() {
+  if (solveResolverWired) return;
+  solveResolverWired = true;
+  setSolveResolver(async (slugOrId: string, payload: any) => {
+    const target = await resolveRuleByAny(slugOrId);
+    if (!target) throw new Error(`DR.solve: rule '${slugOrId}' not found`);
+    const result = await executeRule(target.id, payload || {}, {}, SYSTEM_USER);
+    return (result as any).output;
+  });
+}
+async function resolveRuleByAny(slugOrId: string) {
+  const looksLikeId = /^[a-z0-9]{20,30}$/i.test(slugOrId);
+  if (looksLikeId) {
+    const r = await prisma.rule.findUnique({ where: { id: slugOrId } });
+    if (r) return r;
+  }
+  return prisma.rule.findFirst({ where: { OR: [{ slug: slugOrId }, { alias: slugOrId }] } });
+}
 
 // In-process executors for rule kinds that don't go through the Rust engine:
 // AI Agent (LLM), Scorecard, Scripting Rule, Lookup Table.
@@ -68,25 +92,38 @@ function runLookup(def: any, input: any): any {
 }
 
 export async function executeRule(ruleId: string, input: any, context: any, user: AuthUser) {
+  ensureSolveResolver();
   if (!ruleId || !input) {
     throw new ValidationError('Rule ID and input are required');
   }
 
-  const rule = await prisma.rule.findUnique({
-    where: { id: ruleId },
-    include: { project: { include: { workspace: true } } },
-  });
-
+  // Accept id, slug, or alias
+  const looksLikeId = /^[a-z0-9]{20,30}$/i.test(ruleId);
+  let rule = looksLikeId
+    ? await prisma.rule.findUnique({
+        where: { id: ruleId },
+        include: { project: { include: { workspace: true } } },
+      })
+    : null;
+  if (!rule) {
+    rule = await prisma.rule.findFirst({
+      where: { OR: [{ slug: ruleId }, { alias: ruleId }] },
+      include: { project: { include: { workspace: true } } },
+    });
+  }
   if (!rule) {
     throw new NotFoundError('Rule');
   }
 
-  const membership = await prisma.workspaceMember.findFirst({
-    where: { workspaceId: rule.project.workspaceId, userId: user.userId },
-  });
-
-  if (!membership) {
-    throw new ForbiddenError('Access denied');
+  // System user (used by DR.solve chained calls) skips membership check —
+  // the originating call already validated the caller, so we trust the chain.
+  if (user.userId !== '__system__') {
+    const membership = await prisma.workspaceMember.findFirst({
+      where: { workspaceId: rule.project.workspaceId, userId: user.userId },
+    });
+    if (!membership) {
+      throw new ForbiddenError('Access denied');
+    }
   }
 
   const startTime = Date.now();

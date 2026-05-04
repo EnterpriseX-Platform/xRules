@@ -8,7 +8,12 @@ import { useProject } from '@/lib/store';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 
-interface Msg { role: 'user' | 'assistant'; content: string; ts: number }
+interface Msg {
+  role: 'user' | 'assistant';
+  content: string;
+  ts: number;
+  trace?: Array<{ tool: string; input: any; output: any }>;
+}
 
 export function AssistantPanel() {
   const [open, setOpen] = useState(false);
@@ -35,14 +40,14 @@ export function AssistantPanel() {
 
   const mut = useMutation({
     mutationFn: async (next: Msg[]) => {
-      const res = await api.post<{ reply: string; provider: string; model: string }>('/assistant/chat', {
+      const res = await api.post<{ reply: string; provider: string; model: string; trace?: any[] }>('/assistant/chat', {
         projectId,
         messages: next.map(m => ({ role: m.role, content: m.content })),
       });
       return res;
     },
     onSuccess: (res) => {
-      setMessages(prev => [...prev, { role: 'assistant', content: res.reply, ts: Date.now() }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: res.reply, ts: Date.now(), trace: res.trace }]);
     },
     onError: (err: any) => {
       setMessages(prev => [...prev, {
@@ -154,14 +159,29 @@ function Bubble({ m }: { m: Msg }) {
       )}>
         {isUser ? <User className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
       </div>
-      <div className={cn(
-        'rounded px-2.5 py-1.5 text-xs leading-relaxed max-w-[280px] whitespace-pre-wrap break-words',
-        isUser ? 'bg-muted' : 'border border-border bg-surface',
-      )}>
-        {renderContent(m.content)}
+      <div className="flex flex-col gap-1.5 max-w-[280px]">
+        {m.trace && m.trace.length > 0 && (
+          <div className="space-y-1">
+            {m.trace.map((t, i) => (
+              <div key={i} className="rounded border border-border/70 bg-muted/30 px-2 py-1 text-[10px] font-mono text-subtle">
+                <span className="text-accent">{t.tool}</span>(<span className="text-text">{compactJson(t.input)}</span>)
+              </div>
+            ))}
+          </div>
+        )}
+        <div className={cn(
+          'rounded px-2.5 py-1.5 text-xs leading-relaxed whitespace-pre-wrap break-words',
+          isUser ? 'bg-muted' : 'border border-border bg-surface',
+        )}>
+          {renderContent(m.content)}
+        </div>
       </div>
     </div>
   );
+}
+
+function compactJson(v: any): string {
+  try { const s = JSON.stringify(v); return s.length > 60 ? s.slice(0, 57) + '…' : s; } catch { return String(v); }
 }
 
 // Lightweight markdown: render fenced ```json as a code block, the rest as paragraphs.

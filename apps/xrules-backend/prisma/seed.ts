@@ -298,7 +298,107 @@ async function main() {
     },
   });
 
-  console.log('Created rules');
+  // Composite SCRIPT rule that chains into Discount Tiers and adds tax + total.
+  // Demonstrates rule-to-rule integration via DR.solve().
+  await prisma.rule.upsert({
+    where: { projectId_slug: { projectId: pricingProject.id, slug: 'order-quote' } },
+    update: {},
+    create: {
+      name: 'Order Quote (composite)',
+      slug: 'order-quote',
+      alias: 'order-quote',
+      description: 'Chains Discount Tiers via DR.solve, applies tax, returns final quote.',
+      type: 'SCRIPT',
+      status: 'PUBLISHED',
+      version: 1,
+      projectId: pricingProject.id,
+      createdById: admin.id,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          customerTier: { type: 'string', example: 'platinum' },
+          orderAmount:  { type: 'number', example: 1500 },
+          taxRate:      { type: 'number', example: 0.07 },
+        },
+      },
+      outputSchema: {
+        type: 'object',
+        properties: {
+          discountPercent: { type: 'number' },
+          discountAmount:  { type: 'number' },
+          subtotal:        { type: 'number' },
+          tax:             { type: 'number' },
+          total:           { type: 'number' },
+          freeShipping:    { type: 'boolean' },
+        },
+      },
+      definition: {
+        source: `
+const tier = await DR.solve('discount-tiers', {
+  customerTier: input.customerTier,
+  orderAmount: input.orderAmount,
+});
+const pct = Number(tier?.discountPercent ?? 0);
+const discountAmount = Math.round(input.orderAmount * pct) / 100 * 100 / 100;
+const subtotal = Math.round((input.orderAmount - input.orderAmount * pct / 100) * 100) / 100;
+const tax      = Math.round(subtotal * (input.taxRate ?? 0.07) * 100) / 100;
+const total    = Math.round((subtotal + tax) * 100) / 100;
+return { discountPercent: pct, discountAmount, subtotal, tax, total, freeShipping: !!tier?.freeShipping };
+        `.trim(),
+      },
+    },
+  });
+
+  // Sample HTTP Connection — points at httpbin (handy for live demos).
+  // Inline AES-256-GCM (mirrors connections.service.ts::encrypt).
+  const crypto = await import('node:crypto');
+  const KEY = crypto.createHash('sha256')
+    .update(process.env.CONNECTION_ENC_KEY || 'dev-only-key-replace-in-production')
+    .digest();
+  const sampleConfig = JSON.stringify({ authToken: 'demo-token' });
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', KEY, iv);
+  const enc = Buffer.concat([cipher.update(sampleConfig, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  const configEnc = Buffer.concat([iv, tag, enc]).toString('base64');
+  await prisma.connection.upsert({
+    where: { projectId_slug: { projectId: pricingProject.id, slug: 'httpbin-demo' } },
+    update: {},
+    create: {
+      name: 'httpbin demo',
+      slug: 'httpbin-demo',
+      type: 'HTTP',
+      configEnc,
+      meta: { baseUrl: 'https://httpbin.org', authType: 'bearer' },
+      projectId: pricingProject.id,
+    },
+  });
+
+  console.log('Created rules + composite SCRIPT + sample Connection');
+
+  // Snapshot every PUBLISHED rule into RuleVersion so the Versions tab
+  // shows entries and version-pinning works against seed data.
+  const publishedRules = await prisma.rule.findMany({
+    where: { status: 'PUBLISHED' },
+    select: { id: true, version: true, definition: true, inputSchema: true, outputSchema: true },
+  });
+  for (const r of publishedRules) {
+    await prisma.ruleVersion.upsert({
+      where: { ruleId_version: { ruleId: r.id, version: r.version } },
+      update: {},
+      create: {
+        ruleId: r.id,
+        version: r.version,
+        status: 'PUBLISHED',
+        message: 'Initial seed snapshot',
+        definition: r.definition as object,
+        inputSchema: r.inputSchema as object | null,
+        outputSchema: r.outputSchema as object | null,
+        createdById: admin.id,
+      },
+    });
+  }
+  console.log(`Snapshotted ${publishedRules.length} published rules into RuleVersion`);
 
   console.log('Seeding completed!');
   console.log('');

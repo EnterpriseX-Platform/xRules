@@ -54,8 +54,10 @@ export async function login(email: string, password: string) {
     aud: 'xrules-api',
   };
 
-  const accessToken = jwt.sign(tokenPayload, env.jwtSecret, { expiresIn: '15m' });
-  const refreshToken = jwt.sign({ userId: user.id }, env.jwtRefreshSecret, { expiresIn: '7d' });
+  // Access token TTL — long enough for an interactive session without
+  // pestering the user; refresh handles longer use.
+  const accessToken = jwt.sign(tokenPayload, env.jwtSecret, { expiresIn: (env.jwtTtl || '1h') as any });
+  const refreshToken = jwt.sign({ userId: user.id }, env.jwtRefreshSecret, { expiresIn: (env.jwtRefreshTtl || '30d') as any });
 
   return {
     access_token: accessToken,
@@ -135,7 +137,7 @@ export async function refreshAccessToken(refreshToken: string) {
     aud: 'xrules-api',
   };
 
-  const accessToken = jwt.sign(tokenPayload, env.jwtSecret, { expiresIn: '15m' });
+  const accessToken = jwt.sign(tokenPayload, env.jwtSecret, { expiresIn: (env.jwtTtl || '1h') as any });
 
   return { access_token: accessToken };
 }

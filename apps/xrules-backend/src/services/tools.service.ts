@@ -34,9 +34,14 @@ export async function duplicates(ruleId: string, version: number | undefined, us
 }
 
 // Find rules that reference this rule's id (via definition) and rules this rule references.
-export async function dependencies(ruleId: string, _version: number | undefined, user: AuthUser) {
-  const rule = await prisma.rule.findUnique({ where: { id: ruleId } });
+export async function dependencies(idOrSlug: string, _version: number | undefined, user: AuthUser) {
+  // Accept id, slug, or alias.
+  const looksLikeId = /^[a-z0-9]{20,30}$/i.test(idOrSlug);
+  const rule = looksLikeId
+    ? await prisma.rule.findUnique({ where: { id: idOrSlug } })
+    : await prisma.rule.findFirst({ where: { OR: [{ slug: idOrSlug }, { alias: idOrSlug }] } });
   if (!rule) throw new NotFoundError('Rule');
+  const ruleId = rule.id;
   await assertProjectAccess(rule.projectId, user);
 
   // From the explicit dependency table (DRD edges that have been recorded)
@@ -80,7 +85,7 @@ export async function projectDrd(projectIdOrSlug: string, user: AuthUser) {
   const [rules, edges, flows] = await Promise.all([
     prisma.rule.findMany({
       where: { projectId },
-      select: { id: true, name: true, slug: true, alias: true, type: true, status: true, version: true },
+      select: { id: true, name: true, slug: true, alias: true, type: true, status: true, version: true, definition: true },
     }),
     prisma.ruleDependency.findMany({
       where: { from: { projectId }, to: { projectId } },
@@ -112,14 +117,47 @@ export async function projectDrd(projectIdOrSlug: string, user: AuthUser) {
     }
   }
 
+  // Inferred SCRIPT → rule edges via DR.solve('slug') / DR.solve("slug") in source.
+  // Also catches ruleSlug/ruleAlias references in any rule's definition JSON.
+  const SOLVE_RE = /DR\.solve\s*\(\s*['"`]([\w\-]+)['"`]/g;
+  for (const r of rules) {
+    const def: any = r.definition || {};
+    const sources: string[] = [];
+    if (typeof def?.source === 'string') sources.push(def.source);
+    // Walk the JSON for any string fields that mention DR.solve (script-like)
+    if (def && typeof def === 'object') {
+      const json = JSON.stringify(def);
+      sources.push(json);
+    }
+    const seen = new Set<string>();
+    for (const src of sources) {
+      let m;
+      const re = new RegExp(SOLVE_RE.source, 'g');
+      while ((m = re.exec(src)) !== null) {
+        const ref = m[1];
+        if (seen.has(ref) || ref === r.slug || ref === r.alias) continue;
+        seen.add(ref);
+        const target = ruleBySlug.get(ref) || ruleByAlias.get(ref) || rules.find(x => x.id === ref);
+        if (target) inferredEdges.push({ fromId: r.id, toId: target.id, kind: 'script_call' });
+      }
+    }
+  }
+
+  // De-dupe edges by (fromId,toId,kind)
+  const seenEdge = new Set<string>();
+  const uniqueEdges: typeof inferredEdges = [];
+  for (const e of [...edges, ...inferredEdges]) {
+    const k = `${e.fromId}→${e.toId}@${e.kind}`;
+    if (seenEdge.has(k)) continue;
+    seenEdge.add(k);
+    uniqueEdges.push(e);
+  }
+
   return {
     nodes: [
-      ...rules.map(r => ({ ...r, isFlow: false })),
+      ...rules.map(({ definition: _d, ...r }) => ({ ...r, isFlow: false })),
       ...flowNodes,
     ],
-    edges: [
-      ...edges,
-      ...inferredEdges,
-    ],
+    edges: uniqueEdges,
   };
 }

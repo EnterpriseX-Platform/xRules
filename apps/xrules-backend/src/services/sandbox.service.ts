@@ -12,10 +12,21 @@ interface ScriptingDefinition {
   timeoutMs?: number;
 }
 
-export function runScripting(def: ScriptingDefinition, input: any, ruleVariables?: any): any {
+// Optional `solve` callback so SCRIPT rules can invoke other rules
+// asynchronously via `await DR.solve(slugOrId, input)`. The runner wires
+// this via setSolveResolver to avoid a circular import on execute.service.
+type SolveFn = (slugOrId: string, input: any) => Promise<any>;
+let solveResolver: SolveFn | null = null;
+export function setSolveResolver(fn: SolveFn) {
+  solveResolver = fn;
+}
+
+// Returns a Promise — the inner script is wrapped in an `async function`
+// so callers can `await DR.solve(...)` etc.
+export function runScripting(def: ScriptingDefinition, input: any, ruleVariables?: any): Promise<any> {
   if (!def?.source) throw new Error('Scripting rule has no source');
   const wrapped = `
-    (function() {
+    (async function() {
       ${def.source}
     })()
   `;
@@ -23,12 +34,12 @@ export function runScripting(def: ScriptingDefinition, input: any, ruleVariables
     input,
     ruleVariables: ruleVariables || {},
     DR: {
-      // Simple stub — real implementation would call back into rule executor.
-      solve: (_slug: string, _payload: any) => {
-        throw new Error('DR.solve() not yet wired in this sandbox build');
+      solve: async (slugOrId: string, payload: any) => {
+        if (!solveResolver) throw new Error('DR.solve() not available — solve resolver not registered');
+        return solveResolver(slugOrId, payload);
       },
     },
-    Math, Date, JSON, Number, String, Array, Object, Boolean,
+    Math, Date, JSON, Number, String, Array, Object, Boolean, Promise,
     parseInt, parseFloat, isNaN, isFinite,
     console: { log: (..._a: any[]) => {} }, // muted
   };
