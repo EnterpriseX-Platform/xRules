@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-backend
+  labels: {{- include "xrules.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.backend.service.type }}
+  ports: [{ port: {{ .Values.backend.service.port }}, targetPort: 4000, name: http }]
+  selector:
+    {{- include "xrules.selector" (merge (dict "component" "backend") .) | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-backend
+  labels: {{- include "xrules.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.backend.replicas }}
+  selector:
+    matchLabels:
+      {{- include "xrules.selector" (merge (dict "component" "backend") .) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "xrules.selector" (merge (dict "component" "backend") .) | nindent 8 }}
+    spec:
+      containers:
+        - name: backend
+          image: "{{ .Values.backend.image.repository }}:{{ include "xrules.imageTag" (dict "Chart" .Chart "tag" .Values.backend.image.tag) }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports: [{ containerPort: 4000, name: http }]
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.postgres.user }}:$(POSTGRES_PASSWORD)@{{ .Release.Name }}-postgres:5432/{{ .Values.postgres.database }}"
+            - { name: ENGINE_HUB_URL, value: "http://{{ .Release.Name }}-engine:{{ .Values.engine.service.httpPort }}" }
+            - { name: PORT, value: "4000" }
+            - { name: NODE_ENV, value: "production" }
+            - { name: JWT_SECRET,         valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: JWT_SECRET } } }
+            - { name: CONNECTION_ENC_KEY, valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: CONNECTION_ENC_KEY } } }
+            - { name: POSTGRES_PASSWORD,  valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: POSTGRES_PASSWORD } } }
+            {{- if .Values.llm.openaiKey }}
+            - { name: OPENAI_API_KEY,     valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: OPENAI_API_KEY } } }
+            {{- end }}
+            {{- if .Values.llm.anthropicKey }}
+            - { name: ANTHROPIC_API_KEY,  valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: ANTHROPIC_API_KEY } } }
+            {{- end }}
+          resources: {{- toYaml .Values.backend.resources | nindent 12 }}
+          readinessProbe:
+            httpGet: { path: /health, port: 4000 }
+            initialDelaySeconds: 10

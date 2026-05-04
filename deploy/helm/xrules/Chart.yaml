@@ -1,0 +1,18 @@
+apiVersion: v2
+name: xrules
+description: XRules — open-source decision platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - decision-rules
+  - business-rules
+  - rules-engine
+  - dmn
+  - decision-management
+home: https://xrules.dev
+sources:
+  - https://github.com/hacka/xrules
+maintainers:
+  - name: XRules contributors
+icon: https://xrules.dev/logo.png

@@ -1,0 +1,71 @@
+# XRules Helm values — sensible defaults for a small self-hosted deployment.
+
+global:
+  imagePullPolicy: IfNotPresent
+  storageClass: ""
+
+postgres:
+  enabled: true
+  image: postgres:16-alpine
+  persistence:
+    size: 20Gi
+  user: xrules
+  database: xrulesdb
+  # Required: set via `--set postgres.password=...` or sealed secret.
+  password: ""
+
+engine:
+  image:
+    repository: ghcr.io/hacka/xrules-engine
+    tag: ""        # defaults to chart appVersion
+  replicas: 1
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits:   { cpu: 1000m, memory: 1Gi }
+  service:
+    type: ClusterIP
+    httpPort: 50051
+    grpcPort: 50060
+
+backend:
+  image:
+    repository: ghcr.io/hacka/xrules-backend
+    tag: ""
+  replicas: 1
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: 2000m, memory: 1Gi }
+  service:
+    type: ClusterIP
+    port: 4000
+
+studio:
+  image:
+    repository: ghcr.io/hacka/xrules-studio
+    tag: ""
+  replicas: 1
+  resources:
+    requests: { cpu: 50m, memory: 256Mi }
+    limits:   { cpu: 1000m, memory: 1Gi }
+  service:
+    type: ClusterIP
+    port: 3000
+
+ingress:
+  enabled: false
+  className: nginx
+  host: xrules.example.com
+  tls:
+    enabled: false
+    secretName: xrules-tls
+
+# Required secrets — generate fresh values per deployment.
+# Use `--set` or a values overlay; do NOT commit real secrets to Git.
+jwt:
+  secret: ""
+encryption:
+  connectionKey: ""
+
+llm:
+  openaiKey:    ""
+  anthropicKey: ""

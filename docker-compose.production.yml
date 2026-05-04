@@ -1,0 +1,82 @@
+# XRules — production-style Docker Compose.
+# Spin everything up:  docker compose -f docker-compose.production.yml up -d
+# Then open http://localhost:3000 (admin@example.com / admin123).
+#
+# Customize via .env file at the project root. See .env.example.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: xrules-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-xrules}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-xrules_secret}
+      POSTGRES_DB:       ${POSTGRES_DB:-xrulesdb}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-xrules}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  engine:
+    build:
+      context: ./apps/xrules-engine
+      dockerfile: ../../deploy/docker/engine.Dockerfile
+    image: xrules/engine:latest
+    container_name: xrules-engine
+    restart: unless-stopped
+    environment:
+      PORT:      "50051"
+      GRPC_PORT: "50060"
+      RUST_LOG:  ${RUST_LOG:-info}
+    expose:
+      - "50051"
+      - "50060"
+
+  backend:
+    build:
+      context: .
+      dockerfile: deploy/docker/backend.Dockerfile
+    image: xrules/backend:latest
+    container_name: xrules-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      engine:
+        condition: service_started
+    environment:
+      DATABASE_URL:           postgresql://${POSTGRES_USER:-xrules}:${POSTGRES_PASSWORD:-xrules_secret}@postgres:5432/${POSTGRES_DB:-xrulesdb}
+      JWT_SECRET:             ${JWT_SECRET:?set JWT_SECRET to a 32+ char random string}
+      CONNECTION_ENC_KEY:     ${CONNECTION_ENC_KEY:?set CONNECTION_ENC_KEY to a 32+ char random string}
+      ENGINE_HUB_URL:         http://engine:50051
+      PORT:                   "4000"
+      NODE_ENV:               production
+      OPENAI_API_KEY:         ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY:      ${ANTHROPIC_API_KEY:-}
+      WEBHOOK_DELIVERY_TIMEOUT_MS: ${WEBHOOK_DELIVERY_TIMEOUT_MS:-10000}
+    expose:
+      - "4000"
+    ports:
+      - "${BACKEND_PORT:-4000}:4000"
+
+  studio:
+    build:
+      context: .
+      dockerfile: deploy/docker/studio.Dockerfile
+    image: xrules/studio:latest
+    container_name: xrules-studio
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_BACKEND_URL: ${PUBLIC_BACKEND_URL:-http://localhost:4000}
+      NEXT_PUBLIC_APP_URL:     ${PUBLIC_APP_URL:-http://localhost:3000}
+    ports:
+      - "${STUDIO_PORT:-3000}:3000"
+
+volumes:
+  postgres_data:

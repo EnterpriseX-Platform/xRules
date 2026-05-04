@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-engine
+  labels: {{- include "xrules.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.engine.service.type }}
+  ports:
+    - { port: {{ .Values.engine.service.httpPort }}, targetPort: 50051, name: http }
+    - { port: {{ .Values.engine.service.grpcPort }}, targetPort: 50060, name: grpc }
+  selector:
+    {{- include "xrules.selector" (merge (dict "component" "engine") .) | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-engine
+  labels: {{- include "xrules.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.engine.replicas }}
+  selector:
+    matchLabels:
+      {{- include "xrules.selector" (merge (dict "component" "engine") .) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "xrules.selector" (merge (dict "component" "engine") .) | nindent 8 }}
+    spec:
+      containers:
+        - name: engine
+          image: "{{ .Values.engine.image.repository }}:{{ include "xrules.imageTag" (dict "Chart" .Chart "tag" .Values.engine.image.tag) }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - { containerPort: 50051, name: http }
+            - { containerPort: 50060, name: grpc }
+          env:
+            - { name: PORT,      value: "50051" }
+            - { name: GRPC_PORT, value: "50060" }
+          resources: {{- toYaml .Values.engine.resources | nindent 12 }}
+          readinessProbe:
+            httpGet: { path: /health, port: 50051 }
+            initialDelaySeconds: 5
