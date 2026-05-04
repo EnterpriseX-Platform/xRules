@@ -4,11 +4,16 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Sparkles, BookOpen, History, Settings, Code2, ListChecks, Save, Rocket } from 'lucide-react';
+import { Send, Sparkles, BookOpen, History, Settings, Code2, ListChecks, Save, Rocket, Lock, Unlock, GitCompare } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { PageContent } from '@/components/layout/AppShell';
 import { StatusPill, Pill } from '@/components/ui/Pill';
-import { rulesApi, simulationsApi } from '@/lib/api';
+import { rulesApi, simulationsApi, api } from '@/lib/api';
+import { TableDesigner } from '@/components/rule/TableDesigner';
+import { TreeDesigner } from '@/components/rule/TreeDesigner';
+import { ScriptingDesigner } from '@/components/rule/ScriptingDesigner';
+import { LookupDesigner } from '@/components/rule/LookupDesigner';
+import { AIAgentDesigner } from '@/components/rule/AIAgentDesigner';
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
@@ -53,25 +58,38 @@ export default function RuleDetailPage() {
             <span className="text-subtle/50">/</span>
             <span className="font-mono text-xs text-subtle">{rule.slug}</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold tracking-tight truncate">{rule.name}</h1>
             <StatusPill status={rule.status} />
             <Pill tone="info">v{rule.version}</Pill>
             <Pill tone="subtle">{rule.type?.replace('_', ' ')}</Pill>
+            {rule.alias && <Pill tone="mint">@{rule.alias}</Pill>}
+            {rule.locked && <Pill tone="warn"><Lock className="h-2.5 w-2.5 inline mr-0.5" />locked</Pill>}
+            <Pill tone="subtle">strategy: {rule.strategy || 'standard'}</Pill>
           </div>
           {rule.description && <p className="text-sm text-subtle mt-1">{rule.description}</p>}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button className="btn-outline">
-            <Save className="h-3.5 w-3.5" />
-            Save
+          <button className="btn-ghost text-xs" onClick={() => {
+            const evt = new CustomEvent('xrules:open-compare', { detail: { ruleId: rule.id } });
+            window.dispatchEvent(evt);
+          }} title="Compare versions">
+            <GitCompare className="h-3.5 w-3.5" />
           </button>
-          <button className="btn-primary" onClick={() => publish.mutate()} disabled={publish.isPending}>
+          <button className="btn-ghost text-xs" onClick={async () => {
+            await api.patch(rule.locked ? `/rules/${rule.id}/unlock` : `/rules/${rule.id}/lock`);
+            qc.invalidateQueries({ queryKey: ['rule', rule.id] });
+          }} title={rule.locked ? 'Unlock' : 'Lock'}>
+            {rule.locked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+          </button>
+          <button className="btn-primary" onClick={() => publish.mutate()} disabled={publish.isPending || rule.locked}>
             <Rocket className="h-3.5 w-3.5" />
             {publish.isPending ? 'Publishing…' : 'Publish'}
           </button>
         </div>
       </div>
+
+      <CompareModal ruleId={rule.id} currentVersion={rule.version} />
 
       {/* Tabs */}
       <div className="tabs-row mb-6">
@@ -88,7 +106,7 @@ export default function RuleDetailPage() {
       </div>
 
       {/* Tab content */}
-      {tab === 'definition' && <DefinitionTab rule={rule} />}
+      {tab === 'definition' && <DefinitionTab rule={rule} projectId={projectId} />}
       {tab === 'schemas'    && <SchemasTab    rule={rule} />}
       {tab === 'test'       && <TestTab       rule={rule} />}
       {tab === 'simulate'   && <SimulateTab   rule={rule} projectId={projectId} />}
@@ -101,33 +119,85 @@ export default function RuleDetailPage() {
 
 // =============================================================================
 
-function DefinitionTab({ rule }: { rule: any }) {
+function DefinitionTab({ rule, projectId }: { rule: any; projectId: string }) {
+  const qc = useQueryClient();
+  const mut = useMutation({
+    mutationFn: (patch: any) => rulesApi.update(rule.id, patch),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['rule', rule.id] }),
+  });
+  const t = String(rule.type || '').toUpperCase();
+
+  if (t === 'DECISION_TABLE') {
+    return (
+      <TableDesigner
+        definition={rule.definition}
+        inputSchema={rule.inputSchema}
+        outputSchema={rule.outputSchema}
+        onChange={(def) => mut.mutate({ definition: def })}
+      />
+    );
+  }
+  if (t === 'DECISION_TREE') {
+    return (
+      <TreeDesigner
+        definition={rule.definition}
+        inputSchema={rule.inputSchema}
+        outputSchema={rule.outputSchema}
+        onChange={(def) => mut.mutate({ definition: def })}
+      />
+    );
+  }
+  if (t === 'SCRIPT' || t === 'FORMULA') {
+    return (
+      <ScriptingDesigner
+        definition={rule.definition}
+        ruleVariables={rule.ruleVariables}
+        onChange={(def) => mut.mutate({ definition: def })}
+        onVariablesChange={(vars) => mut.mutate({ ruleVariables: vars })}
+      />
+    );
+  }
+  if (t === 'LOOKUP') {
+    return (
+      <LookupDesigner
+        definition={rule.definition}
+        onChange={(def) => mut.mutate({ definition: def })}
+      />
+    );
+  }
+  if (t === 'AI_AGENT') {
+    return (
+      <AIAgentDesigner
+        definition={rule.definition}
+        projectId={projectId}
+        inputSchema={rule.inputSchema}
+        ruleVariables={rule.ruleVariables}
+        onChange={(def) => mut.mutate({ definition: def })}
+      />
+    );
+  }
+
+  // Fallback raw JSON for any other type (MODEL_CALL etc.)
+  return <RawJsonDefinition rule={rule} onSave={(d) => mut.mutate({ definition: d })} />;
+}
+
+function RawJsonDefinition({ rule, onSave }: { rule: any; onSave: (d: any) => void }) {
   const [val, setVal] = useState(JSON.stringify(rule.definition || {}, null, 2));
   const [error, setError] = useState<string | null>(null);
-  const mut = useMutation({
-    mutationFn: (next: any) => rulesApi.update(rule.id, { definition: next }),
-    onError: (e: any) => setError(e.message),
-  });
   return (
     <div className="card overflow-hidden">
       <div className="px-4 py-2.5 border-b border-border flex items-center justify-between">
         <span className="label-section">{rule.type?.toLowerCase().replace('_', ' ')} · raw json</span>
-        <button
-          className="btn-ghost text-xs"
-          onClick={() => {
-            try { mut.mutate(JSON.parse(val)); setError(null); } catch (e: any) { setError(e.message); }
-          }}
-        >
-          Save
-        </button>
+        <button className="btn-ghost text-xs" onClick={() => {
+          try { onSave(JSON.parse(val)); setError(null); } catch (e: any) { setError(e.message); }
+        }}>Save</button>
       </div>
       <MonacoEditor
         height="540px"
         language="json"
         value={val}
         onChange={(v) => setVal(v || '')}
-        theme={typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark' ? 'vs-dark' : 'vs'}
-        options={{ minimap: { enabled: false }, fontSize: 13, fontFamily: 'JetBrains Mono, monospace' }}
+        options={{ minimap: { enabled: false }, fontSize: 13 }}
       />
       {error && <div className="px-4 py-2 pill pill-danger m-3">{error}</div>}
     </div>
@@ -436,3 +506,61 @@ function SettingsTab({ rule }: { rule: any }) {
     </div>
   );
 }
+
+
+function CompareModal({ ruleId, currentVersion }: { ruleId: string; currentVersion: number }) {
+  const [open, setOpen] = useState(false);
+  const [a, setA] = useState(1);
+  const [b, setB] = useState(currentVersion);
+  const [data, setData] = useState<any>(null);
+
+  if (typeof window !== "undefined") {
+    window.addEventListener("xrules:open-compare", (e: any) => {
+      if (e.detail?.ruleId === ruleId) setOpen(true);
+    });
+  }
+
+  async function run() {
+    const res = await api.get<any>(`/rules/${ruleId}/compare?a=${a}&b=${b}`);
+    setData(res);
+  }
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-6 z-50" onClick={() => setOpen(false)}>
+      <div className="card w-full max-w-4xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-4 py-3 border-b border-border flex items-center gap-3">
+          <h2 className="font-bold">Compare Versions</h2>
+          <input type="number" className="input h-7 w-20 text-xs" value={a} onChange={(e) => setA(Number(e.target.value))} />
+          <span className="text-subtle">vs</span>
+          <input type="number" className="input h-7 w-20 text-xs" value={b} onChange={(e) => setB(Number(e.target.value))} />
+          <button className="btn-primary text-xs" onClick={run}>Diff</button>
+          <button className="btn-ghost ml-auto text-xs" onClick={() => setOpen(false)}>Close</button>
+        </div>
+        <div className="flex-1 overflow-auto p-4 grid grid-cols-2 gap-4 font-mono text-xs">
+          <div>
+            <div className="label-section mb-1">v{a}</div>
+            <pre className="bg-muted p-3 rounded whitespace-pre-wrap">{data ? JSON.stringify(data.a?.definition, null, 2) : "(run diff)"}</pre>
+          </div>
+          <div>
+            <div className="label-section mb-1">v{b}</div>
+            <pre className="bg-muted p-3 rounded whitespace-pre-wrap">{data ? JSON.stringify(data.b?.definition, null, 2) : "(run diff)"}</pre>
+          </div>
+          {data?.diff?.definition && (
+            <div className="col-span-2">
+              <div className="label-section mb-1">Changes ({data.diff.definition.length})</div>
+              <ul className="space-y-1">
+                {data.diff.definition.map((d: any, i: number) => (
+                  <li key={i} className={`text-[11px] ${d.op === "add" ? "text-ok" : d.op === "remove" ? "text-danger" : "text-warn"}`}>
+                    [{d.op}] {d.path}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+

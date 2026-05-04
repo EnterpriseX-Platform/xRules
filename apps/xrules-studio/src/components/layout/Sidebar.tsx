@@ -7,6 +7,7 @@ import {
   LayoutDashboard, FolderKanban, FileText, Workflow, Brain, Database,
   FlaskConical, Sparkles, ListTree, GitBranch, Activity,
   KeyRound, Plug, Webhook, BookOpen, ScrollText, Settings, ChevronDown,
+  Table, Network, Code2, BookMarked, Bot, Zap, Briefcase,
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { useAuth, useProject } from '@/lib/store';
@@ -57,9 +58,23 @@ export function Sidebar({ tenant }: { tenant: string }) {
     { href: `/${tenant}/projects`, label: 'Projects', icon: FolderKanban },
   ];
 
+  // DR-style nav: rules split by kind. Filters list page via ?type= param.
+  const ruleKinds: NavItem[] = project ? [
+    { href: `${projBase}/rules?type=DECISION_TABLE`, label: 'Decision Tables', icon: Table },
+    { href: `${projBase}/rules?type=DECISION_TREE`,  label: 'Decision Trees',  icon: Network },
+    { href: `${projBase}/rules?type=SCRIPT`,         label: 'Scripting Rules', icon: Code2 },
+    { href: `${projBase}/rules?type=LOOKUP`,         label: 'Lookup Tables',   icon: BookMarked },
+    { href: `${projBase}/rules?type=AI_AGENT`,       label: 'AI Agents',       icon: Bot },
+  ] : [];
+
+  const flows: NavItem[] = project ? [
+    { href: `${projBase}/flows?kind=DECISION`,    label: 'Decision Flows',    icon: Workflow },
+    { href: `${projBase}/flows?kind=INTEGRATION`, label: 'Integration Flows', icon: Zap },
+    { href: `${projBase}/jobs`,                   label: 'Jobs',              icon: Briefcase },
+  ] : [];
+
   const inProject: NavItem[] = project ? [
-    { href: `${projBase}/rules`, label: 'Rules', icon: FileText },
-    { href: `${projBase}/flows`, label: 'Flows', icon: Workflow },
+    { href: `${projBase}/rules`, label: 'All Rules', icon: FileText },
     { href: `${projBase}/models`, label: 'Models', icon: Brain },
     { href: `${projBase}/datasets`, label: 'Datasets', icon: Database },
     { href: `${projBase}/test-suites`, label: 'Test Suites', icon: FlaskConical },
@@ -114,6 +129,8 @@ export function Sidebar({ tenant }: { tenant: string }) {
         </div>
 
         <NavSection label="Main Menu" items={main} pathname={pathname} />
+        {project && <NavSection label="Rules" items={ruleKinds} pathname={pathname} />}
+        {project && <NavSection label="Flows & Jobs" items={flows} pathname={pathname} />}
         {project && <NavSection label="In Project" items={inProject} pathname={pathname} />}
         {project && <NavSection label="Release" items={release} pathname={pathname} />}
         {project && <NavSection label="Integrations" items={integrations} pathname={pathname} />}
@@ -126,7 +143,7 @@ export function Sidebar({ tenant }: { tenant: string }) {
         <div className="flex items-center justify-between font-mono text-[11px]">
           <div className="flex items-center gap-2">
             <span className="dot bg-ok" />
-            <span className="uppercase tracking-label text-subtle">Engine</span>
+            <span className="uppercase tracking-label text-subtle">Solver</span>
           </div>
           <span className="text-ok">ONLINE</span>
         </div>

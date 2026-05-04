@@ -14,16 +14,47 @@ const ICON: Record<string, any> = {
   ruleCall: FileCode2,
   branch: GitBranch,
   dbQuery: Database,
+  // Phase 3 additions (DR-aligned)
+  assign: Wand2,
+  switch: GitBranch,
+  declare: FileCode2,
+  globals: FileCode2,
+  foreach: FileCode2,
+  sticky: FileCode2,
+  end: LogOut,
+  dynamicRule: FileCode2,
+  aiAgent: FileCode2,
+  append: FileCode2,
+  join: FileCode2,
+  collect: FileCode2,
+  debug: FileCode2,
+  customCode: FileCode2,
+  dbQuerySingle: Database,
 };
 
 const TONE: Record<string, string> = {
-  input:     'border-mint/40    bg-mint/5    text-mint',
-  output:    'border-mint/40    bg-mint/5    text-mint',
-  http:      'border-info/40    bg-info/5    text-info',
-  dbQuery:   'border-info/40    bg-info/5    text-info',
-  transform: 'border-warn/40    bg-warn/5    text-warn',
-  ruleCall:  'border-accent/40  bg-accent/5  text-accent',
-  branch:    'border-danger/40  bg-danger/5  text-danger',
+  input:         'border-mint/40    bg-mint/5    text-mint',
+  output:        'border-mint/40    bg-mint/5    text-mint',
+  end:           'border-mint/40    bg-mint/5    text-mint',
+  http:          'border-info/40    bg-info/5    text-info',
+  dbQuery:       'border-info/40    bg-info/5    text-info',
+  dbQuerySingle: 'border-info/40    bg-info/5    text-info',
+  transform:     'border-warn/40    bg-warn/5    text-warn',
+  assign:        'border-warn/40    bg-warn/5    text-warn',
+  declare:       'border-warn/40    bg-warn/5    text-warn',
+  globals:       'border-warn/40    bg-warn/5    text-warn',
+  foreach:       'border-warn/40    bg-warn/5    text-warn',
+  ruleCall:      'border-accent/40  bg-accent/5  text-accent',
+  dynamicRule:   'border-accent/40  bg-accent/5  text-accent',
+  aiAgent:       'border-accent/40  bg-accent/5  text-accent',
+  append:        'border-accent/40  bg-accent/5  text-accent',
+  join:          'border-accent/40  bg-accent/5  text-accent',
+  collect:       'border-accent/40  bg-accent/5  text-accent',
+  customCode:    'border-accent/40  bg-accent/5  text-accent',
+  branch:        'border-danger/40  bg-danger/5  text-danger',
+  switch:        'border-danger/40  bg-danger/5  text-danger',
+  debug:         'border-subtle/40  bg-muted/30  text-subtle',
+  sticky:        'border-subtle/40  bg-muted/30  text-subtle',
 };
 
 function BaseNode({ data, type, hasInput = true, hasOutput = true, hasBranchOutputs = false }: any) {
@@ -56,6 +87,11 @@ function labelFor(type: string) {
   return ({
     input: 'Input', output: 'Output', http: 'HTTP', transform: 'Transform',
     ruleCall: 'Rule Call', branch: 'Branch', dbQuery: 'DB Query',
+    assign: 'Assign', switch: 'Switch', declare: 'Declare', globals: 'Globals',
+    foreach: 'Foreach', sticky: 'Sticky Note', end: 'End',
+    dynamicRule: 'Dynamic Rule', aiAgent: 'AI Agent',
+    append: 'Append', join: 'Join', collect: 'Collect',
+    debug: 'Debug', customCode: 'Custom Code', dbQuerySingle: 'DB Single Row',
   } as Record<string, string>)[type] || type;
 }
 
@@ -74,25 +110,93 @@ function truncate(s: string, n: number) {
 }
 
 export const nodeTypes = {
-  input:     (p: NodeProps) => <BaseNode {...p} hasInput={false} />,
-  output:    (p: NodeProps) => <BaseNode {...p} hasOutput={false} />,
-  http:      (p: NodeProps) => <BaseNode {...p} />,
-  transform: (p: NodeProps) => <BaseNode {...p} />,
-  ruleCall:  (p: NodeProps) => <BaseNode {...p} />,
-  dbQuery:   (p: NodeProps) => <BaseNode {...p} />,
-  branch:    (p: NodeProps) => <BaseNode {...p} hasBranchOutputs />,
+  input:         (p: NodeProps) => <BaseNode {...p} hasInput={false} />,
+  output:        (p: NodeProps) => <BaseNode {...p} hasOutput={false} />,
+  end:           (p: NodeProps) => <BaseNode {...p} hasOutput={false} />,
+  http:          (p: NodeProps) => <BaseNode {...p} />,
+  transform:     (p: NodeProps) => <BaseNode {...p} />,
+  assign:        (p: NodeProps) => <BaseNode {...p} />,
+  declare:       (p: NodeProps) => <BaseNode {...p} />,
+  globals:       (p: NodeProps) => <BaseNode {...p} hasInput={false} />,
+  foreach:       (p: NodeProps) => <BaseNode {...p} />,
+  sticky:        (p: NodeProps) => <BaseNode {...p} hasInput={false} hasOutput={false} />,
+  ruleCall:      (p: NodeProps) => <BaseNode {...p} />,
+  dynamicRule:   (p: NodeProps) => <BaseNode {...p} />,
+  aiAgent:       (p: NodeProps) => <BaseNode {...p} />,
+  append:        (p: NodeProps) => <BaseNode {...p} />,
+  join:          (p: NodeProps) => <BaseNode {...p} />,
+  collect:       (p: NodeProps) => <BaseNode {...p} />,
+  debug:         (p: NodeProps) => <BaseNode {...p} />,
+  customCode:    (p: NodeProps) => <BaseNode {...p} />,
+  dbQuery:       (p: NodeProps) => <BaseNode {...p} />,
+  dbQuerySingle: (p: NodeProps) => <BaseNode {...p} />,
+  branch:        (p: NodeProps) => <BaseNode {...p} hasBranchOutputs />,
+  switch:        (p: NodeProps) => <BaseNode {...p} hasBranchOutputs />,
 };
 
 export type NodeKind = keyof typeof nodeTypes;
 
-export const PALETTE: { kind: NodeKind; label: string; tone: string }[] = [
-  { kind: 'input',     label: 'Input',     tone: 'mint' },
-  { kind: 'output',    label: 'Output',    tone: 'mint' },
-  { kind: 'http',      label: 'HTTP',      tone: 'info' },
-  { kind: 'dbQuery',   label: 'DB Query',  tone: 'info' },
-  { kind: 'transform', label: 'Transform', tone: 'warn' },
-  { kind: 'ruleCall',  label: 'Rule Call', tone: 'accent' },
-  { kind: 'branch',    label: 'Branch',    tone: 'danger' },
+export const PALETTE_GROUPS: { group: string; items: { kind: NodeKind; label: string; tone: string }[] }[] = [
+  {
+    group: 'I/O',
+    items: [
+      { kind: 'input',  label: 'Input',  tone: 'mint' },
+      { kind: 'output', label: 'Output', tone: 'mint' },
+      { kind: 'end',    label: 'End',    tone: 'mint' },
+      { kind: 'sticky', label: 'Note',   tone: 'subtle' as any },
+    ],
+  },
+  {
+    group: 'Variables',
+    items: [
+      { kind: 'assign',  label: 'Assign',  tone: 'warn' },
+      { kind: 'declare', label: 'Declare', tone: 'warn' },
+      { kind: 'globals', label: 'Globals', tone: 'warn' },
+    ],
+  },
+  {
+    group: 'Logic',
+    items: [
+      { kind: 'branch',  label: 'Branch',  tone: 'danger' },
+      { kind: 'switch',  label: 'Switch',  tone: 'danger' },
+      { kind: 'foreach', label: 'Foreach', tone: 'warn' },
+    ],
+  },
+  {
+    group: 'Rules',
+    items: [
+      { kind: 'ruleCall',    label: 'Rule Call',     tone: 'accent' },
+      { kind: 'dynamicRule', label: 'Dynamic Rule',  tone: 'accent' },
+      { kind: 'aiAgent',     label: 'AI Agent',      tone: 'accent' },
+    ],
+  },
+  {
+    group: 'Data',
+    items: [
+      { kind: 'http',          label: 'HTTP',          tone: 'info' },
+      { kind: 'dbQuery',       label: 'DB Query',      tone: 'info' },
+      { kind: 'dbQuerySingle', label: 'DB Single Row', tone: 'info' },
+      { kind: 'transform',     label: 'Transform',     tone: 'warn' },
+    ],
+  },
+  {
+    group: 'Array',
+    items: [
+      { kind: 'append',  label: 'Append',  tone: 'accent' },
+      { kind: 'join',    label: 'Join',    tone: 'accent' },
+      { kind: 'collect', label: 'Collect', tone: 'accent' },
+    ],
+  },
+  {
+    group: 'Advanced',
+    items: [
+      { kind: 'debug',      label: 'Debug',       tone: 'subtle' as any },
+      { kind: 'customCode', label: 'Custom Code', tone: 'accent' },
+    ],
+  },
 ];
+
+// Flat for legacy callers
+export const PALETTE = PALETTE_GROUPS.flatMap(g => g.items);
 
 export { ICON as NODE_ICONS, labelFor as nodeLabel };

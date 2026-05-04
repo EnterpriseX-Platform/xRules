@@ -15,7 +15,7 @@ import 'reactflow/dist/style.css';
 import { Save, Rocket, Trash2 } from 'lucide-react';
 import { StatusPill, Pill } from '@/components/ui/Pill';
 import { NodeConfig } from '@/components/flow/NodeConfig';
-import { nodeTypes, PALETTE, NODE_ICONS, nodeLabel, type NodeKind } from '@/components/flow/nodeTypes';
+import { nodeTypes, PALETTE_GROUPS, NODE_ICONS, nodeLabel, type NodeKind } from '@/components/flow/nodeTypes';
 import { flowsApi, api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 
@@ -147,21 +147,28 @@ function FlowDetailInner() {
         {/* Palette */}
         <div className="border-r border-border bg-sidebar overflow-y-auto">
           <div className="px-4 py-3 label-section">Node Palette</div>
-          <div className="px-3 space-y-1.5">
-            {PALETTE.map((p) => {
-              const Icon = NODE_ICONS[p.kind];
-              return (
-                <button
-                  key={p.kind}
-                  onClick={() => addNodeOfKind(p.kind)}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded border border-border hover:border-accent/50 hover:bg-muted/50 transition-colors text-left"
-                  title={`Add ${p.label} node`}
-                >
-                  <Icon className={cn('h-3.5 w-3.5', toneText(p.tone))} />
-                  <span className="text-sm">{p.label}</span>
-                </button>
-              );
-            })}
+          <div className="px-3 space-y-3">
+            {PALETTE_GROUPS.map((group) => (
+              <div key={group.group}>
+                <div className="label-section text-[9px] mb-1.5">{group.group}</div>
+                <div className="space-y-1">
+                  {group.items.map((p) => {
+                    const Icon = NODE_ICONS[p.kind];
+                    return (
+                      <button
+                        key={p.kind}
+                        onClick={() => addNodeOfKind(p.kind)}
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded border border-border hover:border-accent/50 hover:bg-muted/50 transition-colors text-left text-xs"
+                        title={`Add ${p.label} node`}
+                      >
+                        <Icon className={cn('h-3 w-3', toneText(p.tone))} />
+                        <span>{p.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
           <div className="px-4 mt-6 label-section">Tips</div>
           <ul className="px-4 mt-2 space-y-1 text-[11px] font-mono text-subtle list-disc list-inside">

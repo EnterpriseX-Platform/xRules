@@ -1,13 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, ChevronRight, FileText, Search } from 'lucide-react';
+import { Plus, ChevronRight, FileText, Search, FolderTree, Folder, FolderPlus } from 'lucide-react';
 import { PageContent, PageHeader } from '@/components/layout/AppShell';
 import { StatusPill, Pill } from '@/components/ui/Pill';
-import { rulesApi } from '@/lib/api';
+import { rulesApi, api } from '@/lib/api';
 
 const TYPE_TONE: Record<string, any> = {
   DECISION_TABLE: 'info',
@@ -16,22 +16,32 @@ const TYPE_TONE: Record<string, any> = {
   SCRIPT: 'subtle',
   LOOKUP: 'subtle',
   MODEL_CALL: 'danger',
+  AI_AGENT: 'accent',
 };
 
 export default function RulesPage() {
   const { tenant, projectId } = useParams<{ tenant: string; projectId: string }>();
+  const sp = useSearchParams();
+  const typeFilter = sp.get('type') || '';
   const qc = useQueryClient();
   const [filter, setFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [folderId, setFolderId] = useState<string | null>(null);
 
   const { data: rules = [], isLoading } = useQuery({
     queryKey: ['rules', projectId, filter],
     queryFn: () => rulesApi.list(projectId, filter === 'all' ? undefined : filter),
   });
+  const { data: folders = [] } = useQuery({
+    queryKey: ['folders', projectId],
+    queryFn: () => api.get<any[]>(`/folders?project_id=${projectId}`),
+  });
 
   const filtered = rules.filter((r: any) =>
-    !search || r.name.toLowerCase().includes(search.toLowerCase()) || r.slug.includes(search.toLowerCase()),
+    (!search || r.name.toLowerCase().includes(search.toLowerCase()) || r.slug.includes(search.toLowerCase()))
+    && (!typeFilter || String(r.type || '').toUpperCase() === typeFilter)
+    && (folderId === null || r.folderId === folderId),
   );
 
   const stats = {
@@ -43,8 +53,8 @@ export default function RulesPage() {
   return (
     <PageContent>
       <PageHeader
-        title="Rules"
-        description="Atomic decision units — decision tables, trees, formulas, scripts"
+        title={typeFilter ? typeFilter.replace('_', ' ').replace(/\b\w/g, m => m.toUpperCase()) + 's' : 'Rules'}
+        description={typeFilter ? 'Filtered by rule kind' : 'Atomic decision units — decision tables, trees, formulas, scripts'}
         stats={[
           { label: 'Published', value: stats.published },
           { label: 'Draft',     value: stats.draft },
@@ -58,26 +68,49 @@ export default function RulesPage() {
         }
       />
 
-      <div className="flex items-center gap-3 mb-4">
-        <div className="tabs-row">
-          {['all', 'published', 'draft', 'archived'].map((t) => (
-            <button key={t} className={`tab ${filter === t ? 'tab-active' : ''}`} onClick={() => setFilter(t)}>
-              {t}
-            </button>
-          ))}
+      <div className="grid grid-cols-[220px_1fr] gap-3">
+        {/* Folder tree */}
+        <div className="card p-2">
+          <div className="flex items-center justify-between px-2 py-1">
+            <span className="label-section flex items-center gap-1.5"><FolderTree className="h-3 w-3" />Folders</span>
+            <button className="btn-ghost p-0 text-xs" onClick={async () => {
+              const name = prompt('Folder name');
+              if (!name) return;
+              await api.post('/folders', { projectId, name });
+              qc.invalidateQueries({ queryKey: ['folders', projectId] });
+            }} title="New folder"><FolderPlus className="h-3 w-3" /></button>
+          </div>
+          <button
+            className={`w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted/50 ${folderId === null ? 'bg-muted text-text' : 'text-subtle'}`}
+            onClick={() => setFolderId(null)}
+          >
+            <FileText className="h-3 w-3 inline mr-1.5" />All rules ({rules.length})
+          </button>
+          <FolderTreeView folders={folders} folderId={folderId} setFolderId={setFolderId} depth={0} parentId={null} />
         </div>
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-subtle" />
-          <input
-            className="input w-full pl-9"
-            placeholder="search rules…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-      </div>
 
-      <div className="card overflow-hidden">
+        {/* Main */}
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="tabs-row">
+              {['all', 'published', 'draft', 'archived'].map((t) => (
+                <button key={t} className={`tab ${filter === t ? 'tab-active' : ''}`} onClick={() => setFilter(t)}>
+                  {t}
+                </button>
+              ))}
+            </div>
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-subtle" />
+              <input
+                className="input w-full pl-9"
+                placeholder="search rules…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="card overflow-hidden">
         <table className="w-full">
           <thead className="bg-muted/30 border-b border-border">
             <tr className="text-left">
@@ -122,9 +155,14 @@ export default function RulesPage() {
         </table>
       </div>
 
+          {/* /closing card overflow-hidden */}
+        </div>
+      </div>
+
       {showCreate && (
         <CreateRuleDialog
           projectId={projectId}
+          folderId={folderId}
           onClose={() => setShowCreate(false)}
           onCreated={() => qc.invalidateQueries({ queryKey: ['rules', projectId] })}
         />
@@ -133,13 +171,41 @@ export default function RulesPage() {
   );
 }
 
-function CreateRuleDialog({ projectId, onClose, onCreated }: { projectId: string; onClose: () => void; onCreated: () => void }) {
+interface TreeNode { id: string; name: string; parentId: string | null; ruleCount: number; flowCount: number; children?: TreeNode[] }
+
+function FolderTreeView({ folders, folderId, setFolderId, depth, parentId }: {
+  folders: TreeNode[]; folderId: string | null; setFolderId: (id: string | null) => void;
+  depth: number; parentId: string | null;
+}) {
+  const here = folders.filter(f => f.parentId === parentId);
+  if (here.length === 0) return null;
+  return (
+    <div>
+      {here.map(f => (
+        <div key={f.id}>
+          <button
+            className={`w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted/50 truncate ${folderId === f.id ? 'bg-muted text-text' : 'text-subtle'}`}
+            style={{ paddingLeft: `${8 + depth * 12}px` }}
+            onClick={() => setFolderId(f.id)}
+          >
+            <Folder className="h-3 w-3 inline mr-1.5" />
+            {f.name}
+            <span className="ml-1 text-[10px] text-subtle/70">({f.ruleCount + f.flowCount})</span>
+          </button>
+          <FolderTreeView folders={folders} folderId={folderId} setFolderId={setFolderId} depth={depth + 1} parentId={f.id} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CreateRuleDialog({ projectId, folderId, onClose, onCreated }: { projectId: string; folderId?: string | null; onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState('');
   const [type, setType] = useState('DECISION_TABLE');
   const [description, setDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
   const mut = useMutation({
-    mutationFn: () => rulesApi.create({ name, type, description, projectId }),
+    mutationFn: () => rulesApi.create({ name, type, description, projectId, folderId }),
     onSuccess: () => { onCreated(); onClose(); },
     onError: (e: any) => setError(e.message),
   });
@@ -159,8 +225,9 @@ function CreateRuleDialog({ projectId, onClose, onCreated }: { projectId: string
               <option value="DECISION_TABLE">Decision Table</option>
               <option value="DECISION_TREE">Decision Tree</option>
               <option value="FORMULA">Formula</option>
-              <option value="SCRIPT">Script</option>
-              <option value="LOOKUP">Lookup</option>
+              <option value="SCRIPT">Scripting Rule</option>
+              <option value="LOOKUP">Lookup Table</option>
+              <option value="AI_AGENT">AI Agent</option>
               <option value="MODEL_CALL">Model Call</option>
             </select>
           </div>

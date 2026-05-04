@@ -39,7 +39,7 @@ export function Topbar() {
       <div className="hidden md:flex items-center gap-2 ml-4">
         <span className="live-pill">
           <span className="dot bg-ok" />
-          <span>ENGINE</span>
+          <span>SOLVER</span>
           <span className="text-text tabular-nums">{nowUtc()}</span>
           <span className="text-subtle/60">UTC</span>
         </span>
