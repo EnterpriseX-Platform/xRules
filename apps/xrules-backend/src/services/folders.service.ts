@@ -31,10 +31,10 @@ async function depthOf(folderId: string | null): Promise<number> {
   return depth;
 }
 
-export async function tree(projectId: string, user: AuthUser) {
-  await assertProjectAccess(projectId, user);
+export async function tree(projectIdOrSlug: string, user: AuthUser) {
+  const project = await assertProjectAccess(projectIdOrSlug, user);
   const flat = await prisma.folder.findMany({
-    where: { projectId },
+    where: { projectId: project.id },
     include: { _count: { select: { rules: true, flows: true, children: true } } },
     orderBy: [{ parentId: 'asc' }, { position: 'asc' }],
   });

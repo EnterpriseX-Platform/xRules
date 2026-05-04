@@ -67,20 +67,22 @@ function useBreadcrumbs(pathname: string): Crumb[] {
       out.push({ label: sectionLabel });
     }
   }
+  // Add subId as an entity (rule, flow, etc) — but not for integrations,
+  // where the sub-path is a sub-section, not an entity.
+  const isIntegrationsSub = section === 'integrations';
   if (rule) {
     out.push({ label: rule.name });
-  } else if (subId) {
+  } else if (subId && !isIntegrationsSub) {
     const looksLikeId = /^[a-z0-9]{20,}$/i.test(subId) && !subId.includes('-');
     out.push({ label: looksLikeId ? subId.slice(0, 8) + '…' : subId, mono: looksLikeId });
   }
-  // Sub-sub-section (e.g., integrations/api-keys)
-  if (parts.length > 4 && parts[1] === 'projects' && parts[3] === 'integrations') {
-    const sub = parts[4];
+  // Integrations sub-section (api-keys, webhooks, endpoints, connections, api-docs)
+  if (isIntegrationsSub && subId) {
     const human: Record<string, string> = {
       'api-keys': 'API Keys', webhooks: 'Webhooks', endpoints: 'Endpoints',
       connections: 'Connections', 'api-docs': 'API Docs',
     };
-    out.push({ label: human[sub] || sub });
+    out.push({ label: human[subId] || subId });
   }
 
   return out;

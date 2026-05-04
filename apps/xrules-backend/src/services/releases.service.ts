@@ -11,9 +11,9 @@ const fmt = (r: any) => ({
   createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
 });
 
-export async function list(projectId: string, user: AuthUser) {
-  await assertProjectAccess(projectId, user);
-  const rows = await prisma.release.findMany({ where: { projectId }, orderBy: { createdAt: 'desc' } });
+export async function list(projectIdOrSlug: string, user: AuthUser) {
+  const project = await assertProjectAccess(projectIdOrSlug, user);
+  const rows = await prisma.release.findMany({ where: { projectId: project.id }, orderBy: { createdAt: 'desc' } });
   return rows.map(fmt);
 }
 

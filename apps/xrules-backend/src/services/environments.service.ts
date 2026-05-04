@@ -13,10 +13,10 @@ const fmt = (e: any) => ({
   createdAt: e.createdAt.toISOString(), updatedAt: e.updatedAt.toISOString(),
 });
 
-export async function list(projectId: string, user: AuthUser) {
-  await assertProjectAccess(projectId, user);
+export async function list(projectIdOrSlug: string, user: AuthUser) {
+  const project = await assertProjectAccess(projectIdOrSlug, user);
   const rows = await prisma.environment.findMany({
-    where: { projectId },
+    where: { projectId: project.id },
     include: { release: true },
     orderBy: { createdAt: 'asc' },
   });

@@ -32,9 +32,9 @@ const fmt = (s: any) => ({
   createdAt: s.createdAt.toISOString(),
 });
 
-export async function list(projectId: string, user: AuthUser) {
-  await assertProjectAccess(projectId, user);
-  const rows = await prisma.simulation.findMany({ where: { projectId }, orderBy: { createdAt: 'desc' }, take: 50 });
+export async function list(projectIdOrSlug: string, user: AuthUser) {
+  const project = await assertProjectAccess(projectIdOrSlug, user);
+  const rows = await prisma.simulation.findMany({ where: { projectId: project.id }, orderBy: { createdAt: 'desc' }, take: 50 });
   return rows.map(fmt);
 }
 

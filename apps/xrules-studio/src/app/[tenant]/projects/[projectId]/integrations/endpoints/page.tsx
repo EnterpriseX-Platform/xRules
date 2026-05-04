@@ -106,7 +106,7 @@ const client = new XRulesClient({
   apiKey: process.env.XRULES_API_KEY,
 });
 
-const result = await client.rules.execute('${slug}', ${JSON.stringify(exampleInput(rule.inputSchema), null, 2).replace(/^/gm, '  ').trim()});
+const result = await client.execute('${slug}', ${JSON.stringify(exampleInput(rule.inputSchema), null, 2).replace(/^/gm, '  ').trim()});
 
 console.log(result.output);`;
 
@@ -117,8 +117,8 @@ client = XRulesClient(
     api_key=os.environ["XRULES_API_KEY"],
 )
 
-result = client.rules.execute("${slug}", ${pythonDict(exampleInput(rule.inputSchema))})
-print(result.output)`;
+result = client.execute("${slug}", ${pythonDict(exampleInput(rule.inputSchema))})
+print(result["output"])`;
 
   const [tab, setTab] = useState<'curl' | 'ts' | 'python' | 'openapi'>('curl');
   const [copied, setCopied] = useState<string | null>(null);

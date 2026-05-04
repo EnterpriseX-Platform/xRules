@@ -25,9 +25,10 @@ function formatModel(model: any) {
   };
 }
 
-async function assertProjectAccess(projectId: string, user: AuthUser, write = false) {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
+async function assertProjectAccess(idOrSlug: string, user: AuthUser, write = false) {
+  // Accept project id or slug
+  const project = await prisma.project.findFirst({
+    where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
     include: { workspace: true },
   });
   if (!project) throw new NotFoundError('Project');
@@ -42,10 +43,10 @@ async function assertProjectAccess(projectId: string, user: AuthUser, write = fa
   return project;
 }
 
-export async function listModels(projectId: string, user: AuthUser) {
-  await assertProjectAccess(projectId, user);
+export async function listModels(projectIdOrSlug: string, user: AuthUser) {
+  const project = await assertProjectAccess(projectIdOrSlug, user);
   const models = await prisma.model.findMany({
-    where: { projectId },
+    where: { projectId: project.id },
     orderBy: { updatedAt: 'desc' },
     include: { createdBy: true },
   });

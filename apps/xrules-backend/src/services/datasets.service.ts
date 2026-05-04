@@ -14,9 +14,9 @@ function format(d: any) {
   };
 }
 
-export async function list(projectId: string, user: AuthUser) {
-  await assertProjectAccess(projectId, user);
-  const rows = await prisma.dataset.findMany({ where: { projectId }, orderBy: { updatedAt: 'desc' } });
+export async function list(projectIdOrSlug: string, user: AuthUser) {
+  const project = await assertProjectAccess(projectIdOrSlug, user);
+  const rows = await prisma.dataset.findMany({ where: { projectId: project.id }, orderBy: { updatedAt: 'desc' } });
   return rows.map(format);
 }
 

@@ -35,9 +35,9 @@ const fmt = (c: any, includeSecret = false) => ({
   createdAt: c.createdAt.toISOString(), updatedAt: c.updatedAt.toISOString(),
 });
 
-export async function list(projectId: string, user: AuthUser) {
-  await assertProjectAccess(projectId, user);
-  const rows = await prisma.connection.findMany({ where: { projectId }, orderBy: { updatedAt: 'desc' } });
+export async function list(projectIdOrSlug: string, user: AuthUser) {
+  const project = await assertProjectAccess(projectIdOrSlug, user);
+  const rows = await prisma.connection.findMany({ where: { projectId: project.id }, orderBy: { updatedAt: 'desc' } });
   return rows.map(c => fmt(c));
 }
 

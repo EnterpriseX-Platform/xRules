@@ -23,7 +23,7 @@ export default function ToolsPage() {
   const filtered = rules.filter((r: any) =>
     !search || r.name.toLowerCase().includes(search.toLowerCase()) || r.slug.includes(search.toLowerCase()),
   );
-  const tableRules = filtered.filter((r: any) => r.type === 'DECISION_TABLE');
+  const tableRules = filtered.filter((r: any) => String(r.type || '').toUpperCase() === 'DECISION_TABLE');
 
   return (
     <PageContent>

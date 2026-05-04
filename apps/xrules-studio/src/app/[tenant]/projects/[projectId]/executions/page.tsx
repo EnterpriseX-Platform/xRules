@@ -24,7 +24,13 @@ export default function ExecutionsPage() {
         emptyText="No executions yet"
         emptyIcon={Activity}
         columns={[
-          { header: 'Rule', cell: (r: any) => <span className="text-sm">{r.rule?.name || r.ruleId}</span> },
+          { header: 'Rule', cell: (r: any) => (
+              <div>
+                <div className="text-sm font-medium">{r.ruleName || r.rule?.name || 'unnamed'}</div>
+                <div className="text-[10px] text-subtle font-mono">{(r.ruleType || '').replace('_', ' ')}</div>
+              </div>
+            ),
+          },
           { header: 'Status', cell: (r: any) => <StatusPill status={r.status} /> },
           { header: 'Duration', cell: (r: any) => <span className="font-mono text-xs text-subtle tabular-nums">{r.duration ?? '—'}ms</span>, align: 'right' },
           { header: 'When', cell: (r: any) => <span className="font-mono text-xs text-subtle">{new Date(r.createdAt).toLocaleString()}</span>, align: 'right' },

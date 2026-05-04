@@ -463,25 +463,31 @@ function SimulateTab({ rule, projectId }: { rule: any; projectId: string }) {
 }
 
 function ApiTab({ rule }: { rule: any }) {
-  const url = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}/api/v1/rules/${rule.id}/execute`;
+  const url = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}/api/v1/rules/${rule.slug || rule.id}/execute`;
   const curl = `curl -X POST '${url}' \\
   -H 'Content-Type: application/json' \\
   -H 'X-API-Key: YOUR_API_KEY' \\
   -d '${JSON.stringify({ input: {} })}'`;
 
-  const ts = `import { XRulesClient } from 'xrules-sdk';
+  const ts = `import { XRulesClient } from '@xrules/sdk';
 
-const client = new XRulesClient({ apiKey: process.env.XRULES_API_KEY });
+const client = new XRulesClient({
+  baseUrl: '${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}',
+  apiKey: process.env.XRULES_API_KEY!,
+});
 
-const result = await client.rules.execute('${rule.slug}', { /* input */ });
+const result = await client.execute('${rule.slug}', { /* input */ });
 console.log(result.output);`;
 
   const py = `from xrules import XRulesClient
 
-client = XRulesClient(api_key=os.environ["XRULES_API_KEY"])
+client = XRulesClient(
+    base_url="${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}",
+    api_key=os.environ["XRULES_API_KEY"],
+)
 
-result = client.rules.execute("${rule.slug}", input={})
-print(result.output)`;
+result = client.execute("${rule.slug}", {})
+print(result["output"])`;
 
   const [tab, setTab] = useState<'curl' | 'ts' | 'python' | 'openapi'>('curl');
 

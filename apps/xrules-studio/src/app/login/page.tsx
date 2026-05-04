@@ -25,7 +25,7 @@ export default function LoginPage() {
       setAuth(
         res.access_token || res.token,
         res.user,
-        { id: '', slug: tenant, name: tenant },
+        res.workspace || { id: '', slug: tenant, name: tenant },
         res.refresh_token,
       );
       const next = new URLSearchParams(window.location.search).get('next');

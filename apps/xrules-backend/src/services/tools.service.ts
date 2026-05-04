@@ -73,8 +73,9 @@ export async function dependencies(ruleId: string, _version: number | undefined,
 
 // DRD — full graph of a project: all rules (nodes) + all RuleDependency edges,
 // plus inferred edges from flow graphs (nodes that ref ruleId/ruleSlug/ruleAlias).
-export async function projectDrd(projectId: string, user: AuthUser) {
-  await assertProjectAccess(projectId, user);
+export async function projectDrd(projectIdOrSlug: string, user: AuthUser) {
+  const project = await assertProjectAccess(projectIdOrSlug, user);
+  const projectId = project.id;
 
   const [rules, edges, flows] = await Promise.all([
     prisma.rule.findMany({

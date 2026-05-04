@@ -15,11 +15,15 @@ export default function AuditPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['audit', ws?.id, cursor],
-    queryFn: () => api.get<any>(`/bi/audit/v2?workspaceId=${ws?.id}${cursor ? `&after=${cursor}` : ''}&page_size=50`),
+    queryFn: () => api.get<any[]>(`/bi/audit/v2?workspaceId=${ws?.id}${cursor ? `&after=${cursor}` : ''}&page_size=50`),
     enabled: !!ws?.id,
   });
 
-  const rows: any[] = (data?.data || []).filter((r: any) =>
+  // Backend wraps as { success, data, nextCursor }; api.ts unwraps once → we
+  // get the array directly. Fall back to .data for older shape.
+  const rawRows: any[] = Array.isArray(data) ? data : ((data as any)?.data || []);
+  const nextCursor: string | undefined = Array.isArray(data) ? undefined : (data as any)?.nextCursor;
+  const rows: any[] = rawRows.filter((r: any) =>
     !search ||
     (r.rule?.name || '').toLowerCase().includes(search.toLowerCase()) ||
     (r.id || '').includes(search),
@@ -38,7 +42,7 @@ export default function AuditPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-subtle" />
           <input className="input w-full pl-9" placeholder="search rule name or id…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        {data?.nextCursor && <button className="btn-outline text-xs" onClick={() => setCursor(data.nextCursor)}>Load older</button>}
+        {nextCursor && <button className="btn-outline text-xs" onClick={() => setCursor(nextCursor)}>Load older</button>}
       </div>
 
       <EntityTable

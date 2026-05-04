@@ -67,6 +67,11 @@ export async function login(email: string, password: string) {
       role,
       tenantId: defaultWorkspace.slug,
     },
+    workspace: {
+      id: defaultWorkspace.id,
+      slug: defaultWorkspace.slug,
+      name: defaultWorkspace.name,
+    },
   };
 }
 

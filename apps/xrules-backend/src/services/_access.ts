@@ -26,9 +26,22 @@ export async function assertWorkspaceAccess(workspaceId: string, user: AuthUser,
   return m;
 }
 
-export async function assertProjectAccess(projectId: string, user: AuthUser, perm: Permission = 'read') {
-  const project = await prisma.project.findUnique({ where: { id: projectId } });
+export async function assertProjectAccess(idOrSlug: string, user: AuthUser, perm: Permission = 'read') {
+  // Accept project id, slug, or alias-style identifier.
+  const project = await prisma.project.findFirst({
+    where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
+  });
   if (!project) throw new NotFoundError('Project');
   await assertWorkspaceAccess(project.workspaceId, user, perm);
   return project;
+}
+
+// Resolve to canonical project id. Returns null if not found / no access.
+export async function resolveProjectId(idOrSlug: string, user: AuthUser): Promise<string | null> {
+  try {
+    const p = await assertProjectAccess(idOrSlug, user);
+    return p.id;
+  } catch {
+    return null;
+  }
 }

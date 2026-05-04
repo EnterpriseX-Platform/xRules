@@ -13,10 +13,10 @@ function format(s: any) {
   };
 }
 
-export async function listSuites(projectId: string, user: AuthUser) {
-  await assertProjectAccess(projectId, user);
+export async function listSuites(projectIdOrSlug: string, user: AuthUser) {
+  const project = await assertProjectAccess(projectIdOrSlug, user);
   const suites = await prisma.testSuite.findMany({
-    where: { projectId },
+    where: { projectId: project.id },
     include: { rules: true },
     orderBy: { updatedAt: 'desc' },
   });

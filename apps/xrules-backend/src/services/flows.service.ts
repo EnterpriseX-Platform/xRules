@@ -26,9 +26,9 @@ function format(flow: any) {
   };
 }
 
-export async function listFlows(projectId: string, user: AuthUser, status?: string, kind?: string) {
-  await assertProjectAccess(projectId, user);
-  const where: any = { projectId };
+export async function listFlows(projectIdOrSlug: string, user: AuthUser, status?: string, kind?: string) {
+  const project = await assertProjectAccess(projectIdOrSlug, user);
+  const where: any = { projectId: project.id };
   if (status) where.status = status.toUpperCase();
   if (kind) where.kind = kind.toUpperCase();
   const flows = await prisma.flow.findMany({ where, orderBy: { updatedAt: 'desc' } });
