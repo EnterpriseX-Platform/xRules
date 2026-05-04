@@ -116,26 +116,30 @@ export async function executeRule(ruleId: string, input: any, context: any, user
 function transformDefinitionForEngine(rule: any): any {
   const def = rule.definition as any;
 
-  if (rule.type === 'DECISION_TABLE' && def?.hitPolicy) {
+  if (rule.type === 'DECISION_TABLE') {
+    // Engine expects { nodes, edges, dmn: { hit_policy, inputs, outputs, rules } }
+    // even when the stored definition is just { rules: [...] } without metadata.
+    const inputSchemaProps = (rule.inputSchema as any)?.properties || {};
+    const outputSchemaProps = (rule.outputSchema as any)?.properties || {};
+    const inputs = (def?.inputs?.length ? def.inputs : Object.keys(inputSchemaProps).map((name) => ({
+      name, type: inputSchemaProps[name]?.type || 'string',
+    })));
+    const outputs = (def?.outputs?.length ? def.outputs : Object.keys(outputSchemaProps).map((name) => ({
+      name, type: outputSchemaProps[name]?.type || 'string',
+    })));
     return {
       nodes: [],
       edges: [],
       dmn: {
-        hit_policy: def.hitPolicy?.toUpperCase() || 'FIRST',
-        inputs: (def.inputs || []).map((i: any) => ({
-          name: i.name,
-          expression: i.name,
-          type: i.type || 'string',
+        hit_policy: (def?.hitPolicy || 'FIRST').toUpperCase(),
+        inputs: inputs.map((i: any) => ({
+          name: i.name, expression: i.name, type: i.type || 'string',
         })),
-        outputs: (def.outputs || []).map((o: any) => ({
-          name: o.name,
-          label: o.label || o.name,
-          type: o.type || 'string',
+        outputs: outputs.map((o: any) => ({
+          name: o.name, label: o.label || o.name, type: o.type || 'string',
         })),
-        rules: (def.rules || []).map((r: any) => ({
-          id: r.id,
-          inputs: r.inputs || [],
-          outputs: r.outputs || [],
+        rules: (def?.rules || []).map((r: any) => ({
+          id: r.id, inputs: r.inputs || [], outputs: r.outputs || [],
         })),
       },
     };
