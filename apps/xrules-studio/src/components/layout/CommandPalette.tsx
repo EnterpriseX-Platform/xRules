@@ -104,16 +104,16 @@ export function CommandPalette() {
 
   const projectItems: Item[] = (projects as any[]).map((p) => ({
     id: `prj-${p.id}`, title: p.name, subtitle: p.slug, group: 'Projects',
-    icon: FolderKanban, href: `/${tenant}/projects/${p.id}`,
+    icon: FolderKanban, href: `/${tenant}/projects/${p.slug || p.id}`,
   }));
   const ruleItems: Item[] = (rules as any[]).map((r) => ({
     id: `rul-${r.id}`, title: r.name, subtitle: `${r.slug} · ${r.type.toLowerCase().replace('_', ' ')}`,
-    group: 'Rules', icon: TYPE_ICON[r.type] || FileText,
-    href: `/${tenant}/projects/${projectId}/rules/${r.id}`,
+    group: 'Rules', icon: TYPE_ICON[String(r.type).toUpperCase()] || FileText,
+    href: `/${tenant}/projects/${projectId}/rules/${r.slug || r.id}`,
   }));
   const flowItems: Item[] = (flows as any[]).map((f) => ({
     id: `flw-${f.id}`, title: f.name, subtitle: f.slug, group: 'Flows',
-    icon: Workflow, href: `/${tenant}/projects/${projectId}/flows/${f.id}`,
+    icon: Workflow, href: `/${tenant}/projects/${projectId}/flows/${f.slug || f.id}`,
   }));
 
   const all = [...sections, ...projectItems, ...ruleItems, ...flowItems];

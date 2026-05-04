@@ -59,7 +59,7 @@ export default function ProjectsPage() {
               <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                 <td className="py-3 px-4 row-index">{String(i + 1).padStart(2, '0')}</td>
                 <td className="py-3 px-4">
-                  <Link href={`/${tenant}/projects/${p.id}/rules`} className="flex items-center gap-3 group">
+                  <Link href={`/${tenant}/projects/${p.slug || p.id}/rules`} className="flex items-center gap-3 group">
                     <span className="h-8 w-8 rounded flex items-center justify-center" style={{ background: p.color ? `${p.color}33` : 'rgb(var(--c-mint) / 0.2)' }}>
                       <FolderKanban className="h-4 w-4 text-text" />
                     </span>
@@ -76,7 +76,7 @@ export default function ProjectsPage() {
                   {p._count?.flows ?? '—'}
                 </td>
                 <td className="py-3 px-4 text-right">
-                  <Link href={`/${tenant}/projects/${p.id}/rules`}>
+                  <Link href={`/${tenant}/projects/${p.slug || p.id}/rules`}>
                     <ChevronRight className="h-4 w-4 text-subtle inline" />
                   </Link>
                 </td>

@@ -20,21 +20,23 @@ function useBreadcrumbs(pathname: string): Crumb[] {
   const section = parts[1] === 'projects' ? parts[3] : undefined;
   const subId = parts[1] === 'projects' ? parts[4] : undefined;
 
-  // Fetch project name (cheap, cached)
+  // Fetch project name (works with id or slug — backend resolves either)
   const { data: project } = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => projectId ? api.get<any>(`/projects/${projectId}`) : null,
-    enabled: !!projectId && /^[a-z0-9]{20,}$/i.test(projectId),
+    enabled: !!projectId,
     staleTime: 60_000,
+    retry: false,
   });
 
-  // Fetch rule name when on /rules/[ruleId]
-  const isRule = section === 'rules' && subId && /^[a-z0-9]{20,}$/i.test(subId);
+  // Fetch rule name when on /rules/[ruleId-or-slug]
+  const isRule = section === 'rules' && !!subId;
   const { data: rule } = useQuery({
     queryKey: ['rule-crumb', subId],
     queryFn: () => api.get<any>(`/rules/${subId}`),
-    enabled: !!isRule,
+    enabled: isRule,
     staleTime: 60_000,
+    retry: false,
   });
 
   // Build crumbs
@@ -44,9 +46,12 @@ function useBreadcrumbs(pathname: string): Crumb[] {
     out.push({ label: 'Projects', href: `/${tenant}/projects` });
   }
   if (project) {
-    out.push({ label: project.name, href: `/${tenant}/projects/${projectId}` });
+    out.push({ label: project.name, href: `/${tenant}/projects/${project.slug || projectId}` });
   } else if (projectId) {
-    out.push({ label: projectId.slice(0, 8) + '…', mono: true });
+    // Show slug-style as-is (no truncation) when looks human-readable; fall
+    // back to short cuid prefix when it's an id we couldn't resolve.
+    const looksLikeId = /^[a-z0-9]{20,}$/i.test(projectId) && !projectId.includes('-');
+    out.push({ label: looksLikeId ? projectId.slice(0, 8) + '…' : projectId, mono: looksLikeId });
   }
   if (section) {
     const human: Record<string, string> = {
@@ -65,10 +70,9 @@ function useBreadcrumbs(pathname: string): Crumb[] {
   }
   if (rule) {
     out.push({ label: rule.name });
-  } else if (subId && section === 'rules') {
-    out.push({ label: subId.slice(0, 8) + '…', mono: true });
   } else if (subId) {
-    out.push({ label: subId, mono: true });
+    const looksLikeId = /^[a-z0-9]{20,}$/i.test(subId) && !subId.includes('-');
+    out.push({ label: looksLikeId ? subId.slice(0, 8) + '…' : subId, mono: looksLikeId });
   }
   // Sub-sub-section (e.g., integrations/api-keys)
   if (parts.length > 4 && parts[1] === 'projects' && parts[3] === 'integrations') {

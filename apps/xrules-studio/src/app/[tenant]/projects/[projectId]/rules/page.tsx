@@ -205,7 +205,7 @@ export default function RulesPage() {
                   </div>
                 </td>
                 <td className="py-3 px-4">
-                  <Link href={`/${tenant}/projects/${projectId}/rules/${r.id}`} className="block group">
+                  <Link href={`/${tenant}/projects/${projectId}/rules/${r.slug || r.id}`} className="block group">
                     <div className="text-sm font-medium group-hover:text-accent">{r.name}</div>
                     <div className="text-xs text-subtle font-mono">{r.slug}</div>
                   </Link>
@@ -216,7 +216,7 @@ export default function RulesPage() {
                 <td className="py-3 px-4"><StatusPill status={r.status} /></td>
                 <td className="py-3 px-4 text-right font-mono text-xs text-subtle tabular-nums">v{r.version}</td>
                 <td className="py-3 px-4 text-right">
-                  <Link href={`/${tenant}/projects/${projectId}/rules/${r.id}`}>
+                  <Link href={`/${tenant}/projects/${projectId}/rules/${r.slug || r.id}`}>
                     <ChevronRight className="h-4 w-4 text-subtle inline" />
                   </Link>
                 </td>

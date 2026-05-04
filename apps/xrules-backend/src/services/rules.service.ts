@@ -105,9 +105,10 @@ async function checkMembership(workspaceId: string, userId: string, requiredRole
   return membership;
 }
 
-export async function listRules(projectId: string, user: AuthUser, statusFilter?: string) {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
+export async function listRules(projectIdOrSlug: string, user: AuthUser, statusFilter?: string) {
+  // Accept project id OR slug.
+  const project = await prisma.project.findFirst({
+    where: { OR: [{ id: projectIdOrSlug }, { slug: projectIdOrSlug }] },
     include: { workspace: true },
   });
 
@@ -117,7 +118,7 @@ export async function listRules(projectId: string, user: AuthUser, statusFilter?
 
   await checkMembership(project.workspaceId, user.userId);
 
-  const where: any = { projectId };
+  const where: any = { projectId: project.id };
   if (statusFilter) {
     where.status = statusFilter.toUpperCase();
   }
@@ -131,15 +132,42 @@ export async function listRules(projectId: string, user: AuthUser, statusFilter?
   return rules.map(formatRule);
 }
 
-export async function getRule(id: string, user: AuthUser) {
-  const rule = await prisma.rule.findUnique({
-    where: { id },
-    include: {
-      project: { include: { workspace: true } },
-      createdBy: true,
-      _count: { select: { executions: true } },
-    },
-  });
+export async function getRule(idOrSlug: string, user: AuthUser) {
+  // Accept id, slug, or alias. CUIDs are 24-25 chars, lowercase alphanumeric;
+  // slugs/aliases use kebab-case so contain hyphens.
+  const looksLikeId = /^[a-z0-9]{20,30}$/i.test(idOrSlug);
+  let rule = looksLikeId
+    ? await prisma.rule.findUnique({
+        where: { id: idOrSlug },
+        include: {
+          project: { include: { workspace: true } },
+          createdBy: true,
+          _count: { select: { executions: true } },
+        },
+      })
+    : null;
+  if (!rule) {
+    // Project-scoped slug/alias lookup — for the user, return the first
+    // matching rule across their accessible projects.
+    const memberships = await prisma.workspaceMember.findMany({
+      where: { userId: user.userId },
+      select: { workspaceId: true },
+    });
+    const wsIds = memberships.map(m => m.workspaceId);
+    const matches = await prisma.rule.findMany({
+      where: {
+        OR: [{ slug: idOrSlug }, { alias: idOrSlug }],
+        project: { workspaceId: { in: wsIds } },
+      },
+      include: {
+        project: { include: { workspace: true } },
+        createdBy: true,
+        _count: { select: { executions: true } },
+      },
+      take: 1,
+    });
+    rule = matches[0] || null;
+  }
 
   if (!rule) {
     throw new NotFoundError('Rule');
