@@ -37,24 +37,24 @@ export default function DashboardPage() {
         ]}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <KpiCard label="Projects" value={stats.projects} icon={FolderKanban} tone="info" />
-        <KpiCard label="Rules"    value={stats.rules}    icon={FileText}     tone="info" />
-        <KpiCard label="Flows"    value={stats.flows}    icon={Workflow}     tone="mint" />
-        <KpiCard label="Models"   value={stats.models}   icon={Brain}        tone="warn" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <KpiCard label="Projects" value={stats.projects}   icon={FolderKanban} tone="info" />
+        <KpiCard label="Rules"    value={stats.rules}      icon={FileText}     tone="accent" />
+        <KpiCard label="Flows"    value={stats.flows}      icon={Workflow}     tone="mint" />
+        <KpiCard label="Models"   value={stats.models}     icon={Brain}        tone="warn" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-mono uppercase tracking-label text-subtle">Recent Executions</h2>
-            <span className="font-mono text-[10px] text-subtle tabular-nums">{Number(stats.executions).toLocaleString()} TOTAL</span>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-2 card p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-[15px] font-semibold tracking-tight">Recent executions</h2>
+            <span className="text-[11px] text-subtle tabular-nums">{Number(stats.executions).toLocaleString()} total</span>
           </div>
           <RecentTable rows={data?.recentExecutions || []} loading={isLoading} />
         </div>
 
-        <div className="card p-5">
-          <h2 className="text-sm font-mono uppercase tracking-label text-subtle mb-4">Recent Projects</h2>
+        <div className="card p-6">
+          <h2 className="text-[15px] font-semibold tracking-tight mb-5">Recent projects</h2>
           <ProjectList rows={data?.recentProjects || []} loading={isLoading} />
         </div>
       </div>
@@ -62,16 +62,21 @@ export default function DashboardPage() {
   );
 }
 
-function KpiCard({ label, value, icon: Icon, tone }: { label: string; value: number; icon: any; tone: 'info' | 'mint' | 'warn' }) {
-  const toneCls = tone === 'info' ? 'text-info bg-info/10' : tone === 'mint' ? 'text-mint bg-mint/10' : 'text-warn bg-warn/10';
+function KpiCard({ label, value, icon: Icon, tone }: { label: string; value: number; icon: any; tone: 'info' | 'mint' | 'warn' | 'accent' }) {
+  const toneCls = {
+    info:   'text-info bg-info/10',
+    mint:   'text-mint bg-mint/10',
+    warn:   'text-warn bg-warn/10',
+    accent: 'text-accent bg-accent/10',
+  }[tone];
   return (
-    <div className="card p-4 flex items-center gap-4">
-      <div className={`h-10 w-10 rounded flex items-center justify-center ${toneCls}`}>
-        <Icon className="h-5 w-5" />
+    <div className="card p-5 flex items-center gap-4 card-hover">
+      <div className={`h-11 w-11 rounded-xl flex items-center justify-center ${toneCls}`}>
+        <Icon className="h-5 w-5" strokeWidth={1.8} />
       </div>
       <div>
-        <div className="text-2xl font-bold tabular-nums">{value}</div>
-        <div className="text-xs text-subtle font-mono uppercase tracking-label">{label}</div>
+        <div className="kpi-num">{value}</div>
+        <div className="text-[12px] text-subtle mt-1">{label}</div>
       </div>
     </div>
   );
@@ -82,7 +87,7 @@ function RecentTable({ rows, loading }: { rows: any[]; loading: boolean }) {
   if (!rows.length) return <Empty icon={Activity} text="No recent executions" />;
   return (
     <table className="w-full text-sm">
-      <thead className="border-b border-border">
+      <thead className="border-b border-border/60">
         <tr className="text-left">
           <th className="py-2 pr-4 label-section">#</th>
           <th className="py-2 pr-4 label-section">Rule</th>
@@ -92,17 +97,17 @@ function RecentTable({ rows, loading }: { rows: any[]; loading: boolean }) {
       </thead>
       <tbody>
         {rows.slice(0, 5).map((r, i) => (
-          <tr key={r.id} className="border-b border-border/50">
-            <td className="py-2.5 pr-4 row-index">{String(i + 1).padStart(2, '0')}</td>
-            <td className="py-2.5 pr-4 truncate max-w-[200px]">{r.rule?.name || '—'}</td>
-            <td className="py-2.5 pr-4">
+          <tr key={r.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
+            <td className="py-3 pr-4 row-index">{String(i + 1).padStart(2, '0')}</td>
+            <td className="py-3 pr-4 truncate max-w-[200px] font-medium">{r.rule?.name || '—'}</td>
+            <td className="py-3 pr-4">
               <span className={`pill ${r.status === 'SUCCESS' ? 'pill-ok' : r.status === 'FAILED' ? 'pill-danger' : 'pill-warn'}`}>
                 <span className={`dot ${r.status === 'SUCCESS' ? 'bg-ok' : r.status === 'FAILED' ? 'bg-danger' : 'bg-warn'}`} />
-                {r.status}
+                {r.status.toLowerCase()}
               </span>
             </td>
-            <td className="py-2.5 pr-4 text-right font-mono text-xs text-subtle tabular-nums">
-              {r.duration ? `${r.duration}ms` : '—'}
+            <td className="py-3 pr-4 text-right text-xs text-subtle tabular-nums">
+              {r.duration ? `${r.duration} ms` : '—'}
             </td>
           </tr>
         ))}
@@ -115,17 +120,17 @@ function ProjectList({ rows, loading }: { rows: any[]; loading: boolean }) {
   if (loading) return <SkeletonRows />;
   if (!rows.length) return <Empty icon={FolderKanban} text="No projects yet" />;
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       {rows.slice(0, 6).map((p) => (
         <a
           key={p.id}
           href={`/projects/${p.slug || p.id}/rules`}
-          className="flex items-center gap-3 p-2 -mx-2 rounded hover:bg-muted transition-colors"
+          className="flex items-center gap-3 p-2.5 -mx-2 rounded-lg hover:bg-muted/60 transition-colors group"
         >
-          <span className="h-3 w-3 rounded shrink-0" style={{ background: p.color || 'rgb(var(--c-mint))' }} />
+          <span className="h-2.5 w-2.5 rounded-full shrink-0 ring-2 ring-offset-2 ring-offset-surface" style={{ background: p.color || 'rgb(var(--c-mint))' }} />
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium truncate">{p.name}</div>
-            <div className="text-[11px] font-mono text-subtle truncate">{p.slug}</div>
+            <div className="text-[14px] font-medium truncate group-hover:text-accent transition-colors">{p.name}</div>
+            <div className="text-[11.5px] text-subtle truncate">{p.slug}</div>
           </div>
         </a>
       ))}
@@ -137,7 +142,7 @@ function SkeletonRows() {
   return (
     <div className="space-y-2">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="h-9 rounded bg-muted animate-pulse" />
+        <div key={i} className="h-10 rounded-lg bg-muted animate-pulse" />
       ))}
     </div>
   );
@@ -146,8 +151,10 @@ function SkeletonRows() {
 function Empty({ icon: Icon, text }: { icon: any; text: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-subtle">
-      <Icon className="h-8 w-8 mb-2 opacity-50" />
-      <div className="text-sm font-mono">{text}</div>
+      <div className="h-12 w-12 rounded-full bg-muted/60 flex items-center justify-center mb-3">
+        <Icon className="h-5 w-5 text-subtle/70" />
+      </div>
+      <div className="text-sm">{text}</div>
     </div>
   );
 }

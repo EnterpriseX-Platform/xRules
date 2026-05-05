@@ -106,18 +106,22 @@
 }
 
 @layer components {
-  /* Sidebar / column section label — clean, semibold sans, modest size */
+  /* Sidebar / column section label */
   .label-section {
-    @apply text-[11px] font-semibold uppercase tracking-wider text-subtle/80;
+    @apply text-[10.5px] font-semibold uppercase tracking-[0.08em] text-subtle/70;
   }
 
-  /* Sidebar nav row — sentence case, sans, soft active */
+  /* Sidebar nav row — soft active with left bar accent */
   .nav-row {
-    @apply flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] font-medium;
-    @apply text-subtle hover:text-text hover:bg-muted/70 transition-colors;
+    @apply relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] font-medium;
+    @apply text-subtle hover:text-text hover:bg-muted/60 transition-colors;
   }
   .nav-row-active {
-    @apply bg-accent/10 text-accent;
+    @apply bg-accent/[0.08] text-accent;
+  }
+  .nav-row-active::before {
+    content: '';
+    @apply absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-accent;
   }
 
   /* Status pill (top bar / footer) */
@@ -130,24 +134,41 @@
     @apply inline-block h-1.5 w-1.5 rounded-full;
   }
 
-  /* Card — softer borders + bigger radius for modern feel */
+  /* Card — generous radius + warmer shadow for premium feel */
   .card {
-    @apply rounded-lg border border-border/70 bg-surface shadow-[0_1px_2px_0_rgb(0_0_0/0.02)];
+    @apply rounded-xl border border-border/60 bg-surface;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.03), 0 1px 3px 0 rgb(0 0 0 / 0.02);
+  }
+  .card-elevated {
+    @apply card;
+    box-shadow: 0 4px 16px -4px rgb(0 0 0 / 0.08), 0 2px 4px 0 rgb(0 0 0 / 0.04);
+  }
+  .card-hover {
+    @apply transition-all hover:border-border;
+    transition-property: box-shadow, border-color, transform;
+  }
+  .card-hover:hover {
+    box-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.06), 0 2px 4px -1px rgb(0 0 0 / 0.04);
   }
 
-  /* Page header */
+  /* Page heading */
   .h1-page {
-    @apply text-2xl font-semibold tracking-tight;
+    @apply text-[28px] leading-tight font-semibold tracking-tight;
+  }
+
+  /* KPI numeric */
+  .kpi-num {
+    @apply text-[32px] leading-none font-semibold tabular-nums tracking-tight;
   }
 
   /* Numbered row index */
   .row-index {
-    @apply text-xs text-subtle/70 tabular-nums;
+    @apply text-xs text-subtle/60 tabular-nums;
   }
 
   /* Pill (status badges) — sans-serif, sentence-case (callers control text) */
   .pill {
-    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium;
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-medium leading-relaxed;
   }
   .pill-ok      { @apply text-ok      bg-ok/10; }
   .pill-warn    { @apply text-warn    bg-warn/10; }
@@ -158,20 +179,24 @@
 
   /* Buttons */
   .btn {
-    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all;
+    @apply inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-lg text-[13px] font-medium transition-all;
   }
-  .btn-primary  { @apply btn bg-accent text-accent-fg hover:opacity-90 shadow-sm; }
+  .btn-primary  {
+    @apply btn bg-accent text-accent-fg;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.06), inset 0 1px 0 0 rgb(255 255 255 / 0.15);
+  }
+  .btn-primary:hover  { @apply opacity-95; box-shadow: 0 2px 4px 0 rgb(99 102 241 / 0.20), inset 0 1px 0 0 rgb(255 255 255 / 0.15); }
   .btn-ghost    { @apply btn text-subtle hover:text-text hover:bg-muted; }
-  .btn-outline  { @apply btn border border-border text-text hover:bg-muted; }
+  .btn-outline  { @apply btn border border-border/70 text-text hover:bg-muted hover:border-border; }
 
   /* Input */
   .input {
-    @apply h-9 px-3 rounded-md bg-muted/60 text-sm text-text placeholder:text-subtle border border-transparent;
-    @apply focus:border-accent/60 focus:bg-surface focus:ring-2 focus:ring-accent/15 outline-none transition;
+    @apply h-9 px-3 rounded-lg bg-muted/50 text-[13.5px] text-text placeholder:text-subtle/80 border border-transparent;
+    @apply focus:border-accent/50 focus:bg-surface focus:ring-2 focus:ring-accent/15 outline-none transition;
   }
 
   /* Tab pill row */
-  .tabs-row { @apply flex items-center gap-1 p-1 rounded-md border border-border/70 bg-surface w-fit; }
-  .tab      { @apply px-3 py-1 rounded text-xs font-medium text-subtle hover:text-text cursor-pointer transition-colors; }
-  .tab-active { @apply bg-accent/10 text-accent; }
+  .tabs-row { @apply flex items-center gap-1 p-1 rounded-lg border border-border/60 bg-muted/40 w-fit; }
+  .tab      { @apply px-3 py-1 rounded-md text-xs font-medium text-subtle hover:text-text cursor-pointer transition-colors; }
+  .tab-active { @apply bg-surface text-text shadow-sm; }
 }
