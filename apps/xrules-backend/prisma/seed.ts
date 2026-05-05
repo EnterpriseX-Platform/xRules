@@ -376,6 +376,86 @@ return { discountPercent: pct, discountAmount, subtotal, tax, total, freeShippin
 
   console.log('Created rules + composite SCRIPT + sample Connection');
 
+  // Sample Flow that demonstrates orchestration:
+  //   Input → HTTP fetch (httpbin) → Rule call (discount-tiers) → Output
+  await prisma.flow.upsert({
+    where: { projectId_slug: { projectId: pricingProject.id, slug: 'order-pricing-flow' } },
+    update: {},
+    create: {
+      name: 'Order Pricing Flow',
+      slug: 'order-pricing-flow',
+      alias: 'order-pricing',
+      description: 'Fetch customer tier from external API, then run Discount Tiers and return the quote.',
+      kind: 'DECISION',
+      status: 'PUBLISHED',
+      version: 1,
+      projectId: pricingProject.id,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          customerId:  { type: 'string', example: 'cust-12345' },
+          orderAmount: { type: 'number', example: 1500 },
+        },
+      },
+      outputSchema: {
+        type: 'object',
+        properties: {
+          discountPercent: { type: 'number' },
+          freeShipping:    { type: 'boolean' },
+        },
+      },
+      graph: {
+        nodes: [
+          {
+            id: 'n_input',
+            type: 'input',
+            position: { x: 60, y: 120 },
+            data: { label: 'Order Input', kind: 'input' },
+          },
+          {
+            id: 'n_http',
+            type: 'http',
+            position: { x: 280, y: 120 },
+            data: {
+              label: 'Fetch customer tier',
+              kind: 'http',
+              connectionSlug: 'httpbin-demo',
+              method: 'GET',
+              path: '/anything?customerId={{input.customerId}}&tier=platinum',
+              outputAs: 'customer',
+            },
+          },
+          {
+            id: 'n_rule',
+            type: 'ruleCall',
+            position: { x: 560, y: 120 },
+            data: {
+              label: 'Discount Tiers',
+              kind: 'ruleCall',
+              ruleSlug: 'discount-tiers',
+              inputMap: {
+                customerTier: '{{customer.args.tier}}',
+                orderAmount:  '{{input.orderAmount}}',
+              },
+            },
+          },
+          {
+            id: 'n_output',
+            type: 'output',
+            position: { x: 840, y: 120 },
+            data: { label: 'Final Quote', kind: 'output' },
+          },
+        ],
+        edges: [
+          { id: 'e1', source: 'n_input',  target: 'n_http' },
+          { id: 'e2', source: 'n_http',   target: 'n_rule' },
+          { id: 'e3', source: 'n_rule',   target: 'n_output' },
+        ],
+      },
+    },
+  });
+  console.log('Created sample Flow: order-pricing-flow');
+
   // Snapshot every PUBLISHED rule into RuleVersion so the Versions tab
   // shows entries and version-pinning works against seed data.
   const publishedRules = await prisma.rule.findMany({

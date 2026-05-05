@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import {
   LayoutDashboard, FolderKanban, FileText, Workflow, Brain, Database,
   FlaskConical, Sparkles, ListTree, GitBranch, Activity,
@@ -100,23 +100,15 @@ export function Sidebar({ tenant }: { tenant: string }) {
       </div>
 
       <div className="flex-1 overflow-y-auto py-4 space-y-5">
-        {/* Project switcher */}
+        {/* Project switcher — real dropdown */}
         <div className="px-4 space-y-2">
           <div className="label-section">Project</div>
-          <button
-            className="w-full flex items-center gap-2 h-9 px-2 rounded border border-border bg-surface hover:border-accent/50 transition-colors text-left"
-            onClick={() => {
-              const next = projects?.find((p: any) => p.id !== project);
-              if (next) setProject(next.id);
-            }}
-          >
-            <span
-              className="h-3 w-3 rounded shrink-0"
-              style={{ background: currentProject?.color || 'rgb(var(--c-mint))' }}
-            />
-            <span className="font-medium text-sm truncate">{currentProject?.name || 'No project'}</span>
-            <ChevronDown className="ml-auto h-3.5 w-3.5 text-subtle" />
-          </button>
+          <ProjectPicker
+            tenant={tenant}
+            projects={projects || []}
+            current={currentProject}
+            onPick={(p) => setProject(p.id)}
+          />
         </div>
 
         <NavSection label="Main Menu" items={main} pathname={pathname} />
@@ -166,6 +158,85 @@ function NavSection({ label, items, pathname }: { label: string; items: NavItem[
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function ProjectPicker({ tenant, projects, current, onPick }: {
+  tenant: string;
+  projects: any[];
+  current: any;
+  onPick: (p: any) => void;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    if (open) document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  function pick(p: any) {
+    onPick(p);
+    setOpen(false);
+    // Reroute to the project's dashboard / rules so the URL stays in sync
+    router.push(`/${tenant}/projects/${p.slug || p.id}/rules`);
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        className="w-full flex items-center gap-2 h-9 px-2 rounded-md border border-border/70 bg-surface hover:border-accent/50 transition-colors text-left"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span
+          className="h-3 w-3 rounded shrink-0"
+          style={{ background: current?.color || 'rgb(var(--c-mint))' }}
+        />
+        <span className="font-medium text-sm truncate">{current?.name || 'No project'}</span>
+        <ChevronDown className={cn('ml-auto h-3.5 w-3.5 text-subtle transition-transform', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <div className="absolute z-30 left-0 right-0 mt-1 rounded-md border border-border/70 bg-surface shadow-lg max-h-72 overflow-y-auto">
+          {projects.length === 0 && (
+            <div className="px-3 py-2 text-xs text-subtle">No projects</div>
+          )}
+          {projects.map((p) => {
+            const active = p.id === current?.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => pick(p)}
+                className={cn(
+                  'w-full flex items-center gap-2 px-2 py-1.5 text-left text-sm',
+                  active ? 'bg-accent/10 text-accent' : 'hover:bg-muted/60',
+                )}
+              >
+                <span
+                  className="h-2.5 w-2.5 rounded-full shrink-0"
+                  style={{ background: p.color || 'rgb(var(--c-mint))' }}
+                />
+                <span className="font-medium truncate">{p.name}</span>
+                <span className="ml-auto font-mono text-[10px] text-subtle">{p.slug}</span>
+              </button>
+            );
+          })}
+          <div className="border-t border-border/70">
+            <Link
+              href={`/${tenant}/projects`}
+              className="block px-2 py-1.5 text-xs text-accent hover:bg-muted/60"
+              onClick={() => setOpen(false)}
+            >
+              Manage projects →
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
