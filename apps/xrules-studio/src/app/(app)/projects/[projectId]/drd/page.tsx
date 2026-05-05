@@ -33,7 +33,7 @@ interface DrdNode {
 interface DrdEdge { fromId: string; toId: string; kind: string }
 
 export default function DrdPage() {
-  const { tenant, projectId } = useParams<{ tenant: string; projectId: string }>();
+  const { projectId } = useParams<{ projectId: string }>();
 
   const { data, isLoading } = useQuery<{ nodes: DrdNode[]; edges: DrdEdge[] }>({
     queryKey: ['drd', projectId],
@@ -42,8 +42,8 @@ export default function DrdPage() {
 
   const { rfNodes, rfEdges } = useMemo(() => {
     if (!data) return { rfNodes: [] as Node[], rfEdges: [] as Edge[] };
-    return layoutDrd(data.nodes, data.edges, tenant, projectId);
-  }, [data, tenant, projectId]);
+    return layoutDrd(data.nodes, data.edges, projectId);
+  }, [data, projectId]);
 
   const ruleCount = data?.nodes.filter(n => !n.isFlow).length || 0;
   const flowCount = data?.nodes.filter(n => n.isFlow).length || 0;
@@ -92,7 +92,7 @@ export default function DrdPage() {
 
 // Topological layering — nodes with no incoming edges go in column 0,
 // then their children in column 1, etc. Within a column, sort by name.
-function layoutDrd(nodes: DrdNode[], edges: DrdEdge[], tenant: string, projectId: string): { rfNodes: Node[]; rfEdges: Edge[] } {
+function layoutDrd(nodes: DrdNode[], edges: DrdEdge[], projectId: string): { rfNodes: Node[]; rfEdges: Edge[] } {
   const incoming = new Map<string, number>();
   const childrenOf = new Map<string, string[]>();
   for (const n of nodes) { incoming.set(n.id, 0); childrenOf.set(n.id, []); }
@@ -135,8 +135,8 @@ function layoutDrd(nodes: DrdNode[], edges: DrdEdge[], tenant: string, projectId
     list.forEach((n: DrdNode, i: number) => {
       const color = TYPE_COLOR[n.type] || 'rgb(var(--c-subtle))';
       const href = n.isFlow
-        ? `/${tenant}/projects/${projectId}/flows/${n.id.replace(/^flow:/, '')}`
-        : `/${tenant}/projects/${projectId}/rules/${n.id}`;
+        ? `/projects/${projectId}/flows/${n.id.replace(/^flow:/, '')}`
+        : `/projects/${projectId}/rules/${n.id}`;
       rfNodes.push({
         id: n.id,
         type: 'default',

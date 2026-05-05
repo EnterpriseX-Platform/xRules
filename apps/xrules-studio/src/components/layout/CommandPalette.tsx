@@ -34,8 +34,8 @@ export function CommandPalette() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const projectId = useProject((s) => s.currentProjectId);
-  const user = useAuth((s) => s.user) as any;
-  const tenant: string = user?.tenantId || 'xrules';
+  // We no longer use [tenant] in URLs — workspace is implicit via auth.
+  useAuth((s) => s.user);
 
   // ⌘K toggle + custom event
   useEffect(() => {
@@ -83,37 +83,37 @@ export function CommandPalette() {
 
   // Build static section items
   const sections: Item[] = projectId ? [
-    { id: 'sec-dash', title: 'Dashboard', group: 'Go to', icon: LayoutDashboard, href: `/${tenant}` },
-    { id: 'sec-projects', title: 'Projects', group: 'Go to', icon: FolderKanban, href: `/${tenant}/projects` },
-    { id: 'sec-rules', title: 'Rules', group: 'Go to', icon: FileText, href: `/${tenant}/projects/${projectId}/rules` },
-    { id: 'sec-flows', title: 'Flows', group: 'Go to', icon: Workflow, href: `/${tenant}/projects/${projectId}/flows` },
-    { id: 'sec-suites', title: 'Test Suites', group: 'Go to', icon: FlaskConical, href: `/${tenant}/projects/${projectId}/test-suites` },
-    { id: 'sec-sims', title: 'Simulations', group: 'Go to', icon: Sparkles, href: `/${tenant}/projects/${projectId}/simulations` },
-    { id: 'sec-bench', title: 'Bench', group: 'Go to', icon: Gauge, href: `/${tenant}/projects/${projectId}/bench` },
-    { id: 'sec-execs', title: 'Executions', group: 'Go to', icon: Activity, href: `/${tenant}/projects/${projectId}/executions` },
-    { id: 'sec-ds', title: 'Datasets', group: 'Go to', icon: Database, href: `/${tenant}/projects/${projectId}/datasets` },
-    { id: 'sec-rel', title: 'Releases', group: 'Go to', icon: ScrollText, href: `/${tenant}/projects/${projectId}/releases` },
-    { id: 'sec-env', title: 'Environments', group: 'Go to', icon: GitBranch, href: `/${tenant}/projects/${projectId}/environments` },
-    { id: 'sec-ep', title: 'Endpoints', group: 'Integrations', icon: ArrowRight, href: `/${tenant}/projects/${projectId}/integrations/endpoints` },
-    { id: 'sec-keys', title: 'API Keys', group: 'Integrations', icon: KeyRound, href: `/${tenant}/projects/${projectId}/integrations/api-keys` },
-    { id: 'sec-wh', title: 'Webhooks', group: 'Integrations', icon: Webhook, href: `/${tenant}/projects/${projectId}/integrations/webhooks` },
-    { id: 'sec-conn', title: 'Connections', group: 'Integrations', icon: Plug, href: `/${tenant}/projects/${projectId}/integrations/connections` },
-    { id: 'sec-tools', title: 'Tools', group: 'Go to', icon: Wrench, href: `/${tenant}/projects/${projectId}/tools` },
-    { id: 'sec-drd', title: 'DRD', group: 'Go to', icon: Network, href: `/${tenant}/projects/${projectId}/drd` },
+    { id: 'sec-dash', title: 'Dashboard', group: 'Go to', icon: LayoutDashboard, href: `/` },
+    { id: 'sec-projects', title: 'Projects', group: 'Go to', icon: FolderKanban, href: `/projects` },
+    { id: 'sec-rules', title: 'Rules', group: 'Go to', icon: FileText, href: `/projects/${projectId}/rules` },
+    { id: 'sec-flows', title: 'Flows', group: 'Go to', icon: Workflow, href: `/projects/${projectId}/flows` },
+    { id: 'sec-suites', title: 'Test Suites', group: 'Go to', icon: FlaskConical, href: `/projects/${projectId}/test-suites` },
+    { id: 'sec-sims', title: 'Simulations', group: 'Go to', icon: Sparkles, href: `/projects/${projectId}/simulations` },
+    { id: 'sec-bench', title: 'Bench', group: 'Go to', icon: Gauge, href: `/projects/${projectId}/bench` },
+    { id: 'sec-execs', title: 'Executions', group: 'Go to', icon: Activity, href: `/projects/${projectId}/executions` },
+    { id: 'sec-ds', title: 'Datasets', group: 'Go to', icon: Database, href: `/projects/${projectId}/datasets` },
+    { id: 'sec-rel', title: 'Releases', group: 'Go to', icon: ScrollText, href: `/projects/${projectId}/releases` },
+    { id: 'sec-env', title: 'Environments', group: 'Go to', icon: GitBranch, href: `/projects/${projectId}/environments` },
+    { id: 'sec-ep', title: 'Endpoints', group: 'Integrations', icon: ArrowRight, href: `/projects/${projectId}/integrations/endpoints` },
+    { id: 'sec-keys', title: 'API Keys', group: 'Integrations', icon: KeyRound, href: `/projects/${projectId}/integrations/api-keys` },
+    { id: 'sec-wh', title: 'Webhooks', group: 'Integrations', icon: Webhook, href: `/projects/${projectId}/integrations/webhooks` },
+    { id: 'sec-conn', title: 'Connections', group: 'Integrations', icon: Plug, href: `/projects/${projectId}/integrations/connections` },
+    { id: 'sec-tools', title: 'Tools', group: 'Go to', icon: Wrench, href: `/projects/${projectId}/tools` },
+    { id: 'sec-drd', title: 'DRD', group: 'Go to', icon: Network, href: `/projects/${projectId}/drd` },
   ] : [];
 
   const projectItems: Item[] = (projects as any[]).map((p) => ({
     id: `prj-${p.id}`, title: p.name, subtitle: p.slug, group: 'Projects',
-    icon: FolderKanban, href: `/${tenant}/projects/${p.slug || p.id}`,
+    icon: FolderKanban, href: `/projects/${p.slug || p.id}`,
   }));
   const ruleItems: Item[] = (rules as any[]).map((r) => ({
     id: `rul-${r.id}`, title: r.name, subtitle: `${r.slug} · ${r.type.toLowerCase().replace('_', ' ')}`,
     group: 'Rules', icon: TYPE_ICON[String(r.type).toUpperCase()] || FileText,
-    href: `/${tenant}/projects/${projectId}/rules/${r.slug || r.id}`,
+    href: `/projects/${projectId}/rules/${r.slug || r.id}`,
   }));
   const flowItems: Item[] = (flows as any[]).map((f) => ({
     id: `flw-${f.id}`, title: f.name, subtitle: f.slug, group: 'Flows',
-    icon: Workflow, href: `/${tenant}/projects/${projectId}/flows/${f.slug || f.id}`,
+    icon: Workflow, href: `/projects/${projectId}/flows/${f.slug || f.id}`,
   }));
 
   const all = [...sections, ...projectItems, ...ruleItems, ...flowItems];

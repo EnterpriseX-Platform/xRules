@@ -1,17 +1,17 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useParams } from 'next/navigation';
-import { Activity, FileText, Workflow, FolderKanban, Brain, AlertCircle } from 'lucide-react';
+import { Activity, FileText, Workflow, FolderKanban, Brain } from 'lucide-react';
 import { PageContent, PageHeader } from '@/components/layout/AppShell';
 import { dashboardApi } from '@/lib/api';
+import { useAuth } from '@/lib/store';
 
 export default function DashboardPage() {
-  const { tenant } = useParams<{ tenant: string }>();
+  const wsSlug = useAuth((s: any) => s.workspace?.slug || s.user?.tenantId || '');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['dashboard', tenant],
-    queryFn: () => dashboardApi.get(tenant),
+    queryKey: ['dashboard', wsSlug],
+    queryFn: () => dashboardApi.get(wsSlug),
     retry: false,
   });
 
@@ -55,7 +55,7 @@ export default function DashboardPage() {
 
         <div className="card p-5">
           <h2 className="text-sm font-mono uppercase tracking-label text-subtle mb-4">Recent Projects</h2>
-          <ProjectList rows={data?.recentProjects || []} tenant={tenant} loading={isLoading} />
+          <ProjectList rows={data?.recentProjects || []} loading={isLoading} />
         </div>
       </div>
     </PageContent>
@@ -111,7 +111,7 @@ function RecentTable({ rows, loading }: { rows: any[]; loading: boolean }) {
   );
 }
 
-function ProjectList({ rows, tenant, loading }: { rows: any[]; tenant: string; loading: boolean }) {
+function ProjectList({ rows, loading }: { rows: any[]; loading: boolean }) {
   if (loading) return <SkeletonRows />;
   if (!rows.length) return <Empty icon={FolderKanban} text="No projects yet" />;
   return (
@@ -119,7 +119,7 @@ function ProjectList({ rows, tenant, loading }: { rows: any[]; tenant: string; l
       {rows.slice(0, 6).map((p) => (
         <a
           key={p.id}
-          href={`/${tenant}/projects/${p.id}/rules`}
+          href={`/projects/${p.slug || p.id}/rules`}
           className="flex items-center gap-3 p-2 -mx-2 rounded hover:bg-muted transition-colors"
         >
           <span className="h-3 w-3 rounded shrink-0" style={{ background: p.color || 'rgb(var(--c-mint))' }} />

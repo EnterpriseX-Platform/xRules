@@ -22,7 +22,7 @@ const TYPE_TONE: Record<string, any> = {
 };
 
 export default function TemplatesPage() {
-  const { tenant, projectId } = useParams<{ tenant: string; projectId: string }>();
+  const { projectId } = useParams<{ projectId: string }>();
   const router = useRouter();
   const [category, setCategory] = useState<string>('all');
 
@@ -39,7 +39,7 @@ export default function TemplatesPage() {
       output_schema: tpl.outputSchema,
       projectId,
     }),
-    onSuccess: (rule: any) => router.push(`/${tenant}/projects/${projectId}/rules/${rule.slug || rule.id}`),
+    onSuccess: (rule: any) => router.push(`/projects/${projectId}/rules/${rule.slug || rule.id}`),
   });
 
   return (

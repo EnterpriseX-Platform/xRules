@@ -29,7 +29,7 @@ export default function LoginPage() {
         res.refresh_token,
       );
       const next = new URLSearchParams(window.location.search).get('next');
-      router.push(next || `/${tenant}`);
+      router.push(next || `/`);
     } catch (e: any) {
       setError(e.message || 'Login failed');
     } finally {

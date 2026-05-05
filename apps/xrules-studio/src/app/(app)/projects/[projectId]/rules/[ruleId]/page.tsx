@@ -31,7 +31,7 @@ const TABS: { key: TabKey; label: string; icon: any }[] = [
 ];
 
 export default function RuleDetailPage() {
-  const { tenant, projectId, ruleId } = useParams<{ tenant: string; projectId: string; ruleId: string }>();
+  const { projectId, ruleId } = useParams<{ projectId: string; ruleId: string }>();
   const qc = useQueryClient();
   const [tab, setTab] = useState<TabKey>('definition');
 
@@ -55,7 +55,7 @@ export default function RuleDetailPage() {
       <div className="flex items-start gap-4 mb-6">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <Link href={`/${tenant}/projects/${projectId}/rules`} className="text-xs text-subtle font-mono hover:text-text">RULES</Link>
+            <Link href={`/projects/${projectId}/rules`} className="text-xs text-subtle font-mono hover:text-text">RULES</Link>
             <span className="text-subtle/50">/</span>
             <span className="font-mono text-xs text-subtle">{rule.slug}</span>
           </div>

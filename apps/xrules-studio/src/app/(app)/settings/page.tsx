@@ -5,12 +5,12 @@ import { KeyRound, Webhook, Users, Settings as SettingsIcon } from 'lucide-react
 import { PageContent, PageHeader } from '@/components/layout/AppShell';
 
 export default function SettingsPage() {
-  const { tenant } = useParams<{ tenant: string }>();
+  // tenant prefix removed from URLs
   const cards = [
-    { href: `/${tenant}/settings/api-keys`,  icon: KeyRound, title: 'API Keys',  desc: 'Create, scope, and revoke keys for the public Execute API' },
-    { href: `/${tenant}/settings/webhooks`,  icon: Webhook,  title: 'Webhooks',  desc: 'Subscribe to execute.success / execute.error events' },
-    { href: `/${tenant}/settings/members`,   icon: Users,    title: 'Members',   desc: 'Workspace members and RBAC roles' },
-    { href: `/${tenant}/settings/general`,   icon: SettingsIcon, title: 'General', desc: 'Workspace name, slug, and defaults' },
+    { href: `/settings/api-keys`,  icon: KeyRound, title: 'API Keys',  desc: 'Create, scope, and revoke keys for the public Execute API' },
+    { href: `/settings/webhooks`,  icon: Webhook,  title: 'Webhooks',  desc: 'Subscribe to execute.success / execute.error events' },
+    { href: `/settings/members`,   icon: Users,    title: 'Members',   desc: 'Workspace members and RBAC roles' },
+    { href: `/settings/general`,   icon: SettingsIcon, title: 'General', desc: 'Workspace name, slug, and defaults' },
   ];
   return (
     <PageContent>

@@ -45,7 +45,7 @@ const TYPE_ICON_CLS: Record<string, string> = {
 };
 
 export default function RulesPage() {
-  const { tenant, projectId } = useParams<{ tenant: string; projectId: string }>();
+  const { projectId } = useParams<{ projectId: string }>();
   const sp = useSearchParams();
   const router = useRouter();
   const typeFilter = sp.get('type') || '';
@@ -130,15 +130,15 @@ export default function RulesPage() {
           {/* Type filter chips — always visible regardless of ?type= URL param */}
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             <span className="label-section mr-1">Type</span>
-            <TypeChip current={typeFilter} value="" tenant={tenant} projectId={projectId}>All</TypeChip>
-            <TypeChip current={typeFilter} value="DECISION_TABLE" tenant={tenant} projectId={projectId} tone="info">Decision Table</TypeChip>
-            <TypeChip current={typeFilter} value="DECISION_TREE"  tenant={tenant} projectId={projectId} tone="mint">Decision Tree</TypeChip>
-            <TypeChip current={typeFilter} value="SCORECARD"      tenant={tenant} projectId={projectId} tone="accent">Scorecard</TypeChip>
-            <TypeChip current={typeFilter} value="FORMULA"        tenant={tenant} projectId={projectId} tone="warn">Formula</TypeChip>
-            <TypeChip current={typeFilter} value="SCRIPT"         tenant={tenant} projectId={projectId} tone="subtle">Scripting</TypeChip>
-            <TypeChip current={typeFilter} value="LOOKUP"         tenant={tenant} projectId={projectId} tone="subtle">Lookup</TypeChip>
-            <TypeChip current={typeFilter} value="AI_AGENT"       tenant={tenant} projectId={projectId} tone="accent">AI Agent</TypeChip>
-            <TypeChip current={typeFilter} value="MODEL_CALL"     tenant={tenant} projectId={projectId} tone="danger">Model Call</TypeChip>
+            <TypeChip current={typeFilter} value="" projectId={projectId}>All</TypeChip>
+            <TypeChip current={typeFilter} value="DECISION_TABLE" projectId={projectId} tone="info">Decision Table</TypeChip>
+            <TypeChip current={typeFilter} value="DECISION_TREE"  projectId={projectId} tone="mint">Decision Tree</TypeChip>
+            <TypeChip current={typeFilter} value="SCORECARD"      projectId={projectId} tone="accent">Scorecard</TypeChip>
+            <TypeChip current={typeFilter} value="FORMULA"        projectId={projectId} tone="warn">Formula</TypeChip>
+            <TypeChip current={typeFilter} value="SCRIPT"         projectId={projectId} tone="subtle">Scripting</TypeChip>
+            <TypeChip current={typeFilter} value="LOOKUP"         projectId={projectId} tone="subtle">Lookup</TypeChip>
+            <TypeChip current={typeFilter} value="AI_AGENT"       projectId={projectId} tone="accent">AI Agent</TypeChip>
+            <TypeChip current={typeFilter} value="MODEL_CALL"     projectId={projectId} tone="danger">Model Call</TypeChip>
           </div>
 
           <div className="flex items-center gap-3 mb-4">
@@ -205,7 +205,7 @@ export default function RulesPage() {
                   </div>
                 </td>
                 <td className="py-3 px-4">
-                  <Link href={`/${tenant}/projects/${projectId}/rules/${r.slug || r.id}`} className="block group">
+                  <Link href={`/projects/${projectId}/rules/${r.slug || r.id}`} className="block group">
                     <div className="text-sm font-medium group-hover:text-accent">{r.name}</div>
                     <div className="text-xs text-subtle font-mono">{r.slug}</div>
                   </Link>
@@ -216,7 +216,7 @@ export default function RulesPage() {
                 <td className="py-3 px-4"><StatusPill status={r.status} /></td>
                 <td className="py-3 px-4 text-right font-mono text-xs text-subtle tabular-nums">v{r.version}</td>
                 <td className="py-3 px-4 text-right">
-                  <Link href={`/${tenant}/projects/${projectId}/rules/${r.slug || r.id}`}>
+                  <Link href={`/projects/${projectId}/rules/${r.slug || r.id}`}>
                     <ChevronRight className="h-4 w-4 text-subtle inline" />
                   </Link>
                 </td>
@@ -243,15 +243,15 @@ export default function RulesPage() {
   );
 }
 
-function TypeChip({ current, value, tenant, projectId, tone, children }: {
-  current: string; value: string; tenant: string; projectId: string;
+function TypeChip({ current, value, projectId, tone, children }: {
+  current: string; value: string; projectId: string;
   tone?: 'info' | 'mint' | 'accent' | 'warn' | 'danger' | 'subtle';
   children: React.ReactNode;
 }) {
   const active = current === value;
   const href = value
-    ? `/${tenant}/projects/${projectId}/rules?type=${value}`
-    : `/${tenant}/projects/${projectId}/rules`;
+    ? `/projects/${projectId}/rules?type=${value}`
+    : `/projects/${projectId}/rules`;
   const toneCls = active
     ? tone === 'info'   ? 'bg-info/15 text-info border-info/40'
     : tone === 'mint'   ? 'bg-mint/15 text-mint border-mint/40'

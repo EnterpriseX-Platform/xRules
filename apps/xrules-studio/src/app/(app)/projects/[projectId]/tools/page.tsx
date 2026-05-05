@@ -11,7 +11,7 @@ import { rulesApi, api } from '@/lib/api';
 import { Pill } from '@/components/ui/Pill';
 
 export default function ToolsPage() {
-  const { tenant, projectId } = useParams<{ tenant: string; projectId: string }>();
+  const { projectId } = useParams<{ projectId: string }>();
   const [tab, setTab] = useState<'duplicates' | 'dependencies'>('duplicates');
   const [search, setSearch] = useState('');
 
@@ -66,7 +66,7 @@ export default function ToolsPage() {
             </div>
           )}
           {tableRules.map((r: any) => (
-            <DuplicatesCard key={r.id} rule={r} tenant={tenant} projectId={projectId} />
+            <DuplicatesCard key={r.id} rule={r} projectId={projectId} />
           ))}
         </div>
       )}
@@ -79,7 +79,7 @@ export default function ToolsPage() {
             </div>
           )}
           {filtered.map((r: any) => (
-            <DependenciesCard key={r.id} rule={r} tenant={tenant} projectId={projectId} />
+            <DependenciesCard key={r.id} rule={r} projectId={projectId} />
           ))}
         </div>
       )}
@@ -87,7 +87,7 @@ export default function ToolsPage() {
   );
 }
 
-function DuplicatesCard({ rule, tenant, projectId }: { rule: any; tenant: string; projectId: string }) {
+function DuplicatesCard({ rule, projectId }: { rule: any; projectId: string }) {
   const { data, isLoading } = useQuery({
     queryKey: ['duplicates', rule.id],
     queryFn: () => api.get<any>(`/tools/duplicates/${rule.id}`),
@@ -97,7 +97,7 @@ function DuplicatesCard({ rule, tenant, projectId }: { rule: any; tenant: string
   const totalDups = dupGroups.reduce((s: number, g: any) => s + g.rowIndices.length, 0);
 
   return (
-    <Link href={`/${tenant}/projects/${projectId}/rules/${rule.slug || rule.id}`} className="block">
+    <Link href={`/projects/${projectId}/rules/${rule.slug || rule.id}`} className="block">
       <div className="card p-3 hover:border-accent/40 transition-colors flex items-center gap-3">
         <div className="flex-1">
           <div className="text-sm font-medium">{rule.name}</div>
@@ -124,7 +124,7 @@ function DuplicatesCard({ rule, tenant, projectId }: { rule: any; tenant: string
   );
 }
 
-function DependenciesCard({ rule, tenant, projectId }: { rule: any; tenant: string; projectId: string }) {
+function DependenciesCard({ rule, projectId }: { rule: any; projectId: string }) {
   const { data, isLoading } = useQuery({
     queryKey: ['deps', rule.id],
     queryFn: () => api.get<any>(`/tools/dependencies/${rule.id}`),
@@ -136,7 +136,7 @@ function DependenciesCard({ rule, tenant, projectId }: { rule: any; tenant: stri
   const isolated = !isLoading && upCount === 0 && downCount === 0 && flowCount === 0;
 
   return (
-    <Link href={`/${tenant}/projects/${projectId}/rules/${rule.slug || rule.id}`} className="block">
+    <Link href={`/projects/${projectId}/rules/${rule.slug || rule.id}`} className="block">
       <div className="card p-3 hover:border-accent/40 transition-colors flex items-center gap-3">
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium truncate">{rule.name}</div>

@@ -9,9 +9,8 @@ import { apiKeysApi } from '@/lib/api';
 import { useAuth } from '@/lib/store';
 
 export default function ApiKeysPage() {
-  const { tenant } = useParams<{ tenant: string }>();
   const ws = useAuth((s) => s.workspace);
-  const wsSlug = ws?.slug || tenant;
+  const wsSlug = ws?.slug || '';
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [revealed, setRevealed] = useState<string | null>(null);

@@ -17,7 +17,7 @@ import { cn } from '@/lib/cn';
 
 interface NavItem { href: string; label: string; icon: any; count?: number }
 
-export function Sidebar({ tenant }: { tenant: string }) {
+export function Sidebar() {
   const pathname = usePathname();
   const project = useProject((s) => s.currentProjectId);
   const setProject = useProject((s) => s.setCurrentProject);
@@ -36,12 +36,12 @@ export function Sidebar({ tenant }: { tenant: string }) {
   }, [projects, project, setProject]);
 
   const currentProject = projects?.find((p: any) => p.id === project);
-  const projBase = `/${tenant}/projects/${project || '_'}`;
+  const projBase = `/projects/${project || '_'}`;
 
   // User-journey IA: Build → Test → Deploy → Integrate → Monitor.
   const main: NavItem[] = [
-    { href: `/${tenant}`, label: 'Dashboard', icon: LayoutDashboard },
-    { href: `/${tenant}/projects`, label: 'Projects', icon: FolderKanban },
+    { href: `/`, label: 'Dashboard', icon: LayoutDashboard },
+    { href: `/projects`, label: 'Projects', icon: FolderKanban },
   ];
 
   // BUILD — author rules, flows, supporting artifacts
@@ -85,7 +85,7 @@ export function Sidebar({ tenant }: { tenant: string }) {
   ] : [];
 
   const system: NavItem[] = [
-    { href: `/${tenant}/settings`, label: 'Settings', icon: Settings },
+    { href: `/settings`, label: 'Settings', icon: Settings },
   ];
 
   return (
@@ -104,7 +104,6 @@ export function Sidebar({ tenant }: { tenant: string }) {
         <div className="px-4 space-y-2">
           <div className="label-section">Project</div>
           <ProjectPicker
-            tenant={tenant}
             projects={projects || []}
             current={currentProject}
             onPick={(p) => setProject(p.id)}
@@ -162,8 +161,7 @@ function NavSection({ label, items, pathname }: { label: string; items: NavItem[
   );
 }
 
-function ProjectPicker({ tenant, projects, current, onPick }: {
-  tenant: string;
+function ProjectPicker({ projects, current, onPick }: {
   projects: any[];
   current: any;
   onPick: (p: any) => void;
@@ -183,7 +181,7 @@ function ProjectPicker({ tenant, projects, current, onPick }: {
     onPick(p);
     setOpen(false);
     // Reroute to the project's dashboard / rules so the URL stays in sync
-    router.push(`/${tenant}/projects/${p.slug || p.id}/rules`);
+    router.push(`/projects/${p.slug || p.id}/rules`);
   }
 
   return (
@@ -228,7 +226,7 @@ function ProjectPicker({ tenant, projects, current, onPick }: {
           })}
           <div className="border-t border-border/70">
             <Link
-              href={`/${tenant}/projects`}
+              href={`/projects`}
               className="block px-2 py-1.5 text-xs text-accent hover:bg-muted/60"
               onClick={() => setOpen(false)}
             >

@@ -13,11 +13,10 @@ interface Crumb { label: string; href?: string; mono?: boolean }
 // only when name lookups don't apply.
 function useBreadcrumbs(pathname: string): Crumb[] {
   const parts = pathname.split('/').filter(Boolean);
-  // Routes look like: [tenant] / projects / [projectId] / [section] / [maybeId] / [maybeSubsection]
-  const tenant = parts[0];
-  const projectId = parts[1] === 'projects' ? parts[2] : undefined;
-  const section = parts[1] === 'projects' ? parts[3] : undefined;
-  const subId = parts[1] === 'projects' ? parts[4] : undefined;
+  // Routes look like: projects / [projectId] / [section] / [maybeId] / [maybeSubsection]
+  const projectId = parts[0] === 'projects' ? parts[1] : undefined;
+  const section = parts[0] === 'projects' ? parts[2] : undefined;
+  const subId = parts[0] === 'projects' ? parts[3] : undefined;
 
   // Fetch project name (works with id or slug — backend resolves either)
   const { data: project } = useQuery({
@@ -39,16 +38,13 @@ function useBreadcrumbs(pathname: string): Crumb[] {
   });
 
   // Build crumbs
-  const out: Crumb[] = [];
-  if (tenant) out.push({ label: tenant.toUpperCase(), href: `/${tenant}`, mono: true });
-  if (parts[1] === 'projects' && !projectId) {
-    out.push({ label: 'Projects', href: `/${tenant}/projects` });
+  const out: Crumb[] = [{ label: 'Home', href: `/`, mono: false }];
+  if (parts[0] === 'projects' && !projectId) {
+    out.push({ label: 'Projects', href: `/projects` });
   }
   if (project) {
-    out.push({ label: project.name, href: `/${tenant}/projects/${project.slug || projectId}` });
+    out.push({ label: project.name, href: `/projects/${project.slug || projectId}` });
   } else if (projectId) {
-    // Show slug-style as-is (no truncation) when looks human-readable; fall
-    // back to short cuid prefix when it's an id we couldn't resolve.
     const looksLikeId = /^[a-z0-9]{20,}$/i.test(projectId) && !projectId.includes('-');
     out.push({ label: looksLikeId ? projectId.slice(0, 8) + '…' : projectId, mono: looksLikeId });
   }
@@ -62,7 +58,7 @@ function useBreadcrumbs(pathname: string): Crumb[] {
     };
     const sectionLabel = human[section] || section;
     if (subId) {
-      out.push({ label: sectionLabel, href: `/${tenant}/projects/${projectId}/${section}` });
+      out.push({ label: sectionLabel, href: `/projects/${projectId}/${section}` });
     } else {
       out.push({ label: sectionLabel });
     }
@@ -138,8 +134,8 @@ export function Topbar() {
       {!onProjectsList && projectId && (
         <Link
           href={isRulesContext
-            ? `/${pathname.split('/')[1]}/projects/${projectId}/rules?new=1`
-            : `/${pathname.split('/')[1]}/projects/${projectId}/rules`}
+            ? `/projects/${projectId}/rules?new=1`
+            : `/projects/${projectId}/rules`}
           className="btn-primary"
         >
           <Plus className="h-3.5 w-3.5" />

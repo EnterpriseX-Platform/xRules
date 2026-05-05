@@ -25,7 +25,7 @@ export default function SignupPage() {
       const res = await authApi.signup({ name, email, password, workspaceName });
       const tenant = res.user?.tenantId || 'default';
       setAuth(res.access_token || res.token, res.user, { id: '', slug: tenant, name: tenant });
-      router.push(`/${tenant}`);
+      router.push(`/`);
     } catch (e: any) {
       setError(e.message || 'Signup failed');
     } finally {

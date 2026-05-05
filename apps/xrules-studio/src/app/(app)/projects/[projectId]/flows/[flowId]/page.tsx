@@ -31,7 +31,7 @@ export default function FlowDetailPage() {
 }
 
 function FlowDetailInner() {
-  const { tenant, projectId, flowId } = useParams<{ tenant: string; projectId: string; flowId: string }>();
+  const { projectId, flowId } = useParams<{ projectId: string; flowId: string }>();
   const qc = useQueryClient();
 
   const { data: flow, isLoading } = useQuery({
@@ -120,7 +120,7 @@ function FlowDetailInner() {
       <div className="px-6 py-3 border-b border-border bg-bg flex items-center gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
-            <Link href={`/${tenant}/projects/${projectId}/flows`} className="text-xs text-subtle font-mono hover:text-text">FLOWS</Link>
+            <Link href={`/projects/${projectId}/flows`} className="text-xs text-subtle font-mono hover:text-text">FLOWS</Link>
             <span className="text-subtle/50">/</span>
             <span className="font-mono text-xs text-subtle">{flow.slug}</span>
           </div>

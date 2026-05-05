@@ -8,7 +8,7 @@ import { EntityTable, StatusPill, Pill } from '@/components/EntityList';
 import { flowsApi } from '@/lib/api';
 
 export default function FlowsPage() {
-  const { tenant, projectId } = useParams<{ tenant: string; projectId: string }>();
+  const { projectId } = useParams<{ projectId: string }>();
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
 
@@ -37,7 +37,7 @@ export default function FlowsPage() {
         isLoading={isLoading}
         emptyText="No flows — create one to orchestrate rules + integrations"
         emptyIcon={Workflow}
-        hrefFor={(f) => `/${tenant}/projects/${projectId}/flows/${f.id}`}
+        hrefFor={(f) => `/projects/${projectId}/flows/${f.id}`}
         columns={[
           {
             header: 'Flow',

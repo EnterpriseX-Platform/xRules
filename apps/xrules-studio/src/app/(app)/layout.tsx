@@ -1,13 +1,12 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
 import { useAuth } from '@/lib/store';
 
-export default function TenantLayout({ children }: { children: React.ReactNode }) {
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const params = useParams<{ tenant: string }>();
   const token = useAuth((s) => s.token);
 
   useEffect(() => {
@@ -18,5 +17,5 @@ export default function TenantLayout({ children }: { children: React.ReactNode }
     }
   }, [token, router]);
 
-  return <AppShell tenant={params.tenant}>{children}</AppShell>;
+  return <AppShell>{children}</AppShell>;
 }
