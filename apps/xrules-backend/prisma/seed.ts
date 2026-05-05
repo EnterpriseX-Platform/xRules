@@ -467,8 +467,9 @@ return { discountPercent: pct, discountAmount, subtotal, tax, total, freeShippin
 
   console.log('Created rules + composite SCRIPT + sample Connection');
 
-  // Sample Flow that demonstrates orchestration:
-  //   Input → HTTP fetch (httpbin) → Rule call (discount-tiers) → Output
+  // Integration Flow that demonstrates fan-out (parallel rule calls).
+  // Input → parallel { Discount Tiers, Smoke SCORECARD } → merge → output.
+  // Both rules see the same input, results merged into ctx.signals.
   await prisma.flow.upsert({
     where: { projectId_slug: { projectId: pricingProject.id, slug: 'order-pricing-flow' } },
     update: {},
@@ -476,76 +477,92 @@ return { discountPercent: pct, discountAmount, subtotal, tax, total, freeShippin
       name: 'Order Pricing Flow',
       slug: 'order-pricing-flow',
       alias: 'order-pricing',
-      description: 'Fetch customer tier from external API, then run Discount Tiers and return the quote.',
-      kind: 'DECISION',
+      description: 'Public API endpoint backed by parallel rule calls (fan-out): both Discount Tiers and Credit Score run simultaneously, results merged.',
+      kind: 'INTEGRATION',
       status: 'PUBLISHED',
       version: 1,
       projectId: pricingProject.id,
       inputSchema: {
         type: 'object',
         properties: {
-          customerId:  { type: 'string', example: 'cust-12345' },
-          orderAmount: { type: 'number', example: 1500 },
+          customerTier: { type: 'string', example: 'platinum' },
+          orderAmount:  { type: 'number', example: 1500 },
+          income:       { type: 'number', example: 95000 },
+          fico:         { type: 'number', example: 740 },
         },
       },
       outputSchema: {
         type: 'object',
         properties: {
-          discountPercent: { type: 'number' },
-          freeShipping:    { type: 'boolean' },
+          discount: { type: 'object' },
+          credit:   { type: 'object' },
         },
       },
       graph: {
         nodes: [
-          {
-            id: 'n_input',
-            type: 'input',
-            position: { x: 60, y: 120 },
-            data: { label: 'Order Input', kind: 'input' },
-          },
-          {
-            id: 'n_http',
-            type: 'http',
-            position: { x: 280, y: 120 },
-            data: {
-              label: 'Fetch customer tier',
-              kind: 'http',
-              connectionSlug: 'httpbin-demo',
-              method: 'GET',
-              path: '/anything?customerId={{input.customerId}}&tier=platinum',
-              outputAs: 'customer',
-            },
-          },
-          {
-            id: 'n_rule',
-            type: 'ruleCall',
-            position: { x: 560, y: 120 },
-            data: {
+          { id: 'n_input',   type: 'input',    position: { x:  60, y: 200 }, data: { label: 'Order',         kind: 'input' } },
+          { id: 'n_fanout',  type: 'parallel', position: { x: 280, y: 200 }, data: { label: 'Fan-out',       kind: 'parallel', shape: 'object' } },
+          { id: 'n_disc',    type: 'ruleCall', position: { x: 540, y: 100 }, data: {
               label: 'Discount Tiers',
               kind: 'ruleCall',
               ruleSlug: 'discount-tiers',
               inputMap: {
-                customerTier: '{{customer.args.tier}}',
+                customerTier: '{{input.customerTier}}',
                 orderAmount:  '{{input.orderAmount}}',
               },
+              outputAs: 'discount',
             },
           },
-          {
-            id: 'n_output',
-            type: 'output',
-            position: { x: 840, y: 120 },
-            data: { label: 'Final Quote', kind: 'output' },
+          { id: 'n_cred',    type: 'ruleCall', position: { x: 540, y: 300 }, data: {
+              label: 'Smoke SCORECARD',
+              kind: 'ruleCall',
+              ruleSlug: 'smoke-scorecard',
+              inputMap: {
+                income: '{{input.income}}',
+                fico:   '{{input.fico}}',
+              },
+              outputAs: 'credit',
+            },
           },
+          { id: 'n_merge',   type: 'merge',    position: { x: 800, y: 200 }, data: { label: 'Merge',         kind: 'merge' } },
+          { id: 'n_output',  type: 'output',   position: { x: 1040, y: 200 }, data: { label: 'Decision',     kind: 'output' } },
         ],
         edges: [
-          { id: 'e1', source: 'n_input',  target: 'n_http' },
-          { id: 'e2', source: 'n_http',   target: 'n_rule' },
-          { id: 'e3', source: 'n_rule',   target: 'n_output' },
+          { id: 'e1', source: 'n_input',   target: 'n_fanout' },
+          { id: 'e2', source: 'n_fanout',  target: 'n_disc',  sourceHandle: 'discount' },
+          { id: 'e3', source: 'n_fanout',  target: 'n_cred',  sourceHandle: 'credit' },
+          { id: 'e4', source: 'n_disc',    target: 'n_merge' },
+          { id: 'e5', source: 'n_cred',    target: 'n_merge' },
+          { id: 'e6', source: 'n_merge',   target: 'n_output' },
         ],
       },
     },
   });
-  console.log('Created sample Flow: order-pricing-flow');
+  console.log('Created sample Flow: order-pricing-flow (with fan-out)');
+
+  // We need a SCORECARD rule named smoke-scorecard for the fanout demo. Seed it.
+  await prisma.rule.upsert({
+    where: { projectId_slug: { projectId: pricingProject.id, slug: 'smoke-scorecard' } },
+    update: {},
+    create: {
+      name: 'Credit Score',
+      slug: 'smoke-scorecard',
+      type: 'SCORECARD',
+      status: 'PUBLISHED',
+      version: 1,
+      projectId: pricingProject.id,
+      createdById: admin.id,
+      inputSchema: { type: 'object', properties: { income: { type: 'number' }, fico: { type: 'number' } } },
+      outputSchema: { type: 'object', properties: { score: { type: 'number' }, decision: { type: 'string' } } },
+      definition: {
+        attributes: [
+          { name: 'income', bands: [{ match: { gte: 80000 }, points: 50 }, { match: { gte: 50000 }, points: 30 }] },
+          { name: 'fico',   bands: [{ match: { gte: 720   }, points: 50 }, { match: { gte: 680   }, points: 30 }] },
+        ],
+        thresholds: [{ score: 80, decision: 'approve' }, { score: 50, decision: 'review' }, { score: 0, decision: 'deny' }],
+      },
+    },
+  });
 
   // Snapshot every PUBLISHED rule into RuleVersion so the Versions tab
   // shows entries and version-pinning works against seed data.

@@ -133,6 +133,46 @@ export async function runFlow(graph: FlowGraph, input: any, solve: SolveFn): Pro
         break;
       }
 
+      // Fan-out — children run in parallel, all sharing the same ctx snapshot.
+      // Each branch is itself a sub-flow that walks until it hits a `merge`
+      // node (or runs out of children). Results are merged back in the order
+      // declared in data.merge — or "object" by default (each branch's
+      // outputAs key becomes a property on ctx[data.outputAs || 'parallel']).
+      case 'parallel':
+      case 'fanout': {
+        const children = childrenOf.get(cur.id) || [];
+        if (children.length === 0) break;
+        // Snapshot the current ctx so each branch starts from the same view
+        const snapshot = { ...ctx };
+        const results = await Promise.all(children.map(async (c) => {
+          const branchCtx = await runBranch(nodeById, childrenOf, c.target, snapshot, solve);
+          return { handle: c.sourceHandle || c.target, ctx: branchCtx };
+        }));
+        // Merge — write each branch's contribution under outputAs (or branch handle)
+        const mergeKey = data.outputAs || 'parallel';
+        const merged: any = data.shape === 'array' ? [] : {};
+        for (const r of results) {
+          // strip the snapshot keys so we only keep what the branch added
+          const added: any = {};
+          for (const [k, v] of Object.entries(r.ctx)) {
+            if (snapshot[k] !== v) added[k] = v;
+          }
+          if (data.shape === 'array') merged.push(added);
+          else merged[r.handle] = Object.keys(added).length === 1 ? Object.values(added)[0] : added;
+        }
+        ctx[mergeKey] = merged;
+        // Find the post-fanout continuation: a `merge` node downstream with
+        // no other parents from outside the fanout. Walk past any merge node.
+        const mergeNode = findMergeAfter(nodeById, childrenOf, cur.id);
+        cur = mergeNode ? mergeNode : null;
+        continue; // skip normal child-pick below since we set cur ourselves
+      }
+
+      case 'merge':
+        // No-op — consumed by the fanout traversal above. If the user
+        // routes here directly (no parallel), just continue.
+        break;
+
       default:
         // Ignore unknown kinds (sticky, declare, etc).
         break;
@@ -165,4 +205,69 @@ function setPath(obj: any, path: string, val: any) {
     cur = cur[k];
   }
   cur[parts[parts.length - 1]] = val;
+}
+
+// Walk a single branch of a fan-out until we hit a `merge` node or run out
+// of nodes. Returns the branch's local context (caller will diff against
+// snapshot to extract just what this branch produced).
+async function runBranch(
+  nodeById: Map<string, any>,
+  childrenOf: Map<string, Array<{ target: string; sourceHandle?: string }>>,
+  startId: string,
+  snapshot: Record<string, any>,
+  solve: SolveFn,
+): Promise<Record<string, any>> {
+  const ctx: Record<string, any> = { ...snapshot };
+  let cur = nodeById.get(startId);
+  const seen = new Set<string>();
+  while (cur && !seen.has(cur.id)) {
+    seen.add(cur.id);
+    const kind = String(cur.type || cur.data?.kind || '').toLowerCase();
+    if (kind === 'merge' || kind === 'output') break;
+    const data = cur.data || {};
+
+    if (kind === 'rulecall') {
+      const slug = data.ruleSlug || data.rule || data.slug;
+      if (slug) {
+        const mappedInput = data.inputMap ? renderObject(data.inputMap, ctx) : ctx.input;
+        const out = await solve(String(slug), mappedInput);
+        const key = data.outputAs || String(slug).replace(/-/g, '_');
+        ctx[key] = out;
+      }
+    } else if (kind === 'assign' || kind === 'transform') {
+      if (data.target && data.expression) {
+        const val = evalExpression(String(data.expression), { ...ctx, Math, Date, JSON });
+        setPath(ctx, String(data.target), val);
+      }
+    }
+    // (branch within branch is not supported — keep it simple)
+
+    const childs = childrenOf.get(cur.id) || [];
+    cur = childs[0] ? nodeById.get(childs[0].target) : null;
+  }
+  return ctx;
+}
+
+// After a fanout, find the next `merge` node by walking from any one branch
+// child until we hit it. Returns null if the branches don't reconverge.
+function findMergeAfter(
+  nodeById: Map<string, any>,
+  childrenOf: Map<string, Array<{ target: string; sourceHandle?: string }>>,
+  fanoutId: string,
+): any {
+  const childs = childrenOf.get(fanoutId) || [];
+  if (childs.length === 0) return null;
+  let cur = nodeById.get(childs[0].target);
+  const seen = new Set<string>();
+  while (cur && !seen.has(cur.id)) {
+    seen.add(cur.id);
+    const kind = String(cur.type || cur.data?.kind || '').toLowerCase();
+    if (kind === 'merge') {
+      const next = (childrenOf.get(cur.id) || [])[0];
+      return next ? nodeById.get(next.target) : null;
+    }
+    const next = (childrenOf.get(cur.id) || [])[0];
+    cur = next ? nodeById.get(next.target) : null;
+  }
+  return null;
 }

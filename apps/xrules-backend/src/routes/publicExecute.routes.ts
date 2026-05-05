@@ -6,9 +6,27 @@ import { apiKeyAuthMiddleware } from '../middleware/apiKeyAuth.js';
 import { NotFoundError } from '../utils/errors.js';
 import { parseSolverHeaders } from '../middleware/solverHeaders.js';
 import { tryLocalExecutor } from '../services/execute.service.js';
+import { runFlow } from '../services/flow-runtime.service.js';
 import { dispatch as dispatchWebhook } from '../services/webhooks.service.js';
 
 const router = Router();
+
+// Resolve a flow by id OR slug within a workspace.
+async function resolveFlow(idOrSlug: string, workspaceId: string) {
+  let flow = await prisma.flow.findUnique({
+    where: { id: idOrSlug },
+    include: { project: { include: { workspace: true } } },
+  });
+  if (!flow) {
+    const matches = await prisma.flow.findMany({
+      where: { slug: idOrSlug, project: { workspaceId } },
+      include: { project: { include: { workspace: true } } },
+      take: 1,
+    });
+    flow = matches[0] || null;
+  }
+  return flow;
+}
 
 // Resolve a rule by id OR alias within a project (alias precedence after id miss).
 async function resolveRule(idOrAlias: string, workspaceId: string) {
@@ -161,6 +179,79 @@ router.post('/rules/:id/execute', apiKeyAuthMiddleware, async (req: Request, res
         success: false,
         error: { code: 'ENGINE_ERROR', message: err.response.data.message },
       });
+    } else {
+      next(err);
+    }
+  }
+});
+
+// Public flow execute — POST /api/v1/flows/:slug/execute
+// Runs the flow's graph through flow-runtime and returns the output.
+router.post('/flows/:slug/execute', apiKeyAuthMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.apiKey!.scopes.includes('execute')) {
+      res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'API key does not have execute scope' } });
+      return;
+    }
+    const flow = await resolveFlow(req.params.slug, req.apiKey!.workspaceId);
+    if (!flow) throw new NotFoundError('Flow');
+    if (flow.project.workspaceId !== req.apiKey!.workspaceId) {
+      res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Flow not in API key workspace' } });
+      return;
+    }
+    if (flow.status !== 'PUBLISHED') {
+      res.status(400).json({ success: false, error: { code: 'NOT_PUBLISHED', message: `Flow '${flow.slug}' is ${flow.status.toLowerCase()}; publish to expose as endpoint` } });
+      return;
+    }
+    const startTime = Date.now();
+    const input = req.body?.input ?? req.body ?? {};
+    const { executeRule } = await import('../services/execute.service.js');
+    const SYSTEM_USER = { userId: '__system__', email: 'system@xrules', tenantId: '*', roles: ['OWNER'] } as any;
+    const output = await runFlow(flow.graph as any, input, async (slug: string, payload: any) => {
+      const r = /^[a-z0-9]{20,30}$/i.test(slug)
+        ? await prisma.rule.findUnique({ where: { id: slug } })
+        : await prisma.rule.findFirst({ where: { OR: [{ slug }, { alias: slug }], project: { workspaceId: req.apiKey!.workspaceId } } });
+      if (!r) throw new Error(`Flow node references unknown rule '${slug}'`);
+      const result = await executeRule(r.id, payload, {}, SYSTEM_USER);
+      return (result as any).output;
+    });
+    const duration = Date.now() - startTime;
+
+    // Audit row in Execution table — flow runs are first-class executions.
+    const headers = parseSolverHeaders(req);
+    if (headers.audit) {
+      // Pick any rule the flow called as the audit anchor (best-effort)
+      const anchor = (flow.graph as any)?.nodes?.find((n: any) => (n.type || n.data?.kind) === 'ruleCall');
+      const anchorSlug = anchor?.data?.ruleSlug;
+      const anchorRule = anchorSlug
+        ? await prisma.rule.findFirst({ where: { OR: [{ slug: anchorSlug }, { alias: anchorSlug }], projectId: flow.projectId } })
+        : null;
+      if (anchorRule) {
+        await prisma.execution.create({
+          data: {
+            ruleId: anchorRule.id,
+            ruleVersion: anchorRule.version,
+            input: input as object,
+            output: output as object,
+            status: 'SUCCESS',
+            duration,
+            apiKeyId: ((req.apiKey as any)?.id) || null,
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent'],
+          },
+        });
+      }
+    }
+
+    dispatchWebhook('flow.success', {
+      flowId: flow.id, flowSlug: flow.slug, flowVersion: flow.version,
+      input, output, duration,
+    }, { workspaceId: flow.project.workspaceId });
+
+    res.json({ output, duration_ms: duration, flow: flow.slug, version: flow.version });
+  } catch (err: any) {
+    if (err?.response?.data?.message) {
+      res.status(err.response.status || 500).json({ success: false, error: { code: 'FLOW_ERROR', message: err.response.data.message } });
     } else {
       next(err);
     }
