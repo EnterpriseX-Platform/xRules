@@ -115,9 +115,9 @@ export function Sidebar() {
 
         <NavSection label="Main Menu" items={main} pathname={pathname} />
         {project && <NavSection label="Build"     items={build}     pathname={pathname} />}
+        {project && <NavSection label="Integrate" items={integrate} pathname={pathname} />}
         {project && <NavSection label="Test"      items={test}      pathname={pathname} />}
         {project && <NavSection label="Deploy"    items={deploy}    pathname={pathname} />}
-        {project && <NavSection label="Integrate" items={integrate} pathname={pathname} />}
         {project && <NavSection label="Monitor"   items={monitor}   pathname={pathname} />}
         <NavSection label="System" items={system} pathname={pathname} />
       </div>
