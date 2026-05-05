@@ -44,12 +44,13 @@ export function Sidebar() {
     { href: `/projects`, label: 'Projects', icon: FolderKanban },
   ];
 
-  // BUILD — author rules, flows, supporting artifacts
+  // BUILD — author rules, sync orchestration (decision flows), supporting artifacts.
+  // Integration flows (async / HTTP / Kafka) live under INTEGRATE.
   const build: NavItem[] = project ? [
-    { href: `${projBase}/rules`,       label: 'Rules',       icon: FileText },
-    { href: `${projBase}/flows`,       label: 'Flows',       icon: Workflow },
-    { href: `${projBase}/models`,      label: 'Models',      icon: Brain },
-    { href: `${projBase}/templates`,   label: 'Templates',   icon: BookOpen },
+    { href: `${projBase}/rules`,                   label: 'Rules',       icon: FileText },
+    { href: `${projBase}/flows?kind=DECISION`,     label: 'Rule Flows',  icon: Workflow },
+    { href: `${projBase}/models`,                  label: 'Models',      icon: Brain },
+    { href: `${projBase}/templates`,               label: 'Templates',   icon: BookOpen },
   ] : [];
 
   // TEST — make sure they work before shipping
@@ -66,13 +67,15 @@ export function Sidebar() {
     { href: `${projBase}/environments`, label: 'Environments', icon: GitBranch },
   ] : [];
 
-  // INTEGRATE — both inbound (endpoints, keys, webhooks, sdk) and outbound (connections)
+  // INTEGRATE — inbound (endpoints, keys, webhooks, sdk), outbound (connections),
+  // and async orchestration (integration flows that fetch data + run jobs).
   const integrate: NavItem[] = project ? [
-    { href: `${projBase}/integrations/endpoints`,   label: 'Endpoints',    icon: Zap },
-    { href: `${projBase}/integrations/api-keys`,    label: 'API Keys',     icon: KeyRound },
-    { href: `${projBase}/integrations/webhooks`,    label: 'Webhooks',     icon: Webhook },
-    { href: `${projBase}/integrations/connections`, label: 'Connections',  icon: Plug },
-    { href: `${projBase}/integrations/api-docs`,    label: 'API Docs',     icon: BookMarked },
+    { href: `${projBase}/integrations/endpoints`,   label: 'Endpoints',          icon: Zap },
+    { href: `${projBase}/integrations/api-keys`,    label: 'API Keys',           icon: KeyRound },
+    { href: `${projBase}/integrations/webhooks`,    label: 'Webhooks',           icon: Webhook },
+    { href: `${projBase}/integrations/connections`, label: 'Connections',        icon: Plug },
+    { href: `${projBase}/flows?kind=INTEGRATION`,   label: 'Integration Flows',  icon: Workflow },
+    { href: `${projBase}/integrations/api-docs`,    label: 'API Docs',           icon: BookMarked },
   ] : [];
 
   // MONITOR — see what's running and what happened
