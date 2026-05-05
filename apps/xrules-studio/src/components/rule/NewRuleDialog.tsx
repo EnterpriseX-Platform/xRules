@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
 import {
-  Table, Network, BarChart3, Sigma, Code2, BookMarked, Bot, Brain, X,
+  Table, Network, BarChart3, Sigma, Code2, BookMarked, Bot, Brain, Workflow, X,
 } from 'lucide-react';
 import { rulesApi } from '@/lib/api';
 import { cn } from '@/lib/cn';
@@ -55,6 +55,11 @@ const TYPES: RuleTypeCard[] = [
     type: 'AI_AGENT', label: 'AI Agent', tagline: 'LLM-backed',
     description: 'Use a language model with prompt + structured output schema for fuzzy decisions.',
     icon: Bot, tone: 'accent',
+  },
+  {
+    type: 'RULE_FLOW', label: 'Rule Flow', tagline: 'visual orchestration',
+    description: 'Chain rules together visually — input → call rules → branch / map → output. Sync, fast.',
+    icon: Workflow, tone: 'mint',
   },
   {
     type: 'MODEL_CALL', label: 'Model Call', tagline: 'ML / PMML',

@@ -298,6 +298,97 @@ async function main() {
     },
   });
 
+  // RULE_FLOW rule — visually-orchestrated chain rendered as a graph.
+  // Same idea as the SCRIPT rule below but the user can edit the graph
+  // visually instead of writing JS.
+  await prisma.rule.upsert({
+    where: { projectId_slug: { projectId: pricingProject.id, slug: 'order-pricing-flow-rule' } },
+    update: {},
+    create: {
+      name: 'Order Pricing (rule flow)',
+      slug: 'order-pricing-flow-rule',
+      alias: 'order-pricing',
+      description: 'Visual rule flow — input → call Discount Tiers → compute tax + total → output.',
+      type: 'RULE_FLOW',
+      status: 'PUBLISHED',
+      version: 1,
+      projectId: pricingProject.id,
+      createdById: admin.id,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          customerTier: { type: 'string', example: 'platinum' },
+          orderAmount:  { type: 'number', example: 1500 },
+          taxRate:      { type: 'number', example: 0.07 },
+        },
+      },
+      outputSchema: {
+        type: 'object',
+        properties: {
+          discountPercent: { type: 'number' },
+          subtotal:        { type: 'number' },
+          tax:             { type: 'number' },
+          total:           { type: 'number' },
+          freeShipping:    { type: 'boolean' },
+        },
+      },
+      definition: {
+        graph: {
+          nodes: [
+            { id: 'in',     type: 'input',    position: { x:  60, y: 160 }, data: { label: 'Order Input',     kind: 'input' } },
+            { id: 'tier',   type: 'ruleCall', position: { x: 280, y: 160 }, data: {
+                label: 'Discount Tiers',
+                kind: 'ruleCall',
+                ruleSlug: 'discount-tiers',
+                inputMap: {
+                  customerTier: '{{input.customerTier}}',
+                  orderAmount:  '{{input.orderAmount}}',
+                },
+                outputAs: 'tier',
+              },
+            },
+            { id: 'sub',    type: 'assign',   position: { x: 540, y: 160 }, data: {
+                label: 'Subtotal', kind: 'assign',
+                target: 'subtotal',
+                expression: 'Math.round((input.orderAmount - input.orderAmount * tier.discountPercent / 100) * 100) / 100',
+              },
+            },
+            { id: 'tax',    type: 'assign',   position: { x: 540, y: 260 }, data: {
+                label: 'Tax', kind: 'assign',
+                target: 'tax',
+                expression: 'Math.round(subtotal * (input.taxRate || 0.07) * 100) / 100',
+              },
+            },
+            { id: 'total',  type: 'assign',   position: { x: 800, y: 210 }, data: {
+                label: 'Total', kind: 'assign',
+                target: 'total',
+                expression: 'Math.round((subtotal + tax) * 100) / 100',
+              },
+            },
+            { id: 'out',    type: 'output',   position: { x: 1060, y: 210 }, data: {
+                label: 'Quote', kind: 'output',
+                return: {
+                  discountPercent: '{{tier.discountPercent}}',
+                  freeShipping:    '{{tier.freeShipping}}',
+                  subtotal:        '{{subtotal}}',
+                  tax:             '{{tax}}',
+                  total:           '{{total}}',
+                },
+              },
+            },
+          ],
+          edges: [
+            { id: 'e1', source: 'in',   target: 'tier' },
+            { id: 'e2', source: 'tier', target: 'sub'  },
+            { id: 'e3', source: 'sub',  target: 'tax'  },
+            { id: 'e4', source: 'tax',  target: 'total'},
+            { id: 'e5', source: 'total',target: 'out'  },
+          ],
+        },
+      },
+    },
+  });
+
   // Composite SCRIPT rule that chains into Discount Tiers and adds tax + total.
   // Demonstrates rule-to-rule integration via DR.solve().
   await prisma.rule.upsert({

@@ -44,11 +44,11 @@ export function Sidebar() {
     { href: `/projects`, label: 'Projects', icon: FolderKanban },
   ];
 
-  // BUILD — author rules, sync orchestration (decision flows), supporting artifacts.
-  // Integration flows (async / HTTP / Kafka) live under INTEGRATE.
+  // BUILD — author rules, supporting artifacts. Rule Flow is now a rule
+  // type (visual orchestration), not a separate entity. Integration flows
+  // (async / HTTP / Kafka) live under INTEGRATE.
   const build: NavItem[] = project ? [
     { href: `${projBase}/rules`,                   label: 'Rules',       icon: FileText },
-    { href: `${projBase}/flows?kind=DECISION`,     label: 'Rule Flows',  icon: Workflow },
     { href: `${projBase}/models`,                  label: 'Models',      icon: Brain },
     { href: `${projBase}/templates`,               label: 'Templates',   icon: BookOpen },
   ] : [];

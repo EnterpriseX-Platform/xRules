@@ -4,6 +4,7 @@ import { prisma } from '../config/database.js';
 import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errors.js';
 import { callAIAgent } from './llm.service.js';
 import { runScripting, evalExpression, setSolveResolver } from './sandbox.service.js';
+import { runFlow } from './flow-runtime.service.js';
 import { dispatch as dispatchWebhook } from './webhooks.service.js';
 import type { AuthUser } from '../middleware/auth.js';
 
@@ -42,6 +43,15 @@ export async function tryLocalExecutor(rule: any, input: any, context: any): Pro
     case 'SCRIPT':    return runScripting(rule.definition, input, rule.ruleVariables);
     case 'FORMULA':   return runFormula(rule.definition, input, rule.ruleVariables);
     case 'LOOKUP':    return runLookup(rule.definition, input);
+    case 'RULE_FLOW': {
+      const graph = (rule.definition && rule.definition.graph) || rule.definition;
+      return runFlow(graph, input, async (slug, payload) => {
+        const target = await resolveRuleByAny(slug);
+        if (!target) throw new Error(`RULE_FLOW: rule '${slug}' not found`);
+        const result = await executeRule(target.id, payload || {}, {}, SYSTEM_USER);
+        return (result as any).output;
+      });
+    }
     default: return null;
   }
 }

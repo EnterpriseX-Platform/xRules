@@ -219,6 +219,7 @@ enum RuleType {
   MODEL_CALL
   AI_AGENT          // first-class LLM-backed rule
   SCORECARD         // weighted attribute scoring → threshold decision
+  RULE_FLOW         // graph that chains rules together — sync orchestration
 }
 
 enum RuleStatus {
