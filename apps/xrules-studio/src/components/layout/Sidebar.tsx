@@ -97,7 +97,7 @@ export function Sidebar() {
   return (
     <aside className="w-[228px] shrink-0 border-r border-border/40 bg-sidebar flex flex-col">
       {/* Brand */}
-      <div className="h-[48px] px-4 flex items-center gap-2.5 bg-[#161616] text-white">
+      <div className="h-[48px] -mr-px relative z-10 px-4 flex items-center gap-2.5 bg-[#161616] text-white">
         <Logo className="h-5 w-5" />
         <span className="text-[14px] font-semibold tracking-tight">
           xRules
