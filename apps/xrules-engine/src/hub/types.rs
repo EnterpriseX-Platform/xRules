@@ -28,9 +28,34 @@ impl std::fmt::Debug for EngineType {
     }
 }
 
+impl EngineType {
+    pub fn from_str(s: &str) -> std::result::Result<Self, String> {
+        match s.to_lowercase().as_str() {
+            "rules" | "rust" => Ok(EngineType::Rules),
+            "pmml" | "r" => Ok(EngineType::Pmml),
+            "ml" | "python-ml" => Ok(EngineType::Ml),
+            "llm" => Ok(EngineType::Llm),
+            "ai" | "deep-learning" => Ok(EngineType::Ai),
+            _ => Err(format!("Unknown engine type: {}", s)),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RulePayload {
+    /// Rule type (DECISION_TABLE, DECISION_TREE, etc.)
+    #[serde(rename = "type")]
+    pub rule_type: String,
+    /// Engine to use (rules, pmml, ml, llm, ai)
+    pub engine: String,
+    /// Full rule definition JSON
+    pub definition: Value,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ExecuteRequest {
-    pub rule_id: String,
+    /// Inline rule definition (sent by Studio Backend)
+    pub rule: RulePayload,
     pub input: Value,
     #[serde(default)]
     pub context: Option<Value>,

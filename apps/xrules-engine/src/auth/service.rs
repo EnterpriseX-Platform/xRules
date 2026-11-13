@@ -19,7 +19,7 @@ impl AuthService {
             revoked_tokens: RwLock::new(HashSet::new()),
         }
     }
-    
+
     /// Authenticate user and generate tokens
     pub async fn authenticate(
         &self,
@@ -29,7 +29,7 @@ impl AuthService {
         // TODO: In production, verify against database
         // For now, use a simple mock authentication
         let user = self.verify_credentials(username, password).await?;
-        
+
         // Generate access token
         let access_claims = Claims::new(
             &user.id,
@@ -38,32 +38,27 @@ impl AuthService {
             user.roles.clone(),
             self.config.access_token_expiry_hours,
         );
-        
+
         let access_token = encode(
             &Header::default(),
             &access_claims,
             &EncodingKey::from_secret(self.config.secret.as_bytes()),
         )
         .map_err(|e| AuthError::Internal(e.to_string()))?;
-        
+
         // Generate refresh token
-        let refresh_claims = Claims::new_refresh(
-            &user.id,
-            &user.username,
-            &user.email,
-            user.roles,
-        );
-        
+        let refresh_claims = Claims::new_refresh(&user.id, &user.username, &user.email, user.roles);
+
         let refresh_token = encode(
             &Header::default(),
             &refresh_claims,
             &EncodingKey::from_secret(self.config.refresh_secret.as_bytes()),
         )
         .map_err(|e| AuthError::Internal(e.to_string()))?;
-        
+
         Ok((access_token, refresh_token, access_claims))
     }
-    
+
     /// Refresh access token using refresh token
     pub async fn refresh(
         &self,
@@ -71,23 +66,22 @@ impl AuthService {
     ) -> Result<(String, String, Claims), AuthError> {
         // Validate refresh token
         let validation = jsonwebtoken::Validation::default();
-        let decoding_key = jsonwebtoken::DecodingKey::from_secret(
-            self.config.refresh_secret.as_bytes()
-        );
-        
+        let decoding_key =
+            jsonwebtoken::DecodingKey::from_secret(self.config.refresh_secret.as_bytes());
+
         let token_data = jsonwebtoken::decode::<Claims>(refresh_token, &decoding_key, &validation)
             .map_err(|e| match e.kind() {
                 jsonwebtoken::errors::ErrorKind::ExpiredSignature => AuthError::TokenExpired,
                 _ => AuthError::InvalidToken,
             })?;
-        
+
         let claims = token_data.claims;
-        
+
         // Check if token is revoked
         if self.is_revoked(refresh_token) {
             return Err(AuthError::TokenRevoked);
         }
-        
+
         // Generate new tokens
         let new_access_claims = Claims::new(
             &claims.sub,
@@ -96,54 +90,53 @@ impl AuthService {
             claims.roles.clone(),
             self.config.access_token_expiry_hours,
         );
-        
+
         let new_access_token = encode(
             &Header::default(),
             &new_access_claims,
             &EncodingKey::from_secret(self.config.secret.as_bytes()),
         )
         .map_err(|e| AuthError::Internal(e.to_string()))?;
-        
-        let new_refresh_claims = Claims::new_refresh(
-            &claims.sub,
-            &claims.username,
-            &claims.email,
-            claims.roles,
-        );
-        
+
+        let new_refresh_claims =
+            Claims::new_refresh(&claims.sub, &claims.username, &claims.email, claims.roles);
+
         let new_refresh_token = encode(
             &Header::default(),
             &new_refresh_claims,
             &EncodingKey::from_secret(self.config.refresh_secret.as_bytes()),
         )
         .map_err(|e| AuthError::Internal(e.to_string()))?;
-        
+
         // Revoke old refresh token
         self.revoke(refresh_token).await?;
-        
+
         Ok((new_access_token, new_refresh_token, new_access_claims))
     }
-    
+
     /// Revoke a token
     pub async fn revoke(&self, token: &str) -> Result<(), AuthError> {
-        let mut revoked = self.revoked_tokens.write()
+        let mut revoked = self
+            .revoked_tokens
+            .write()
             .map_err(|_| AuthError::Internal("Lock poisoned".to_string()))?;
         revoked.insert(token.to_string());
         Ok(())
     }
-    
+
     /// Check if token is revoked
     pub fn is_revoked(&self, token: &str) -> bool {
-        self.revoked_tokens.read()
+        self.revoked_tokens
+            .read()
             .map(|revoked| revoked.contains(token))
             .unwrap_or(false)
     }
-    
+
     /// Get access token expiry in seconds
     pub fn access_token_expiry(&self) -> i64 {
         self.config.access_token_expiry_hours * 3600
     }
-    
+
     /// Verify user credentials (mock implementation)
     async fn verify_credentials(&self, username: &str, password: &str) -> Result<User, AuthError> {
         // TODO: In production, verify against database with bcrypt
@@ -171,7 +164,7 @@ impl AuthService {
                 vec![Role::Viewer],
             ),
         ];
-        
+
         for (u, p, id, email, roles) in mock_users {
             if u == username && p == password {
                 return Ok(User {
@@ -182,7 +175,7 @@ impl AuthService {
                 });
             }
         }
-        
+
         Err(AuthError::InvalidCredentials)
     }
 }

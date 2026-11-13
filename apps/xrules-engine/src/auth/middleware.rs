@@ -11,7 +11,7 @@ use jsonwebtoken::{decode, DecodingKey, Validation};
 use std::sync::Arc;
 
 /// JWT Authentication middleware
-/// 
+///
 /// Extracts and validates JWT token from Authorization header
 pub async fn auth_middleware(
     State(config): State<Arc<AuthConfig>>,
@@ -25,47 +25,47 @@ pub async fn auth_middleware(
         .ok_or(AuthError::MissingAuthorization)?
         .to_str()
         .map_err(|_| AuthError::InvalidAuthorizationFormat)?;
-    
+
     // Check Bearer prefix
     if !auth_header.starts_with("Bearer ") {
         return Err(AuthError::InvalidAuthorizationFormat);
     }
-    
+
     let token = auth_header[7..].to_string();
-    
+
     // Validate token
     let claims = validate_token(&token, &config.secret)?;
-    
+
     // Add claims to request extensions
     request.extensions_mut().insert(claims.clone());
     request.extensions_mut().insert(TokenMetadata {
         claims: claims.clone(),
         raw_token: token,
     });
-    
+
     Ok(next.run(request).await)
 }
 
 /// Validate JWT token and return claims
 fn validate_token(token: &str, secret: &str) -> Result<Claims, AuthError> {
-    let validation = Validation::default();
+    let mut validation = Validation::default();
+    // Accept tokens from Studio Backend (aud: "xrules-api") or without aud
+    validation.set_audience(&["xrules-api"]);
+    validation.validate_aud = false; // Don't require aud - Studio Backend may or may not set it
     let decoding_key = DecodingKey::from_secret(secret.as_bytes());
-    
-    let token_data = decode::<Claims>(token, &decoding_key, &validation)
-        .map_err(|e| match e.kind() {
+
+    let token_data =
+        decode::<Claims>(token, &decoding_key, &validation).map_err(|e| match e.kind() {
             jsonwebtoken::errors::ErrorKind::ExpiredSignature => AuthError::TokenExpired,
             _ => AuthError::InvalidToken,
         })?;
-    
+
     Ok(token_data.claims)
 }
 
 /// Extract user ID from request extensions
 pub fn extract_user_id(request: &Request<Body>) -> Option<String> {
-    request
-        .extensions()
-        .get::<Claims>()
-        .map(|c| c.sub.clone())
+    request.extensions().get::<Claims>().map(|c| c.sub.clone())
 }
 
 /// Check if user is admin
@@ -89,10 +89,11 @@ pub struct AuthConfig {
 impl AuthConfig {
     pub fn from_env() -> Self {
         Self {
-            secret: std::env::var("JWT_SECRET")
-                .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string()),
+            secret: std::env::var("JWT_SECRET").unwrap_or_else(|_| {
+                "xrules-shared-secret-key-change-in-production-min32".to_string()
+            }),
             refresh_secret: std::env::var("JWT_REFRESH_SECRET")
-                .unwrap_or_else(|_| "your-refresh-secret-key-change-in-production".to_string()),
+                .unwrap_or_else(|_| "xrules-refresh-secret-key-change-in-production".to_string()),
             access_token_expiry_hours: std::env::var("JWT_ACCESS_EXPIRY_HOURS")
                 .ok()
                 .and_then(|s| s.parse().ok())

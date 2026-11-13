@@ -1,23 +1,22 @@
 // Standalone binary to export OpenAPI spec
-use xrules_engine::api::ApiDoc;
-use utoipa::OpenApi;
 use std::fs;
+use utoipa::OpenApi;
+use xrules_engine::api::ApiDoc;
 
 fn main() {
     // Export JSON
-    let json = ApiDoc::openapi().to_pretty_json()
+    let json = ApiDoc::openapi()
+        .to_pretty_json()
         .expect("Failed to generate OpenAPI JSON");
-    
-    fs::write("openapi.json", &json)
-        .expect("Failed to write openapi.json");
-    
+
+    fs::write("openapi.json", &json).expect("Failed to write openapi.json");
+
     println!("✅ Exported openapi.json");
-    
+
     // Export YAML (manual conversion)
     let yaml = convert_json_to_yaml(&json);
-    fs::write("openapi.yaml", &yaml)
-        .expect("Failed to write openapi.yaml");
-    
+    fs::write("openapi.yaml", &yaml).expect("Failed to write openapi.yaml");
+
     println!("✅ Exported openapi.yaml");
     println!("\nOpenAPI 3.1 spec generated successfully!");
     println!("Files: openapi.json, openapi.yaml");

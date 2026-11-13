@@ -27,10 +27,12 @@ service EngineService {
 
 // Execute request
 message ExecuteRequest {
-  string rule_id = 1;
-  bytes input = 2;  // JSON-encoded input
+  string rule_id = 1;           // Deprecated: use rule_type + engine_type + definition instead
+  bytes input = 2;              // JSON-encoded input
   map<string, string> context = 3;
-  string engine_type = 4;  // Optional: rules, pmml, ml, llm, ai
+  string engine_type = 4;       // Engine: rules, pmml, ml, llm, ai
+  string rule_type = 5;         // Rule type: DECISION_TABLE, DECISION_TREE, etc.
+  bytes definition = 6;         // JSON-encoded rule definition (inline)
 }
 
 // Execute response
@@ -74,7 +76,10 @@ message ListEnginesResponse {
 
 // Validate request
 message ValidateRequest {
-  string rule_id = 1;
+  string rule_id = 1;           // Deprecated: use rule_type + engine_type + definition
+  string rule_type = 2;         // Rule type: DECISION_TABLE, etc.
+  string engine_type = 3;       // Engine: rules, pmml, ml, llm, ai
+  bytes definition = 4;         // JSON-encoded rule definition
 }
 
 // Validate response

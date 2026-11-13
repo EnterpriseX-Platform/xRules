@@ -2,7 +2,7 @@ use crate::api::HealthResponse;
 use axum::Json;
 
 /// Health check endpoint
-/// 
+///
 /// Returns the current health status of the XRules Engine Hub
 /// and lists all available engines.
 #[utoipa::path(

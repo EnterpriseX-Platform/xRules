@@ -1,7 +1,10 @@
 use crate::api::{EngineInfo, EngineStatus, ErrorResponse, Standard};
 use crate::hub::EngineType;
 use crate::AppState;
-use axum::{extract::{Path, State}, Json};
+use axum::{
+    extract::{Path, State},
+    Json,
+};
 
 /// List all available engines
 #[utoipa::path(
@@ -16,21 +19,23 @@ use axum::{extract::{Path, State}, Json};
         ("bearer_auth" = [])
     )
 )]
-pub async fn list_engines(
-    State(state): State<AppState>,
-) -> Json<Vec<EngineInfo>> {
+pub async fn list_engines(State(state): State<AppState>) -> Json<Vec<EngineInfo>> {
     let engines = state.hub.list_engines().await;
-    
-    engines.into_iter().map(|e| EngineInfo {
-        name: e.name,
-        engine_type: e.engine_type,
-        status: match e.status.as_str() {
-            "healthy" => EngineStatus::Healthy,
-            _ => EngineStatus::Unhealthy,
-        },
-        standards: e.standards,
-        version: e.version,
-    }).collect::<Vec<_>>().into()
+
+    engines
+        .into_iter()
+        .map(|e| EngineInfo {
+            name: e.name,
+            engine_type: e.engine_type,
+            status: match e.status.as_str() {
+                "healthy" => EngineStatus::Healthy,
+                _ => EngineStatus::Unhealthy,
+            },
+            standards: e.standards,
+            version: e.version,
+        })
+        .collect::<Vec<_>>()
+        .into()
 }
 
 /// Get engine supported standards
@@ -65,9 +70,9 @@ pub async fn get_engine_standards(
             }));
         }
     };
-    
+
     let standards = state.hub.get_engine_standards(engine_type).await;
-    
+
     Ok(Json(
         standards
             .into_iter()

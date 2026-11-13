@@ -6,10 +6,10 @@ pub mod hub;
 pub mod protocol;
 pub mod standards;
 
-use std::sync::Arc;
-use auth::service::AuthService;
 use auth::middleware::AuthConfig;
+use auth::service::AuthService;
 use hub::EngineHub;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -24,19 +24,19 @@ use thiserror::Error;
 pub enum XRulesError {
     #[error("Execution error: {0}")]
     Execution(String),
-    
+
     #[error("Database error: {0}")]
     Database(#[from] sqlx::Error),
-    
+
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
-    
+
     #[error("HTTP error: {0}")]
     Http(String),
-    
+
     #[error("Rule not found: {0}")]
     RuleNotFound(String),
-    
+
     #[error("Validation error: {0}")]
     Validation(String),
 }

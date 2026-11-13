@@ -15,6 +15,89 @@
 // render fancy node palettes in the UI without breaking execution.
 
 import { evalExpression } from './sandbox.service.js';
+import * as datasets from '../data/datasets-runtime.js';
+import { checkFile, type Finding, type TemplateSpec } from '../data/files.js';
+import { prisma } from '../config/database.js';
+
+// Decision-flow data nodes (Data Layer):
+//   enrich    { dataset, forEach?: "input.items", key: ["{{item.itemCode}}","{{input.context.fiscalYear}}"],
+//               writeTo: "ref.standardPrice" (relative to item, or ctx path when no forEach),
+//               timeoutMs?: 500, ruleCodes?: ["TOR-4.4.1.3"] }   — on failure the listed rules are SKIPPED
+//   filecheck { files: "input.files", ruleCode?: "TOR-4.4.1.7" }   — each file names its templateCode
+//   findings  { }                                                  — output: { passed, summary, findings, lineage }
+// A ruleCall with data.ruleCode collects findings from the rule's output:
+//   output.findings[]  or  output.pass === false / output.valid === false (+ message, severity, lineId, field)
+export interface FlowOptions { projectId?: string }
+
+interface DataCtx { findings: Finding[]; lineage: Record<string, string>; stale: string[]; skipRules: Set<string> }
+function dataCtx(ctx: any): DataCtx {
+  if (!ctx.__data) Object.defineProperty(ctx, '__data', { value: { findings: [], lineage: {}, stale: [], skipRules: new Set() }, enumerable: false, writable: true });
+  return ctx.__data;
+}
+
+async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  let t: NodeJS.Timeout;
+  return Promise.race([p, new Promise<T>((_, rej) => { t = setTimeout(() => rej(new Error(`timeout after ${ms} ms`)), ms); })]).finally(() => clearTimeout(t));
+}
+
+async function runEnrich(data: any, ctx: any, opts: FlowOptions) {
+  const dc = dataCtx(ctx);
+  if (!opts.projectId) throw new Error('enrich needs a project');
+  const items: any[] = data.forEach ? (readPath(ctx, String(data.forEach)) || []) : [null];
+  const timeoutMs = Number(data.timeoutMs || 500);
+  try {
+    await withTimeout(Promise.all(items.map(async (item) => {
+      const scope = item === null ? ctx : { ...ctx, item };
+      const key = (data.key || []).map((k: string) => { const v = renderTemplate(k, scope); return v == null ? '' : String(v).trim(); }).join('|');
+      const r = await datasets.lookup(opts.projectId!, String(data.dataset), key);
+      dc.lineage[String(data.dataset)] = r.snapshotAt || '';
+      if (r.stale && !dc.stale.includes(String(data.dataset))) dc.stale.push(String(data.dataset));
+      const val = r.found ? r.data : null;
+      if (item === null) setPath(ctx, String(data.writeTo || data.dataset), val);
+      else setPath(item, String(data.writeTo || data.dataset), val);
+    })), timeoutMs);
+  } catch (e: any) {
+    for (const rc of data.ruleCodes || []) {
+      dc.skipRules.add(rc);
+      dc.findings.push({ ruleCode: rc, severity: 'SKIPPED', message: `ยังไม่ได้ตรวจ: ดึงข้อมูล ${data.dataset} ไม่ได้ (${e.message})` });
+    }
+  }
+}
+
+async function runFileCheck(data: any, ctx: any, opts: FlowOptions) {
+  const dc = dataCtx(ctx);
+  const files: any[] = readPath(ctx, String(data.files || 'input.files')) || [];
+  const ruleCode = data.ruleCode || 'TOR-4.4.1.7';
+  for (const f of files) {
+    if (!f?.templateCode) continue;
+    const tpl = opts.projectId ? await prisma.fileTemplate.findUnique({ where: { projectId_code: { projectId: opts.projectId, code: String(f.templateCode) } } }) : null;
+    if (!tpl) { dc.findings.push({ ruleCode, severity: 'SKIPPED', fileId: f.fileId, message: `ไม่พบแบบฟอร์ม ${f.templateCode} จึงยังไม่ได้ตรวจไฟล์` }); continue; }
+    dc.lineage[`template:${tpl.code}`] = `v${tpl.version}`;
+    dc.findings.push(...await checkFile(f, tpl.code, tpl.spec as unknown as TemplateSpec, ruleCode));
+  }
+}
+
+function collectRuleFindings(data: any, out: any, ctx: any) {
+  if (!data.ruleCode) return;
+  const dc = dataCtx(ctx);
+  const sev = (data.severity || 'ERROR').toUpperCase();
+  const list: any[] = Array.isArray(out?.findings) ? out.findings
+    : Array.isArray(out) ? out.filter((o: any) => o && (o.pass === false || o.valid === false))
+    : (out && (out.pass === false || out.valid === false)) ? [out] : [];
+  for (const f of list) dc.findings.push({ ruleCode: f.ruleCode || data.ruleCode, severity: (f.severity || sev).toUpperCase(), message: f.message || `ไม่ผ่านกฎ ${data.ruleCode}`, lineId: f.lineId, field: f.field, fileId: f.fileId, ref: f.ref });
+}
+
+function findingsOutput(ctx: any) {
+  const dc = dataCtx(ctx);
+  const order: Record<string, number> = { ERROR: 0, WARNING: 1, SKIPPED: 2, INFO: 3 };
+  const findings = [...dc.findings].sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9));
+  const summary = { error: 0, warning: 0, skipped: 0 } as Record<string, number>;
+  for (const f of findings) { const k = f.severity.toLowerCase(); summary[k] = (summary[k] || 0) + 1; }
+  return { passed: summary.error === 0, summary, findings, lineage: { datasets: dc.lineage, stale: dc.stale } };
+}
+
+// For a rule call: if an enrich step failed for this rule, skip it.
+function shouldSkip(data: any, ctx: any) { return !!data.ruleCode && dataCtx(ctx).skipRules.has(data.ruleCode); }
 
 interface FlowGraph {
   nodes: Array<{ id: string; type?: string; data?: any }>;
@@ -60,7 +143,7 @@ function renderObject(o: any, ctx: Record<string, any>): any {
   return o;
 }
 
-export async function runFlow(graph: FlowGraph, input: any, solve: SolveFn): Promise<any> {
+export async function runFlow(graph: FlowGraph, input: any, solve: SolveFn, opts: FlowOptions = {}): Promise<any> {
   if (!graph || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
     throw new Error('Flow has no graph');
   }
@@ -99,7 +182,19 @@ export async function runFlow(graph: FlowGraph, input: any, solve: SolveFn): Pro
         // Already seeded ctx.input; nothing to do.
         break;
 
+      case 'findings':
+        return findingsOutput(ctx);
+
+      case 'enrich':
+        await runEnrich(data, ctx, opts);
+        break;
+
+      case 'filecheck':
+        await runFileCheck(data, ctx, opts);
+        break;
+
       case 'output': {
+        if (ctx.__data && !data.pick && !data.return) return findingsOutput(ctx);
         if (data.pick) return readPath(ctx, String(data.pick));
         // If output node has explicit return shape, render it
         if (data.return) return renderObject(data.return, ctx);
@@ -111,10 +206,12 @@ export async function runFlow(graph: FlowGraph, input: any, solve: SolveFn): Pro
       case 'rulecall': {
         const slug = data.ruleSlug || data.rule || data.slug;
         if (!slug) throw new Error(`ruleCall node '${cur.id}' missing data.ruleSlug`);
+        if (shouldSkip(data, ctx)) break;
         const mappedInput = data.inputMap ? renderObject(data.inputMap, ctx) : ctx.input;
         const out = await solve(String(slug), mappedInput);
         const key = data.outputAs || slug.toString().replace(/-/g, '_');
         ctx[key] = out;
+        collectRuleFindings(data, out, ctx);
         break;
       }
 
@@ -145,7 +242,7 @@ export async function runFlow(graph: FlowGraph, input: any, solve: SolveFn): Pro
         // Snapshot the current ctx so each branch starts from the same view
         const snapshot = { ...ctx };
         const results = await Promise.all(children.map(async (c) => {
-          const branchCtx = await runBranch(nodeById, childrenOf, c.target, snapshot, solve);
+          const branchCtx = await runBranch(nodeById, childrenOf, c.target, snapshot, solve, opts, ctx);
           return { handle: c.sourceHandle || c.target, ctx: branchCtx };
         }));
         // Merge — write each branch's contribution under outputAs (or branch handle)
@@ -216,8 +313,12 @@ async function runBranch(
   startId: string,
   snapshot: Record<string, any>,
   solve: SolveFn,
+  opts: FlowOptions = {},
+  parent?: Record<string, any>,
 ): Promise<Record<string, any>> {
   const ctx: Record<string, any> = { ...snapshot };
+  // branches share the parent's findings/lineage collector
+  if (parent) Object.defineProperty(ctx, '__data', { value: dataCtx(parent), enumerable: false, writable: true });
   let cur = nodeById.get(startId);
   const seen = new Set<string>();
   while (cur && !seen.has(cur.id)) {
@@ -228,12 +329,17 @@ async function runBranch(
 
     if (kind === 'rulecall') {
       const slug = data.ruleSlug || data.rule || data.slug;
-      if (slug) {
+      if (slug && !shouldSkip(data, ctx)) {
         const mappedInput = data.inputMap ? renderObject(data.inputMap, ctx) : ctx.input;
         const out = await solve(String(slug), mappedInput);
         const key = data.outputAs || String(slug).replace(/-/g, '_');
         ctx[key] = out;
+        collectRuleFindings(data, out, ctx);
       }
+    } else if (kind === 'enrich') {
+      await runEnrich(data, ctx, opts);
+    } else if (kind === 'filecheck') {
+      await runFileCheck(data, ctx, opts);
     } else if (kind === 'assign' || kind === 'transform') {
       if (data.target && data.expression) {
         const val = evalExpression(String(data.expression), { ...ctx, Math, Date, JSON });

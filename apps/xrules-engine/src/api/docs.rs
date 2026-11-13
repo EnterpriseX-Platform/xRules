@@ -3,11 +3,10 @@ use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 /// Create Swagger UI route
-/// 
+///
 /// Serves interactive API documentation at `/docs`
 pub fn swagger_ui() -> SwaggerUi {
-    SwaggerUi::new("/docs")
-        .url("/api-docs/openapi.json", ApiDoc::openapi())
+    SwaggerUi::new("/docs").url("/api-docs/openapi.json", ApiDoc::openapi())
 }
 
 /// Export OpenAPI spec as JSON string

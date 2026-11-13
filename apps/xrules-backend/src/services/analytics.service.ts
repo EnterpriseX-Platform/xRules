@@ -103,8 +103,9 @@ export async function getTopRules(workspaceSlug: string, user: AuthUser, limit =
   });
 
   // Get rule names
+  const ids = groups.map(g => g.ruleId).filter((x): x is string => !!x);
   const ruleDetails = await prisma.rule.findMany({
-    where: { id: { in: groups.map(g => g.ruleId) } },
+    where: { id: { in: ids } },
     select: { id: true, name: true, type: true },
   });
   const ruleMap = new Map(ruleDetails.map(r => [r.id, r]));
@@ -112,14 +113,14 @@ export async function getTopRules(workspaceSlug: string, user: AuthUser, limit =
   // Get success counts per rule
   const successCounts = await prisma.execution.groupBy({
     by: ['ruleId'],
-    where: { ruleId: { in: groups.map(g => g.ruleId) }, status: 'SUCCESS' },
+    where: { ruleId: { in: ids }, status: 'SUCCESS' },
     _count: true,
   });
-  const successMap = new Map(successCounts.map(s => [s.ruleId, s._count]));
+  const successMap = new Map<string | null, number>(successCounts.map(s => [s.ruleId, s._count as number]));
 
   return groups.map(g => {
-    const rule = ruleMap.get(g.ruleId);
-    const successCount = successMap.get(g.ruleId) || 0;
+    const rule = g.ruleId ? ruleMap.get(g.ruleId) : undefined;
+    const successCount = (successMap.get(g.ruleId) as number) || 0;
     return {
       ruleId: g.ruleId,
       ruleName: rule?.name || 'Unknown',

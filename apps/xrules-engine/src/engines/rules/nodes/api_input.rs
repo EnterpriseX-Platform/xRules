@@ -13,8 +13,6 @@ impl NodeExecutor for ApiInputNode {
         _config: &'a Value,
         context: &'a mut ExecutionContext,
     ) -> Pin<Box<dyn Future<Output = Result<Value>> + Send + 'a>> {
-        Box::pin(async move {
-            Ok(context.input.clone())
-        })
+        Box::pin(async move { Ok(context.input.clone()) })
     }
 }

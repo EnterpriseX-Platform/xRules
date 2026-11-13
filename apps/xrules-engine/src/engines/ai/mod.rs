@@ -11,9 +11,9 @@ pub struct AiEngine {
 
 impl AiEngine {
     pub async fn new() -> Result<Self> {
-        let endpoint = std::env::var("AI_ENGINE_URL")
-            .unwrap_or_else(|_| "http://localhost:50055".to_string());
-        
+        let endpoint =
+            std::env::var("AI_ENGINE_URL").unwrap_or_else(|_| "http://localhost:50055".to_string());
+
         Ok(Self { endpoint })
     }
 }
@@ -33,20 +33,22 @@ impl Engine for AiEngine {
             .send()
             .await
             .map_err(|e| EngineError::External(format!("AI service error: {}", e)))?;
-        
-        let result: Value = response.json().await
+
+        let result: Value = response
+            .json()
+            .await
             .map_err(|e| EngineError::External(format!("Invalid AI response: {}", e)))?;
-        
+
         Ok(result)
     }
-    
+
     async fn is_healthy(&self) -> bool {
         match reqwest::get(format!("{}/health", self.endpoint)).await {
             Ok(resp) => resp.status().is_success(),
             Err(_) => false,
         }
     }
-    
+
     fn supported_standards(&self) -> Vec<Standard> {
         vec![
             Standard::new("ONNX", "1.14", "Open Neural Network Exchange"),
@@ -55,11 +57,11 @@ impl Engine for AiEngine {
             Standard::new("HuggingFace", "4.x", "Transformers Pipeline"),
         ]
     }
-    
+
     fn name(&self) -> &str {
         "ai-engine"
     }
-    
+
     fn version(&self) -> &str {
         "0.1.0"
     }

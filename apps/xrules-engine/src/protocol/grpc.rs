@@ -12,7 +12,7 @@ impl GrpcEngineClient {
             endpoint: endpoint.to_string(),
         }
     }
-    
+
     // gRPC methods will be implemented here
     // using tonic for async gRPC communication
 }

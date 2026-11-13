@@ -1,233 +1,109 @@
 'use client';
+// Connections (Data Layer): encrypted, per-environment settings; test + read-only verification.
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plug, Plus, Trash2, Lock } from 'lucide-react';
-import { PageContent, PageHeader } from '@/components/layout/AppShell';
-import { EntityTable, Pill } from '@/components/EntityList';
-import { connectionsApi, api } from '@/lib/api';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { X } from 'lucide-react';
+import { api } from '@/lib/api';
+import { PageHead, Table, Td, Tag, Btn, fmtTime } from '@/components/pipeline/ui';
+import { Dropdown } from '@/components/pipeline/Dropdown';
 
-type ConnType = 'HTTP' | 'POSTGRES' | 'MYSQL' | 'REDIS' | 'KAFKA' | 'S3';
-
-const TYPE_TONE: Record<ConnType, any> = {
-  HTTP:     'info',
-  POSTGRES: 'mint',
-  MYSQL:    'mint',
-  REDIS:    'danger',
-  KAFKA:    'warn',
-  S3:       'subtle',
-};
+const TYPES = [
+  { value: 'oracle', label: 'Oracle', fields: [['host', 'Host'], ['port', 'Port'], ['serviceName', 'Service name'], ['user', 'User'], ['password', 'Password', 1]] },
+  { value: 'postgres', label: 'PostgreSQL', fields: [['host', 'Host'], ['port', 'Port'], ['database', 'Database'], ['user', 'User'], ['password', 'Password', 1]] },
+  { value: 'http', label: 'REST API', fields: [['baseUrl', 'Base URL'], ['token', 'Bearer token', 1], ['healthPath', 'Path สำหรับทดสอบ']] },
+  { value: 'mysql', label: 'MySQL', fields: [['host', 'Host'], ['port', 'Port'], ['database', 'Database'], ['user', 'User'], ['password', 'Password', 1]] },
+  { value: 's3', label: 'S3 / MinIO', fields: [['endpoint', 'Endpoint'], ['bucket', 'Bucket'], ['accessKey', 'Access key'], ['secretKey', 'Secret key', 1]] },
+] as const;
+const ENVS = ['UAT', 'PROD'];
 
 export default function ConnectionsPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const qc = useQueryClient();
-  const [showCreate, setShowCreate] = useState(false);
-
-  const { data: rows = [], isLoading } = useQuery({
-    queryKey: ['connections', projectId],
-    queryFn: () => connectionsApi.list(projectId),
-  });
-
-  const remove = useMutation({
-    mutationFn: (id: string) => api.del<void>(`/connections/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['connections', projectId] }),
-  });
+  const [open, setOpen] = useState(false);
+  const { data: rows = [] } = useQuery({ queryKey: ['connections', projectId], queryFn: () => api.get<any[]>(`/connections?project_id=${projectId}`) });
+  const test = useMutation({ mutationFn: (id: string) => api.post<any>(`/data/connections/${id}/test`), onSettled: () => qc.invalidateQueries({ queryKey: ['connections', projectId] }) });
+  const remove = useMutation({ mutationFn: (id: string) => api.del(`/connections/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ['connections', projectId] }) });
 
   return (
-    <PageContent>
-      <PageHeader
-        title="Connections"
-        description="Encrypted credentials referenced by Flow nodes. Secrets never leave the server in plain text."
-        stats={[{ label: 'Total', value: rows.length }]}
-        actions={<button className="btn-primary" onClick={() => setShowCreate(true)}><Plus className="h-3.5 w-3.5" />New Connection</button>}
-      />
-      <EntityTable
-        rows={rows}
-        isLoading={isLoading}
-        emptyText="No connections yet"
-        emptyIcon={Plug}
-        emptyBody="Connections are encrypted credentials for HTTP / Postgres / Redis / Kafka / S3. Reference them from Flow HTTP / SQL nodes — secrets stay AES-256 at rest."
-        emptyCta={<button className="btn-primary text-sm" onClick={() => setShowCreate(true)}><Plus className="h-3.5 w-3.5" />Add a connection</button>}
-        columns={[
-          {
-            header: 'Connection',
-            cell: (c: any) => (
-              <div className="flex items-center gap-2">
-                <Lock className="h-3 w-3 text-subtle" />
-                <div>
-                  <div className="text-sm font-medium">{c.name}</div>
-                  <div className="text-xs text-subtle font-mono">{c.slug}</div>
-                </div>
-              </div>
-            ),
-          },
-          { header: 'Type',  cell: (c: any) => <Pill tone={TYPE_TONE[c.type?.toUpperCase() as ConnType] || 'subtle'}>{c.type?.toUpperCase()}</Pill> },
-          {
-            header: 'Host',
-            cell: (c: any) => (
-              <span className="font-mono text-xs text-subtle truncate max-w-[280px] inline-block">
-                {c.meta?.baseUrl || c.meta?.host || c.meta?.bootstrap || c.meta?.bucket || c.meta?.url || '—'}
-                {c.meta?.port ? `:${c.meta.port}` : ''}
-              </span>
-            ),
-          },
-          {
-            header: '',
-            align: 'right',
-            cell: (c: any) => (
-              <button
-                className="btn-ghost text-danger"
-                onClick={(e) => { e.stopPropagation(); if (confirm(`Delete connection "${c.name}"? Flows using it will break.`)) remove.mutate(c.id); }}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            ),
-          },
-        ]}
-      />
-      {showCreate && (
-        <CreateDialog
-          projectId={projectId}
-          onClose={() => setShowCreate(false)}
-          onCreated={() => qc.invalidateQueries({ queryKey: ['connections', projectId] })}
-        />
-      )}
-    </PageContent>
+    <div className="px-8 py-6">
+      <PageHead title="Connections" sub="ค่าลับเข้ารหัส · ค่าแยก UAT / PROD · ใช้อ่านข้อมูลอย่างเดียว" actions={<Btn onClick={() => setOpen(true)}>New Connection</Btn>} />
+      <Table head={['Connection', 'ชนิด', 'ผลทดสอบล่าสุด', 'อ่านอย่างเดียว', '']}
+        empty={!rows.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">ยังไม่มี Connection</div> : null}>
+        {rows.map((c: any) => {
+          const t = c.meta?.lastTest;
+          return (
+            <tr key={c.id}>
+              <Td><div className="font-semibold">{c.name}</div><div className="font-mono text-[12px] text-[#525252]">{c.slug}</div></Td>
+              <Td><Tag tone="blue">{c.type}</Tag></Td>
+              <Td>{t ? <span className="flex items-center gap-2">{t.ok ? <Tag tone="green">เชื่อมต่อได้ · {t.ms} ms</Tag> : <Tag tone="red">เชื่อมต่อไม่ได้</Tag>}<span className="text-[12px] text-[#525252]">{t.env} · {fmtTime(t.at)}</span></span> : '—'}
+                {t && !t.ok && <div className="text-[12px] text-[#a2191f]">{t.error}</div>}</Td>
+              <Td>{t?.readOnly ? (t.readOnly.verified ? <Tag tone="green">ยืนยันแล้ว</Tag> : <span title={t.readOnly.problems.join('\n')}><Tag tone="red">เขียนได้ {t.readOnly.problems.length} จุด</Tag></span>) : '—'}</Td>
+              <Td><div className="flex gap-1">
+                <button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8] disabled:opacity-40" disabled={test.isPending} onClick={() => test.mutate(c.id)}>{test.isPending && test.variables === c.id ? 'กำลังทดสอบ' : 'Test connection'}</button>
+                <button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={() => remove.mutate(c.id)}>ลบ</button>
+              </div></Td>
+            </tr>
+          );
+        })}
+      </Table>
+      {open && <NewConnection projectId={projectId} onClose={() => setOpen(false)} />}
+    </div>
   );
 }
 
-interface FieldSpec {
-  key: string;
-  label: string;
-  secret?: boolean;
-  meta?: boolean;       // goes into meta (plaintext) instead of config (encrypted)
-  placeholder?: string;
-  type?: 'text' | 'number' | 'password';
-}
-
-const FIELDS: Record<ConnType, FieldSpec[]> = {
-  HTTP: [
-    { key: 'baseUrl',   label: 'Base URL',          meta: true, placeholder: 'https://api.example.com' },
-    { key: 'authToken', label: 'Auth token',        secret: true, type: 'password', placeholder: 'Bearer …' },
-    { key: 'authType',  label: 'Auth type',         meta: true, placeholder: 'bearer | basic | none' },
-  ],
-  POSTGRES: [
-    { key: 'host',     label: 'Host',     meta: true, placeholder: 'db.internal' },
-    { key: 'port',     label: 'Port',     meta: true, type: 'number', placeholder: '5432' },
-    { key: 'database', label: 'Database', meta: true, placeholder: 'app' },
-    { key: 'user',     label: 'User',     meta: true, placeholder: 'app_ro' },
-    { key: 'password', label: 'Password', secret: true, type: 'password' },
-    { key: 'sslmode',  label: 'SSL mode', meta: true, placeholder: 'require' },
-  ],
-  MYSQL: [
-    { key: 'host',     label: 'Host',     meta: true, placeholder: 'db.internal' },
-    { key: 'port',     label: 'Port',     meta: true, type: 'number', placeholder: '3306' },
-    { key: 'database', label: 'Database', meta: true },
-    { key: 'user',     label: 'User',     meta: true },
-    { key: 'password', label: 'Password', secret: true, type: 'password' },
-  ],
-  REDIS: [
-    { key: 'host',     label: 'Host',     meta: true, placeholder: 'redis.internal' },
-    { key: 'port',     label: 'Port',     meta: true, type: 'number', placeholder: '6379' },
-    { key: 'password', label: 'Password', secret: true, type: 'password' },
-    { key: 'db',       label: 'DB index', meta: true, type: 'number', placeholder: '0' },
-  ],
-  KAFKA: [
-    { key: 'bootstrap', label: 'Bootstrap servers', meta: true, placeholder: 'broker1:9092,broker2:9092' },
-    { key: 'username',  label: 'SASL username',     meta: true },
-    { key: 'password',  label: 'SASL password',     secret: true, type: 'password' },
-  ],
-  S3: [
-    { key: 'region',          label: 'Region',     meta: true, placeholder: 'us-east-1' },
-    { key: 'bucket',          label: 'Bucket',     meta: true },
-    { key: 'accessKeyId',     label: 'Access key', secret: true },
-    { key: 'secretAccessKey', label: 'Secret key', secret: true, type: 'password' },
-    { key: 'endpoint',        label: 'Endpoint (optional)', meta: true, placeholder: 'https://s3.example.com' },
-  ],
-};
-
-function CreateDialog({ projectId, onClose, onCreated }: { projectId: string; onClose: () => void; onCreated: () => void }) {
+function NewConnection({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+  const qc = useQueryClient();
   const [name, setName] = useState('');
-  const [type, setType] = useState<ConnType>('HTTP');
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
-
-  const fields = FIELDS[type];
-
-  const mut = useMutation({
-    mutationFn: () => {
-      const config: Record<string, any> = {};
-      const meta: Record<string, any> = {};
-      for (const f of fields) {
-        const v = values[f.key];
-        if (v === undefined || v === '') continue;
-        const coerced = f.type === 'number' ? Number(v) : v;
-        if (f.meta) meta[f.key] = coerced;
-        else config[f.key] = coerced;
+  const [type, setType] = useState<string>('oracle');
+  const [env, setEnv] = useState('UAT');
+  const [vals, setVals] = useState<Record<string, Record<string, string>>>({ UAT: {}, PROD: {} });
+  const [allowed, setAllowed] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const t = TYPES.find(x => x.value === type)!;
+  const save = useMutation({
+    mutationFn: async () => {
+      const envs: any = {};
+      for (const e of ENVS) if (Object.values(vals[e]).some(Boolean)) envs[e] = { ...vals[e], ...(vals[e].port ? { port: Number(vals[e].port) } : {}) };
+      if (!Object.keys(envs).length) throw new Error('กรอกค่าอย่างน้อย 1 environment');
+      const c = await api.post<any>('/connections', { name, projectId, type, config: { envs, allowedObjects: allowed.split(',').map(s => s.trim()).filter(Boolean) } });
+      const r = await api.post<any>(`/data/connections/${c.id}/test?env=${Object.keys(envs)[0]}`);
+      if (r.ok && r.readOnly && !r.readOnly.verified) {
+        await api.del(`/connections/${c.id}`);
+        throw new Error(`บัญชีนี้เขียนข้อมูลได้ (${r.readOnly.problems.slice(0, 3).join(', ')}) ใช้บัญชีที่อ่านได้อย่างเดียว`);
       }
-      return connectionsApi.create({ projectId, name, type, config, meta });
+      return r;
     },
-    onSuccess: () => { onCreated(); onClose(); },
-    onError: (e: any) => setError(e.message),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['connections', projectId] }); onClose(); },
+    onError: (e: any) => setErr(e.message),
   });
-
-  function setVal(k: string, v: string) {
-    setValues((p) => ({ ...p, [k]: v }));
-  }
-
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-6 z-50" onClick={onClose}>
-      <div className="card w-full max-w-lg p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-xl font-bold">New Connection</h2>
-        <p className="text-xs text-subtle font-mono flex items-center gap-1.5">
-          <Lock className="h-3 w-3" />
-          Secret fields are AES-256-GCM encrypted server-side and never returned to the UI.
-        </p>
-        <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); mut.mutate(); }}>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label-section block mb-1.5">Name</label>
-              <input required className="input w-full" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-            </div>
-            <div>
-              <label className="label-section block mb-1.5">Type</label>
-              <select className="input w-full" value={type} onChange={(e) => { setType(e.target.value as ConnType); setValues({}); }}>
-                <option>HTTP</option>
-                <option>POSTGRES</option>
-                <option>MYSQL</option>
-                <option>REDIS</option>
-                <option>KAFKA</option>
-                <option>S3</option>
-              </select>
-            </div>
+    <div className="fixed inset-0 bg-[rgba(22,22,22,.5)] flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white w-full max-w-[640px]" onClick={e => e.stopPropagation()}>
+        <div className="px-4 pt-4 pb-2 flex items-start justify-between">
+          <div><div className="text-[12px] text-[#525252]">Connections</div><div className="text-[20px]">New Connection</div></div>
+          <button className="h-10 w-10 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={onClose} aria-label="ปิด"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="px-4 py-3 space-y-4 max-h-[65vh] overflow-y-auto">
+          <div className="grid grid-cols-2 gap-4">
+            <div><label htmlFor="cn-name" className="block text-[12px] text-[#525252] mb-1.5">ชื่อ</label><input id="cn-name" className="input w-full" value={name} onChange={e => setName(e.target.value)} placeholder="oracle-neb-ro" /></div>
+            <div><div className="text-[12px] text-[#525252] mb-1.5">ชนิด</div><Dropdown value={type} onChange={setType} options={TYPES.map(x => ({ value: x.value, label: x.label }))} /></div>
           </div>
-
-          <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
-            {fields.map((f) => (
-              <div key={f.key}>
-                <label className="label-section block mb-1.5 flex items-center gap-1.5">
-                  {f.label}
-                  {f.secret && <Lock className="h-2.5 w-2.5 text-warn" />}
-                </label>
-                <input
-                  className="input w-full"
-                  type={f.type || 'text'}
-                  placeholder={f.placeholder}
-                  value={values[f.key] || ''}
-                  onChange={(e) => setVal(f.key, e.target.value)}
-                />
-              </div>
+          <div className="flex border-b border-[#e0e0e0]">{ENVS.map(e => <button key={e} onClick={() => setEnv(e)} className={`h-10 px-4 text-[14px] ${env === e ? 'border-b-2 border-[#0f62fe] font-semibold' : 'text-[#525252]'}`}>{e}</button>)}</div>
+          <div className="grid grid-cols-2 gap-4">
+            {t.fields.map(([k, label, secret]: any) => (
+              <div key={`${env}-${k}`}><label htmlFor={`cn-${k}`} className="block text-[12px] text-[#525252] mb-1.5">{label}</label>
+                <input id={`cn-${k}`} type={secret ? 'password' : 'text'} className="input w-full font-mono" value={vals[env][k] || ''} onChange={e => setVals(v => ({ ...v, [env]: { ...v[env], [k]: e.target.value } }))} /></div>
             ))}
           </div>
-
-          {error && <div className="pill pill-danger">{error}</div>}
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
-            <button type="submit" disabled={mut.isPending} className="btn-primary disabled:opacity-50">
-              {mut.isPending ? 'Saving…' : 'Save'}
-            </button>
-          </div>
-        </form>
+          {type !== 'http' && type !== 's3' && <div><label htmlFor="cn-allow" className="block text-[12px] text-[#525252] mb-1.5">ตาราง / view ที่อ่านได้ (คั่นด้วย ,)</label>
+            <input id="cn-allow" className="input w-full font-mono" value={allowed} onChange={e => setAllowed(e.target.value)} placeholder="SCBDB.DAS_STANDARD_PRICE_V, APP.BUDGET_REQUEST_V" /></div>}
+          {err && <div className="bg-[#fff1f1] border-l-[3px] border-[#da1e28] px-4 py-3 text-[14px]">{err}</div>}
+        </div>
+        <div className="grid grid-cols-2 h-16 mt-2">
+          <button className="bg-[#393939] text-white text-[14px] text-left pl-4 hover:bg-[#474747]" onClick={onClose}>ยกเลิก</button>
+          <button className="bg-[#0f62fe] text-white text-[14px] text-left pl-4 hover:bg-[#0353e9] disabled:bg-[#c6c6c6]" disabled={!name || save.isPending} onClick={() => { setErr(null); save.mutate(); }}>{save.isPending ? 'กำลังทดสอบการเชื่อมต่อ' : 'ทดสอบและบันทึก'}</button>
+        </div>
       </div>
     </div>
   );

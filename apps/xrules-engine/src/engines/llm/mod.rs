@@ -13,7 +13,7 @@ impl LlmEngine {
     pub async fn new() -> Result<Self> {
         let endpoint = std::env::var("LLM_ENGINE_URL")
             .unwrap_or_else(|_| "http://localhost:50054".to_string());
-        
+
         Ok(Self { endpoint })
     }
 }
@@ -35,20 +35,22 @@ impl Engine for LlmEngine {
             .send()
             .await
             .map_err(|e| EngineError::External(format!("LLM service error: {}", e)))?;
-        
-        let result: Value = response.json().await
+
+        let result: Value = response
+            .json()
+            .await
             .map_err(|e| EngineError::External(format!("Invalid LLM response: {}", e)))?;
-        
+
         Ok(result)
     }
-    
+
     async fn is_healthy(&self) -> bool {
         match reqwest::get(format!("{}/health", self.endpoint)).await {
             Ok(resp) => resp.status().is_success(),
             Err(_) => false,
         }
     }
-    
+
     fn supported_standards(&self) -> Vec<Standard> {
         vec![
             Standard::new("OpenAI API", "v1", "OpenAI-compatible API"),
@@ -56,11 +58,11 @@ impl Engine for LlmEngine {
             Standard::new("Ollama", "0.1", "Local LLM API"),
         ]
     }
-    
+
     fn name(&self) -> &str {
         "llm-engine"
     }
-    
+
     fn version(&self) -> &str {
         "0.1.0"
     }

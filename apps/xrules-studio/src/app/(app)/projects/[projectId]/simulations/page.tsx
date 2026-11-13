@@ -3,6 +3,7 @@ import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Sparkles } from 'lucide-react';
 import { PageContent, PageHeader } from '@/components/layout/AppShell';
+import { TestNav } from '@/components/layout/TestNav';
 import { EntityTable, StatusPill, Pill } from '@/components/EntityList';
 import { simulationsApi } from '@/lib/api';
 
@@ -16,10 +17,11 @@ export default function SimulationsPage() {
   return (
     <PageContent>
       <PageHeader
-        title="Simulations"
-        description="Compare rule versions, replay production traffic, sweep input axes"
-        stats={[{ label: 'Total', value: sims.length }]}
+        title="Test"
+        description="Validate rules before they ship — assertion suites, sample data, version diff and replay, and latency benchmarks"
+        stats={[{ label: 'Simulations', value: sims.length }]}
       />
+      <TestNav />
 
       <EntityTable
         rows={sims}

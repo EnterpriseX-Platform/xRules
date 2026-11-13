@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FlaskConical, Plus, Play, Trash2 } from 'lucide-react';
 import { PageContent, PageHeader } from '@/components/layout/AppShell';
+import { TestNav } from '@/components/layout/TestNav';
 import { EntityTable, Pill } from '@/components/EntityList';
 import { testSuitesApi, datasetsApi, rulesApi, api } from '@/lib/api';
 
@@ -25,11 +26,12 @@ export default function TestSuitesPage() {
   return (
     <PageContent>
       <PageHeader
-        title="Test Suites"
-        description="Run a set of rules against a dataset to get a coverage and pass/fail report"
-        stats={[{ label: 'Total', value: suites.length }]}
+        title="Test"
+        description="Validate rules before they ship — assertion suites, sample data, version diff and replay, and latency benchmarks"
+        stats={[{ label: 'Suites', value: suites.length }]}
         actions={<button className="btn-primary" onClick={() => setShowCreate(true)}><Plus className="h-3.5 w-3.5" />New Suite</button>}
       />
+      <TestNav />
       <EntityTable
         rows={suites}
         isLoading={isLoading}

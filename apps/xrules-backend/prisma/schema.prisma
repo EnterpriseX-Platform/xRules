@@ -23,36 +23,36 @@ model User {
   password      String?
   emailVerified DateTime?
 
-  workspaces    WorkspaceMember[]
-  createdRules  Rule[]
-  ruleVersions  RuleVersion[]     @relation("rule_version_author")
-  models        Model[]           @relation("model_author")
-  apiKeys       ApiKey[]          @relation("apikey_author")
-  releases      Release[]         @relation("release_author")
-  auditLogs     AuditLog[]
+  workspaces   WorkspaceMember[]
+  createdRules Rule[]
+  ruleVersions RuleVersion[]     @relation("rule_version_author")
+  models       Model[]           @relation("model_author")
+  apiKeys      ApiKey[]          @relation("apikey_author")
+  releases     Release[]         @relation("release_author")
+  auditLogs    AuditLog[]
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("users")
 }
 
 model Workspace {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
-  slug        String   @unique
+  slug        String  @unique
   description String?
-  settings    Json     @default("{}")
-  plan        Plan     @default(FREE)
+  settings    Json    @default("{}")
+  plan        Plan    @default(FREE)
 
-  members     WorkspaceMember[]
-  projects    Project[]
-  apiKeys     ApiKey[]
-  webhooks    Webhook[]
-  auditLogs   AuditLog[]
+  members   WorkspaceMember[]
+  projects  Project[]
+  apiKeys   ApiKey[]
+  webhooks  Webhook[]
+  auditLogs AuditLog[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("workspaces")
 }
@@ -70,10 +70,10 @@ model WorkspaceMember {
   userId      String
   role        WorkspaceRole @default(MEMBER)
 
-  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime      @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([workspaceId, userId])
   @@map("workspace_members")
@@ -91,7 +91,7 @@ enum WorkspaceRole {
 // =============================================================================
 
 model Project {
-  id          String    @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
   slug        String
   description String?
@@ -101,20 +101,21 @@ model Project {
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  rules        Rule[]
-  flows        Flow[]
-  models       Model[]
-  connections  Connection[]
-  datasets     Dataset[]
-  testSuites   TestSuite[]
-  scenarios    Scenario[]
-  releases     Release[]
-  environments Environment[]
-  folders      Folder[]
-  jobs         Job[]
+  rules         Rule[]
+  flows         Flow[]
+  models        Model[]
+  connections   Connection[]
+  datasets      Dataset[]
+  fileTemplates FileTemplate[]
+  testSuites    TestSuite[]
+  scenarios     Scenario[]
+  releases      Release[]
+  environments  Environment[]
+  folders       Folder[]
+  jobs          Job[]
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([workspaceId, slug])
   @@map("projects")
@@ -123,21 +124,21 @@ model Project {
 // Hierarchical folder organization (max 5 levels enforced in service layer).
 // Both rules and flows live inside folders; root folder = parentId NULL.
 model Folder {
-  id          String   @id @default(cuid())
-  name        String
-  position    Int      @default(0)
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  name      String
+  position  Int     @default(0)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  parentId    String?
-  parent      Folder?  @relation("folder_tree", fields: [parentId], references: [id], onDelete: Cascade)
-  children    Folder[] @relation("folder_tree")
+  parentId String?
+  parent   Folder?  @relation("folder_tree", fields: [parentId], references: [id], onDelete: Cascade)
+  children Folder[] @relation("folder_tree")
 
-  rules       Rule[]
-  flows       Flow[]
+  rules Rule[]
+  flows Flow[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([projectId, parentId])
   @@map("folders")
@@ -148,40 +149,40 @@ model Folder {
 // =============================================================================
 
 model Rule {
-  id           String     @id @default(cuid())
-  name         String
-  slug         String
+  id            String            @id @default(cuid())
+  name          String
+  slug          String
   // User-mutable identifier — drop-in replacement for id in solver requests.
   // Format: [a-z0-9-], unique within project (recommended, warned if not).
-  alias        String?
-  description  String?
-  type         RuleType   @default(DECISION_TABLE)
+  alias         String?
+  description   String?
+  type          RuleType          @default(DECISION_TABLE)
   // Solver adapter (was "engine") — kept for back-compat, prefer .solver
-  engine       String     @default("rules")
-  solver       String     @default("rules")
-  definition   Json       @default("{}")
+  engine        String            @default("rules")
+  solver        String            @default("rules")
+  definition    Json              @default("{}")
   // Per-version reusable values (number/string/bool/array/object).
   // Snapshotted into RuleVersion on publish. Read-only at runtime.
   ruleVariables Json?
-  inputSchema  Json?
-  outputSchema Json?
+  inputSchema   Json?
+  outputSchema  Json?
   // Per-rule default execution strategy. May be overridden by X-Strategy header.
-  strategy     ExecutionStrategy @default(STANDARD)
+  strategy      ExecutionStrategy @default(STANDARD)
   // Lock prevents edits without explicit unlock.
-  locked       Boolean    @default(false)
-  lockedById   String?
-  tags         String[]   @default([])
-  status       RuleStatus @default(DRAFT)
-  version      Int        @default(1)
+  locked        Boolean           @default(false)
+  lockedById    String?
+  tags          String[]          @default([])
+  status        RuleStatus        @default(DRAFT)
+  version       Int               @default(1)
 
-  projectId    String
-  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  folderId     String?
-  folder       Folder?    @relation(fields: [folderId], references: [id])
+  folderId String?
+  folder   Folder? @relation(fields: [folderId], references: [id])
 
-  createdById  String
-  createdBy    User       @relation(fields: [createdById], references: [id])
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
 
   versions       RuleVersion[]
   testCases      TestCase[]
@@ -190,8 +191,8 @@ model Rule {
   dependsOn      RuleDependency[] @relation("dep_from")
   dependedBy     RuleDependency[] @relation("dep_to")
 
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([projectId, slug])
   @@unique([projectId, alias])
@@ -202,12 +203,12 @@ model Rule {
 
 // Execution strategy applies to Decision Tables; some apply to Lookup Tables only.
 enum ExecutionStrategy {
-  STANDARD          // returns all matching rows (default)
-  FIRST_MATCH       // returns first matching row only (Decision Tables)
-  ARRAY             // merges all matches into single object with array values
-  EVALUATE_ALL      // returns every row with _match flag (audit/debug)
-  LOOKUP_VALUE      // Lookup tables — returns matched value
-  LOOKUP_EXISTS     // Lookup tables — returns boolean
+  STANDARD // returns all matching rows (default)
+  FIRST_MATCH // returns first matching row only (Decision Tables)
+  ARRAY // merges all matches into single object with array values
+  EVALUATE_ALL // returns every row with _match flag (audit/debug)
+  LOOKUP_VALUE // Lookup tables — returns matched value
+  LOOKUP_EXISTS // Lookup tables — returns boolean
 }
 
 enum RuleType {
@@ -217,9 +218,9 @@ enum RuleType {
   SCRIPT
   LOOKUP
   MODEL_CALL
-  AI_AGENT          // first-class LLM-backed rule
-  SCORECARD         // weighted attribute scoring → threshold decision
-  RULE_FLOW         // graph that chains rules together — sync orchestration
+  AI_AGENT // first-class LLM-backed rule
+  SCORECARD // weighted attribute scoring → threshold decision
+  RULE_FLOW // graph that chains rules together — sync orchestration
 }
 
 enum RuleStatus {
@@ -240,26 +241,26 @@ model RuleVersion {
   message       String?
   changeStats   Json?
 
-  ruleId        String
-  rule          Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  ruleId String
+  rule   Rule   @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 
-  createdById   String
-  createdBy     User       @relation("rule_version_author", fields: [createdById], references: [id])
+  createdById String
+  createdBy   User   @relation("rule_version_author", fields: [createdById], references: [id])
 
-  createdAt     DateTime   @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([ruleId, version])
   @@map("rule_versions")
 }
 
 model RuleDependency {
-  id        String @id @default(cuid())
-  fromId    String
-  toId      String
-  kind      String @default("call")
+  id     String @id @default(cuid())
+  fromId String
+  toId   String
+  kind   String @default("call")
 
-  from      Rule   @relation("dep_from", fields: [fromId], references: [id], onDelete: Cascade)
-  to        Rule   @relation("dep_to",   fields: [toId],   references: [id], onDelete: Cascade)
+  from Rule @relation("dep_from", fields: [fromId], references: [id], onDelete: Cascade)
+  to   Rule @relation("dep_to", fields: [toId], references: [id], onDelete: Cascade)
 
   @@unique([fromId, toId, kind])
   @@map("rule_dependencies")
@@ -284,18 +285,22 @@ model Flow {
   status       RuleStatus @default(DRAFT)
   locked       Boolean    @default(false)
   version      Int        @default(1)
+  // DATA flows: { cron?: "0 23 * * *", enabled?: boolean, events?: string[] }
+  schedule     Json?
+  lastRunAt    DateTime?
 
-  projectId    String
-  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  folderId     String?
-  folder       Folder?    @relation(fields: [folderId], references: [id])
+  folderId String?
+  folder   Folder? @relation(fields: [folderId], references: [id])
 
-  versions     FlowVersion[]
-  jobs         Job[]
+  versions   FlowVersion[]
+  jobs       Job[]
+  executions Execution[]
 
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([projectId, slug])
   @@unique([projectId, alias])
@@ -312,18 +317,19 @@ model FlowVersion {
   status       RuleStatus
   message      String?
 
-  flowId       String
-  flow         Flow       @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  flowId String
+  flow   Flow   @relation(fields: [flowId], references: [id], onDelete: Cascade)
 
-  createdAt    DateTime   @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([flowId, version])
   @@map("flow_versions")
 }
 
 enum FlowKind {
-  DECISION       // synchronous, hard timeout, returns immediately
-  INTEGRATION    // asynchronous, backed by a Job, can run long
+  DECISION // synchronous, hard timeout, returns immediately
+  INTEGRATION // asynchronous, backed by a Job, can run long
+  DATA // Data Flow: source → transform → quality → write Data Set snapshot (scheduled)
 }
 
 // =============================================================================
@@ -331,27 +337,27 @@ enum FlowKind {
 // =============================================================================
 
 model Job {
-  id          String     @id @default(cuid())
-  state       JobState   @default(WAITING)
-  statusCode  String?    // JOB_SUCCESS / JOB_ERROR / JOB_TIMEOUT / ...
-  input       Json
-  output      Json?
-  error       String?
-  trace       Json?
-  startedAt   DateTime?
-  finishedAt  DateTime?
+  id         String    @id @default(cuid())
+  state      JobState  @default(WAITING)
+  statusCode String? // JOB_SUCCESS / JOB_ERROR / JOB_TIMEOUT / ...
+  input      Json
+  output     Json?
+  error      String?
+  trace      Json?
+  startedAt  DateTime?
+  finishedAt DateTime?
 
-  projectId   String
-  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   flowId      String?
-  flow        Flow?      @relation(fields: [flowId], references: [id])
+  flow        Flow?   @relation(fields: [flowId], references: [id])
   flowVersion Int?
 
-  apiKeyId    String?
+  apiKeyId      String?
   correlationId String?
 
-  createdAt   DateTime   @default(now())
+  createdAt DateTime @default(now())
 
   @@index([projectId, state, createdAt])
   @@map("jobs")
@@ -381,14 +387,14 @@ model Model {
   metadata    Json?
   artifactUri String?
 
-  projectId   String
-  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   createdById String
-  createdBy   User        @relation("model_author", fields: [createdById], references: [id])
+  createdBy   User   @relation("model_author", fields: [createdById], references: [id])
 
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([projectId, slug])
   @@map("models")
@@ -411,24 +417,25 @@ enum ModelStatus {
 // =============================================================================
 
 model Connection {
-  id          String         @id @default(cuid())
-  name        String
-  slug        String
-  type        ConnectionType
-  configEnc   String
-  meta        Json           @default("{}")
+  id        String         @id @default(cuid())
+  name      String
+  slug      String
+  type      ConnectionType
+  configEnc String
+  meta      Json           @default("{}")
 
-  projectId   String
-  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([projectId, slug])
   @@map("connections")
 }
 
 enum ConnectionType {
+  ORACLE
   HTTP
   POSTGRES
   MYSQL
@@ -442,24 +449,24 @@ enum ConnectionType {
 // =============================================================================
 
 model TestCase {
-  id              String     @id @default(cuid())
-  name            String
-  input           Json
-  expected        Json?
-  assertions      Json?
+  id             String             @id @default(cuid())
+  name           String
+  input          Json
+  expected       Json?
+  assertions     Json?
   // JSONPath strings whose values are excluded when comparing actual vs expected.
   // E.g. ["$.timestamp", "$.requestId"]. Critical for non-deterministic outputs.
-  ignoredOutputs  String[]   @default([])
+  ignoredOutputs String[]           @default([])
   // Optional per-case strategy override.
-  strategy        ExecutionStrategy?
-  lastResult      Json?
-  lastStatus      TestStatus @default(PENDING)
+  strategy       ExecutionStrategy?
+  lastResult     Json?
+  lastStatus     TestStatus         @default(PENDING)
 
-  ruleId     String
-  rule       Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  ruleId String
+  rule   Rule   @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("test_cases")
 }
@@ -472,19 +479,26 @@ enum TestStatus {
 }
 
 model Dataset {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String
-  format    String   @default("jsonl")
-  uri       String?
-  inline    Json?
-  rowCount  Int      @default(0)
-  schema    Json?
+  id               String   @id @default(cuid())
+  name             String
+  slug             String
+  format           String   @default("jsonl")
+  uri              String?
+  inline           Json?
+  rowCount         Int      @default(0)
+  schema           Json?
+  // Data Layer: key used by lookups (e.g. ["itemCode","fiscalYear"]), the snapshot rules read,
+  // how many old snapshots to keep, and fields that must never be stored (personal data).
+  keyFields        String[] @default([])
+  activeSnapshotId String?
+  retention        Int      @default(30)
+  piiFields        String[] @default([])
 
   projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   testRuns  TestRun[]
+  snapshots DatasetSnapshot[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -493,20 +507,76 @@ model Dataset {
   @@map("datasets")
 }
 
+enum SnapshotStatus {
+  RUNNING
+  VALIDATED
+  ACTIVE
+  KEPT
+  REJECTED
+}
+
+model DatasetSnapshot {
+  id            String         @id @default(cuid())
+  datasetId     String
+  dataset       Dataset        @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  jobId         String?
+  status        SnapshotStatus @default(RUNNING)
+  rowCount      Int            @default(0)
+  rejectedCount Int            @default(0)
+  qualityReport Json?
+  activatedAt   DateTime?
+  createdAt     DateTime       @default(now())
+
+  rows DatasetRow[]
+
+  @@index([datasetId, createdAt])
+  @@map("dataset_snapshots")
+}
+
+model DatasetRow {
+  id         BigInt          @id @default(autoincrement())
+  snapshotId String
+  snapshot   DatasetSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  key        String
+  data       Json
+
+  @@index([snapshotId, key])
+  @@map("dataset_rows")
+}
+
+// Excel/CSV template a File Check node validates uploads against (TOR 4.4.1.7).
+model FileTemplate {
+  id      String @id @default(cuid())
+  code    String
+  name    String
+  version Int    @default(1)
+  // { sheets: [{ name, headerRow, columns: [{ name, type: "string|number|date", required }] }], extensions: [".xlsx"], maxBytes }
+  spec    Json
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, code])
+  @@map("file_templates")
+}
+
 model TestSuite {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
   slug        String
   description String?
 
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  rules       TestSuiteRule[]
-  runs        TestRun[]
+  rules TestSuiteRule[]
+  runs  TestRun[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([projectId, slug])
   @@map("test_suites")
@@ -517,33 +587,33 @@ model TestSuiteRule {
   ruleId      String
   version     Int?
 
-  testSuite   TestSuite @relation(fields: [testSuiteId], references: [id], onDelete: Cascade)
-  rule        Rule      @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  testSuite TestSuite @relation(fields: [testSuiteId], references: [id], onDelete: Cascade)
+  rule      Rule      @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 
   @@id([testSuiteId, ruleId])
   @@map("test_suite_rules")
 }
 
 model TestRun {
-  id           String        @id @default(cuid())
-  status       TestRunStatus @default(PENDING)
-  passed       Int           @default(0)
-  failed       Int           @default(0)
-  errored      Int           @default(0)
-  totalRows    Int           @default(0)
-  coverage     Json?
-  startedAt    DateTime?
-  finishedAt   DateTime?
+  id         String        @id @default(cuid())
+  status     TestRunStatus @default(PENDING)
+  passed     Int           @default(0)
+  failed     Int           @default(0)
+  errored    Int           @default(0)
+  totalRows  Int           @default(0)
+  coverage   Json?
+  startedAt  DateTime?
+  finishedAt DateTime?
 
-  testSuiteId  String
-  testSuite    TestSuite     @relation(fields: [testSuiteId], references: [id], onDelete: Cascade)
+  testSuiteId String
+  testSuite   TestSuite @relation(fields: [testSuiteId], references: [id], onDelete: Cascade)
 
-  datasetId    String?
-  dataset      Dataset?      @relation(fields: [datasetId], references: [id])
+  datasetId String?
+  dataset   Dataset? @relation(fields: [datasetId], references: [id])
 
-  results      TestRunResult[]
+  results TestRunResult[]
 
-  createdAt    DateTime      @default(now())
+  createdAt DateTime @default(now())
 
   @@index([testSuiteId, createdAt])
   @@map("test_runs")
@@ -569,8 +639,8 @@ model TestRunResult {
   error       String?
   durationMs  Int?
 
-  testRunId   String
-  testRun     TestRun    @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  testRunId String
+  testRun   TestRun @relation(fields: [testRunId], references: [id], onDelete: Cascade)
 
   @@index([testRunId, status])
   @@map("test_run_results")
@@ -589,29 +659,29 @@ model Scenario {
   context     Json?
   tags        String[] @default([])
 
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([projectId, slug])
   @@map("scenarios")
 }
 
 model Simulation {
-  id          String           @id @default(cuid())
-  name        String
-  kind        SimulationKind
-  config      Json
-  status      SimulationStatus @default(PENDING)
-  result      Json?
-  startedAt   DateTime?
-  finishedAt  DateTime?
+  id         String           @id @default(cuid())
+  name       String
+  kind       SimulationKind
+  config     Json
+  status     SimulationStatus @default(PENDING)
+  result     Json?
+  startedAt  DateTime?
+  finishedAt DateTime?
 
-  projectId   String
+  projectId String
 
-  createdAt   DateTime         @default(now())
+  createdAt DateTime @default(now())
 
   @@index([projectId, createdAt])
   @@map("simulations")
@@ -642,16 +712,16 @@ model Release {
   manifest    Json
   status      ReleaseStatus @default(DRAFT)
 
-  projectId   String
-  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   createdById String
-  createdBy   User          @relation("release_author", fields: [createdById], references: [id])
+  createdBy   User   @relation("release_author", fields: [createdById], references: [id])
 
-  pinnedIn    Environment[]
+  pinnedIn Environment[]
 
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([projectId, name])
   @@map("releases")
@@ -664,20 +734,20 @@ enum ReleaseStatus {
 }
 
 model Environment {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
   slug        String
   description String?
   overrides   Json?
 
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  releaseId   String?
-  release     Release? @relation(fields: [releaseId], references: [id])
+  releaseId String?
+  release   Release? @relation(fields: [releaseId], references: [id])
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([projectId, slug])
   @@map("environments")
@@ -688,27 +758,34 @@ model Environment {
 // =============================================================================
 
 model Execution {
-  id           String          @id @default(cuid())
-  input        Json
-  output       Json?
-  status       ExecutionStatus @default(PENDING)
-  duration     Int?
-  error        String?
+  id       String          @id @default(cuid())
+  input    Json
+  output   Json?
+  status   ExecutionStatus @default(PENDING)
+  duration Int?
+  error    String?
 
-  ruleId       String
-  rule         Rule            @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  ruleVersion  Int
-  environment  String?
+  ruleId      String?
+  rule        Rule?   @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  ruleVersion Int?
+  flowId      String?
+  flow        Flow?   @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  flowVersion Int?
+  environment String?
 
-  trace        Json?
+  trace    Json?
+  // Decision flows: findings returned to the caller and which data snapshots were read.
+  findings Json?
+  lineage  Json?
 
-  apiKeyId     String?
-  ipAddress    String?
-  userAgent    String?
+  apiKeyId  String?
+  ipAddress String?
+  userAgent String?
 
-  createdAt    DateTime        @default(now())
+  createdAt DateTime @default(now())
 
   @@index([ruleId, createdAt])
+  @@index([flowId, createdAt])
   @@index([environment, createdAt])
   @@map("executions")
 }
@@ -726,58 +803,58 @@ enum ExecutionStatus {
 // =============================================================================
 
 model ApiKey {
-  id          String    @id @default(cuid())
-  name        String
-  keyHash     String    @unique
-  prefix      String
-  scopes      String[]  @default(["execute"])
-  projectIds  String[]  @default([])
-  expiresAt   DateTime?
+  id         String    @id @default(cuid())
+  name       String
+  keyHash    String    @unique
+  prefix     String
+  scopes     String[]  @default(["execute"])
+  projectIds String[]  @default([])
+  expiresAt  DateTime?
 
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   createdById String
-  createdBy   User      @relation("apikey_author", fields: [createdById], references: [id])
+  createdBy   User   @relation("apikey_author", fields: [createdById], references: [id])
 
-  lastUsedAt  DateTime?
-  createdAt   DateTime  @default(now())
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
 
   @@map("api_keys")
 }
 
 model Webhook {
-  id          String   @id @default(cuid())
-  name        String
-  url         String
-  events      String[]
-  secret      String
-  active      Boolean  @default(true)
-  ruleIds     String[] @default([])
+  id      String   @id @default(cuid())
+  name    String
+  url     String
+  events  String[]
+  secret  String
+  active  Boolean  @default(true)
+  ruleIds String[] @default([])
 
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("webhooks")
 }
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  action      String
-  resource    String
-  resourceId  String?
-  details     Json?
+  id         String  @id @default(cuid())
+  action     String
+  resource   String
+  resourceId String?
+  details    Json?
 
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([workspaceId, createdAt])
   @@map("audit_logs")

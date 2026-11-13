@@ -7,7 +7,7 @@ services:
     image: postgres:16-alpine
     container_name: xrules-postgres
     ports:
-      - "5433:5432"
+      - "5461:5432"
     environment:
       POSTGRES_USER: xrules
       POSTGRES_PASSWORD: xrules_secret

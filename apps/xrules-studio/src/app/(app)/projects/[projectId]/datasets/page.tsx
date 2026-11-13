@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Database, Plus, Trash2 } from 'lucide-react';
 import { PageContent, PageHeader } from '@/components/layout/AppShell';
+import { TestNav } from '@/components/layout/TestNav';
 import { EntityTable, Pill } from '@/components/EntityList';
 import { datasetsApi, api } from '@/lib/api';
 
@@ -25,11 +26,12 @@ export default function DatasetsPage() {
   return (
     <PageContent>
       <PageHeader
-        title="Datasets"
-        description="Sample data for batch testing and replay simulations — JSONL or CSV"
-        stats={[{ label: 'Total', value: rows.length }]}
+        title="Test"
+        description="Validate rules before they ship — assertion suites, sample data, version diff and replay, and latency benchmarks"
+        stats={[{ label: 'Datasets', value: rows.length }]}
         actions={<button className="btn-primary" onClick={() => setShowCreate(true)}><Plus className="h-3.5 w-3.5" />Upload Dataset</button>}
       />
+      <TestNav />
       <EntityTable
         rows={rows}
         isLoading={isLoading}
