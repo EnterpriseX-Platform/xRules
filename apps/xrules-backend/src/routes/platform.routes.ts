@@ -83,6 +83,16 @@ r.post('/tests/:id/run', authMiddleware, h(async req => (await import('../platfo
 r.post('/tests/target/:type/:id/run', authMiddleware, h(async req => (await import('../platform/testing.js')).runForTarget(req.params.type, req.params.id)));
 r.post('/suites/:id/run', authMiddleware, h(async req => (await import('../platform/testing.js')).runSuite(req.params.id, req.user)));
 
+// ---- Vocabulary + Rule Cowork
+r.get('/vocabulary', authMiddleware, h(async req => (await import('../platform/vocabulary.js')).listTerms(String(req.query.project_id), req.user)));
+r.get('/vocabulary/suggest', authMiddleware, h(async req => (await import('../platform/vocabulary.js')).suggest(String(req.query.project_id), req.user)));
+r.post('/vocabulary', authMiddleware, h(async req => (await import('../platform/vocabulary.js')).upsertTerm(req.body, req.user), 201));
+r.delete('/vocabulary/:id', authMiddleware, h(async req => { await (await import('../platform/vocabulary.js')).deleteTerm(req.params.id, req.user); return null; }));
+r.post('/vocabulary/check', authMiddleware, h(async req => (await import('../platform/vocabulary.js')).check(req.body.projectId, req.body.sentence, req.user)));
+r.post('/vocabulary/rules', authMiddleware, h(async req => (await import('../platform/vocabulary.js')).saveRule(req.body, req.user), 201));
+r.post('/cowork/draft', authMiddleware, h(async req => (await import('../platform/cowork.js')).draft(req.body, req.user)));
+r.post('/cowork/apply', authMiddleware, h(async req => (await import('../platform/cowork.js')).apply(req.body, req.user), 201));
+
 // ---- Triggers
 r.get('/triggers', authMiddleware, h(async req => {
   const p = await assertProjectAccess(String(req.query.project_id), req.user);
