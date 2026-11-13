@@ -3,13 +3,7 @@ pub mod errors;
 pub mod middleware;
 pub mod service;
 
-use crate::auth::claims::{Claims, Role};
-use crate::auth::errors::AuthError;
-use crate::auth::service::AuthService;
-use crate::AppState;
-use axum::Json;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use utoipa::ToSchema;
 
 /// Login request

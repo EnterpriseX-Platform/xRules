@@ -11,6 +11,7 @@
 //     StreamExecuteRequest, StreamExecuteResponse,
 // };
 
+#[allow(dead_code)]
 fn grpc_url() -> String {
     std::env::var("GRPC_SERVER_URL").unwrap_or_else(|_| "http://127.0.0.1:50060".to_string())
 }

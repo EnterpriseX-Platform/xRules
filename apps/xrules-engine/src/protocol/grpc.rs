@@ -3,6 +3,7 @@
 // This is a placeholder for future gRPC implementation
 
 pub struct GrpcEngineClient {
+    #[allow(dead_code)]
     endpoint: String,
 }
 

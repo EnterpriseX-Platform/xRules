@@ -1,0 +1,5 @@
+[toolchain]
+# sqlx-postgres 0.7.x does not compile on newer stable Rust (never-type fallback change).
+# Keep this pinned until sqlx is upgraded to 0.8.
+channel = "1.93.1"
+components = ["clippy", "rustfmt"]

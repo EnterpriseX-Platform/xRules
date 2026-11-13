@@ -11,6 +11,12 @@ pub struct NodeRegistry {
     executors: HashMap<String, Box<dyn NodeExecutor>>,
 }
 
+impl Default for NodeRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NodeRegistry {
     pub fn new() -> Self {
         let backend_url =

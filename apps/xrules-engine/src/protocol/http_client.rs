@@ -1,6 +1,5 @@
 // HTTP Client for external engine communication
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub struct EngineHttpClient {

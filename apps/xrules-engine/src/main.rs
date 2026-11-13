@@ -1,5 +1,8 @@
+// The binary re-declares the library modules; items only used through the library
+// (or kept for upcoming endpoints) would otherwise warn here.
+#![allow(dead_code, clippy::upper_case_acronyms)]
+
 use axum::{
-    middleware,
     routing::{get, post},
     Router,
 };
@@ -23,7 +26,7 @@ use api::{
     health::health_check,
     validate::validate_rule,
 };
-use auth::middleware::{auth_middleware, AuthConfig};
+use auth::middleware::AuthConfig;
 use hub::EngineHub;
 
 #[derive(Clone)]

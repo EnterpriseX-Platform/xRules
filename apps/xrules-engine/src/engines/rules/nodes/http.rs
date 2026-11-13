@@ -14,6 +14,7 @@ struct HttpConfig {
     method: String,
     url: String,
     #[serde(default)]
+    #[allow(dead_code)]
     headers: Value,
     #[serde(default)]
     body: Value,
@@ -52,10 +53,7 @@ impl NodeExecutor for HttpNode {
                 .map_err(|e| EngineError::External(e.to_string()))?;
 
             let status = response.status();
-            let body: Value = response
-                .json::<Value>()
-                .await
-                .unwrap_or_else(|_| Value::Null);
+            let body: Value = response.json::<Value>().await.unwrap_or(Value::Null);
 
             Ok(serde_json::json!({
                 "status": status.as_u16(),

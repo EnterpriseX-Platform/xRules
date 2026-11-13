@@ -14,6 +14,7 @@ pub struct DecisionTable {
     pub rules: Vec<DecisionRule>,
 }
 
+#[allow(non_camel_case_types, clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum HitPolicy {
     UNIQUE,       // Only one rule can match
@@ -25,6 +26,7 @@ pub enum HitPolicy {
     OUTPUT_ORDER, // Return all matches in output priority order
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum Aggregation {
     SUM,
