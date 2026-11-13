@@ -50,7 +50,7 @@ export async function tryLocalExecutor(rule: any, input: any, context: any): Pro
         if (!target) throw new Error(`RULE_FLOW: rule '${slug}' not found`);
         const result = await executeRule(target.id, payload || {}, {}, SYSTEM_USER);
         return (result as any).output;
-      });
+      }, { projectId: rule.projectId });
     }
     default: return null;
   }

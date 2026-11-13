@@ -51,8 +51,8 @@ export async function listExecutions(
     data: executions.map((e) => ({
       id: e.id,
       ruleId: e.ruleId,
-      ruleName: e.rule.name,
-      ruleType: e.rule.type.toLowerCase(),
+      ruleName: e.rule?.name ?? (e as any).flow?.name ?? 'Flow',
+      ruleType: e.rule?.type.toLowerCase() ?? 'flow',
       input: e.input,
       output: e.output,
       status: e.status.toLowerCase(),

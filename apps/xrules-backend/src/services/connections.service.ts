@@ -88,3 +88,26 @@ export async function remove(id: string, user: AuthUser) {
   await assertProjectAccess(c.projectId, user, 'admin');
   await prisma.connection.delete({ where: { id } });
 }
+
+// ---- Data Layer helpers (no user check: callers run inside an already-authorized flow)
+import { resolveConfig, test as testConnector, type ResolvedConfig } from '../data/connectors.js';
+
+export async function resolveBySlug(projectId: string, slug: string): Promise<ResolvedConfig> {
+  const c = await prisma.connection.findUnique({ where: { projectId_slug: { projectId, slug } } });
+  if (!c) throw new Error(`Connection '${slug}' not found`);
+  return resolveConfig(c.type, JSON.parse(decrypt(c.configEnc)));
+}
+
+/** Test the connection and record whether the account was verified read-only. */
+export async function testConnection(id: string, user: AuthUser, env?: string) {
+  const c = await prisma.connection.findUnique({ where: { id } });
+  if (!c) throw new NotFoundError('Connection');
+  await assertProjectAccess(c.projectId, user, 'admin');
+  const rc = resolveConfig(c.type, JSON.parse(decrypt(c.configEnc)), env);
+  const result = await testConnector(rc);
+  const meta: any = { ...(c.meta as any || {}) };
+  meta.lastTest = { at: new Date().toISOString(), env: rc.env, ok: result.ok, ms: result.ms, error: result.error, readOnly: result.readOnly };
+  if (result.ok && result.readOnly?.verified) meta.readOnlyVerifiedAt = { ...(meta.readOnlyVerifiedAt || {}), [rc.env]: new Date().toISOString() };
+  await prisma.connection.update({ where: { id }, data: { meta } });
+  return result;
+}

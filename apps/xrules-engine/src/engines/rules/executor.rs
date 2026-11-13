@@ -8,7 +8,6 @@ use serde_json::Value;
 use tracing::info;
 
 pub struct RulesExecutor<'a> {
-    db_pool: sqlx::PgPool,
     node_registry: &'a NodeRegistry,
 }
 
@@ -67,11 +66,8 @@ pub struct DmnRule {
 }
 
 impl<'a> RulesExecutor<'a> {
-    pub fn new(db_pool: sqlx::PgPool, node_registry: &'a NodeRegistry) -> Self {
-        Self {
-            db_pool,
-            node_registry,
-        }
+    pub fn new_stateless(node_registry: &'a NodeRegistry) -> Self {
+        Self { node_registry }
     }
     
     pub async fn execute(&self, rule: &Rule, input: Value) -> Result<Value> {

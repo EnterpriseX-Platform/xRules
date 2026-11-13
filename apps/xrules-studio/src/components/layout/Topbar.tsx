@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Search, Plus, Sun, Moon, Bell, ChevronRight } from 'lucide-react';
+import { Search, Plus, Sun, Moon, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useTheme, useAuth, useProject } from '@/lib/store';
 import { api } from '@/lib/api';
@@ -96,7 +96,7 @@ export function Topbar() {
   const onProjectsList = pathname.endsWith('/projects');
 
   return (
-    <header className="h-[56px] shrink-0 border-b border-border/70 bg-surface/80 backdrop-blur flex items-center px-5 gap-4">
+    <header className="h-[56px] shrink-0 border-b border-border/40 bg-bg/70 backdrop-blur-md flex items-center px-5 gap-4">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1.5 text-sm min-w-0">
         {crumbs.map((c, i) => (
@@ -120,14 +120,12 @@ export function Topbar() {
 
       {/* Search palette */}
       <button
-        className="ml-auto relative w-80 max-w-full hidden lg:flex items-center input pl-9 pr-12 text-left h-9"
+        className="ml-auto relative w-72 max-w-full hidden lg:flex items-center input pl-9 pr-14 text-left h-9 hover:bg-muted/60"
         onClick={() => window.dispatchEvent(new CustomEvent('xrules:open-palette'))}
       >
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-subtle" />
-        <span className="text-subtle text-sm">Search…</span>
-        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-subtle bg-surface border border-border/70 rounded px-1.5 py-0.5">
-          ⌘K
-        </span>
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-subtle/70" />
+        <span className="text-subtle text-[13px]">Search…</span>
+        <span className="kbd absolute right-2 top-1/2 -translate-y-1/2">⌘K</span>
       </button>
 
       {/* Context-aware primary action */}
@@ -147,12 +145,11 @@ export function Topbar() {
         {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </button>
 
-      <button className="btn-ghost relative" aria-label="Notifications">
-        <Bell className="h-4 w-4" />
-        <span className="absolute top-1.5 right-1.5 dot bg-danger" />
-      </button>
-
-      <div className="h-8 w-8 rounded-full bg-accent/10 text-accent flex items-center justify-center text-sm font-medium">
+      <div
+        className="h-8 w-8 rounded-full text-accent-fg flex items-center justify-center text-sm font-medium ring-1 ring-accent/30"
+        style={{ background: 'linear-gradient(135deg, rgb(var(--c-accent-2)) 0%, rgb(var(--c-accent)) 100%)' }}
+        title={user?.email}
+      >
         {user?.email?.[0]?.toUpperCase() || 'A'}
       </div>
     </header>

@@ -1,7 +1,8 @@
 'use client';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ScrollText, Plus } from 'lucide-react';
+import { ScrollText, Plus, GitBranch } from 'lucide-react';
 import { PageContent, PageHeader } from '@/components/layout/AppShell';
 import { EntityTable, StatusPill, Pill } from '@/components/EntityList';
 import { releasesApi } from '@/lib/api';
@@ -26,10 +27,16 @@ export default function ReleasesPage() {
         description="Immutable snapshots of all rules + flows + models — bind to environments"
         stats={[{ label: 'Total', value: rows.length }]}
         actions={
-          <button className="btn-primary" onClick={() => create.mutate()} disabled={create.isPending}>
-            <Plus className="h-3.5 w-3.5" />
-            {create.isPending ? 'Snapshotting…' : 'New Release'}
-          </button>
+          <div className="flex items-center gap-2">
+            <Link href={`/projects/${projectId}/environments`} className="btn-outline" title="Pin a release to an environment">
+              <GitBranch className="h-3.5 w-3.5" />
+              Environments
+            </Link>
+            <button className="btn-primary" onClick={() => create.mutate()} disabled={create.isPending}>
+              <Plus className="h-3.5 w-3.5" />
+              {create.isPending ? 'Snapshotting…' : 'New Release'}
+            </button>
+          </div>
         }
       />
       <EntityTable

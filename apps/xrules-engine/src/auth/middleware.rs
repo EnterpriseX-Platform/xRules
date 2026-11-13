@@ -48,7 +48,10 @@ pub async fn auth_middleware(
 
 /// Validate JWT token and return claims
 fn validate_token(token: &str, secret: &str) -> Result<Claims, AuthError> {
-    let validation = Validation::default();
+    let mut validation = Validation::default();
+    // Accept tokens from Studio Backend (aud: "xrules-api") or without aud
+    validation.set_audience(&["xrules-api"]);
+    validation.validate_aud = false; // Don't require aud - Studio Backend may or may not set it
     let decoding_key = DecodingKey::from_secret(secret.as_bytes());
     
     let token_data = decode::<Claims>(token, &decoding_key, &validation)
@@ -90,9 +93,9 @@ impl AuthConfig {
     pub fn from_env() -> Self {
         Self {
             secret: std::env::var("JWT_SECRET")
-                .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string()),
+                .unwrap_or_else(|_| "xrules-shared-secret-key-change-in-production-min32".to_string()),
             refresh_secret: std::env::var("JWT_REFRESH_SECRET")
-                .unwrap_or_else(|_| "your-refresh-secret-key-change-in-production".to_string()),
+                .unwrap_or_else(|_| "xrules-refresh-secret-key-change-in-production".to_string()),
             access_token_expiry_hours: std::env::var("JWT_ACCESS_EXPIRY_HOURS")
                 .ok()
                 .and_then(|s| s.parse().ok())

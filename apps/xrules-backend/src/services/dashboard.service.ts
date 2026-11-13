@@ -66,8 +66,8 @@ export async function getDashboard(workspaceSlug: string, user: AuthUser) {
     },
     recentExecutions: recentExecutions.map(e => ({
       id: e.id,
-      ruleName: e.rule.name,
-      ruleType: e.rule.type.toLowerCase(),
+      ruleName: e.rule?.name ?? (e as any).flow?.name ?? 'Flow',
+      ruleType: e.rule?.type.toLowerCase() ?? 'flow',
       status: e.status.toLowerCase(),
       duration: e.duration,
       createdAt: e.createdAt.toISOString(),

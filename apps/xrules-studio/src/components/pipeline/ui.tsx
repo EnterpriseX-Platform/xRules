@@ -1,0 +1,34 @@
+'use client';
+// Small Carbon g10 building blocks for the Data Layer pages.
+export function PageHead({ title, sub, actions }: { title: string; sub?: React.ReactNode; actions?: React.ReactNode }) {
+  return (
+    <div className="flex items-end justify-between gap-4 mb-6">
+      <div>
+        <h1 className="text-[28px] leading-9 font-normal text-[#161616]">{title}</h1>
+        {sub && <div className="text-[14px] text-[#525252] mt-1">{sub}</div>}
+      </div>
+      {actions && <div className="flex gap-2">{actions}</div>}
+    </div>
+  );
+}
+export function Tag({ tone = 'gray', children }: { tone?: 'gray' | 'green' | 'red' | 'blue' | 'orange'; children: React.ReactNode }) {
+  const c = { gray: 'bg-[#e0e0e0] text-[#161616]', green: 'bg-[#a7f0ba] text-[#0e6027]', red: 'bg-[#ffd7d9] text-[#a2191f]', blue: 'bg-[#d0e2ff] text-[#0043ce]', orange: 'bg-[#ffd8bd] text-[#8a3800]' }[tone];
+  return <span className={`inline-flex items-center h-6 px-2 rounded-full text-[12px] whitespace-nowrap ${c}`}>{children}</span>;
+}
+export function Table({ head, children, empty }: { head: string[]; children: React.ReactNode; empty?: React.ReactNode }) {
+  return (
+    <div className="bg-white overflow-x-auto">
+      <table className="w-full text-[14px] tabular-nums">
+        <thead><tr className="bg-[#e0e0e0]">{head.map(h => <th key={h} className="text-left font-semibold px-4 h-12 whitespace-nowrap">{h}</th>)}</tr></thead>
+        <tbody>{children}</tbody>
+      </table>
+      {empty}
+    </div>
+  );
+}
+export const Td = ({ children, mono, className = '' }: any) => <td className={`px-4 h-12 border-b border-[#e0e0e0] whitespace-nowrap ${mono ? 'font-mono text-[13px]' : ''} ${className}`}>{children}</td>;
+export function Btn({ kind = 'primary', children, ...p }: any) {
+  const c = { primary: 'bg-[#0f62fe] text-white hover:bg-[#0353e9]', secondary: 'bg-[#393939] text-white hover:bg-[#474747]', tertiary: 'border border-[#0f62fe] text-[#0f62fe] hover:bg-[#0f62fe] hover:text-white', ghost: 'text-[#0f62fe] hover:bg-[#e8e8e8]' }[kind as string];
+  return <button {...p} className={`h-10 pl-4 pr-8 text-[14px] disabled:opacity-40 flex items-center gap-2 ${c} ${p.className || ''}`}>{children}</button>;
+}
+export const fmtTime = (s?: string | null) => s ? new Date(s).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';

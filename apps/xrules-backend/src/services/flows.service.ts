@@ -12,6 +12,8 @@ function format(flow: any) {
     alias: flow.alias,
     description: flow.description,
     kind: (flow.kind || 'DECISION').toLowerCase(),
+    schedule: flow.schedule ?? null,
+    lastRunAt: flow.lastRunAt ? flow.lastRunAt.toISOString() : null,
     locked: flow.locked || false,
     folderId: flow.folderId,
     graph: flow.graph,
@@ -69,6 +71,7 @@ export async function createFlow(
       inputSchema: data.inputSchema,
       outputSchema: data.outputSchema,
       tags: data.tags || [],
+      schedule: (data as any).schedule,
       projectId: data.projectId,
       folderId: (data as any).folderId,
     },
@@ -81,7 +84,7 @@ export async function updateFlow(id: string, data: any, user: AuthUser) {
   if (!flow) throw new NotFoundError('Flow');
   await assertProjectAccess(flow.projectId, user, 'write');
   const update: any = {};
-  for (const key of ['name', 'description', 'graph', 'inputSchema', 'outputSchema', 'tags']) {
+  for (const key of ['name', 'description', 'graph', 'inputSchema', 'outputSchema', 'tags', 'schedule']) {
     if (data[key] !== undefined) update[key] = data[key];
   }
   if (data.status) update.status = data.status.toUpperCase();

@@ -3,36 +3,50 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// JWT Claims structure
+/// Supports tokens from Studio Backend (unified format)
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    /// Subject (user ID)
+    /// Subject (user ID) - Studio Backend sends as "sub"
+    #[serde(alias = "userId")]
     pub sub: String,
-    
+
     /// Username
+    #[serde(default)]
     pub username: String,
-    
+
     /// Email
+    #[serde(default)]
     pub email: String,
-    
-    /// User roles
+
+    /// Tenant ID (workspace slug) - from Studio Backend
+    #[serde(default, alias = "tenantId")]
+    pub tenant_id: Option<String>,
+
+    /// User roles - Studio Backend sends workspace roles
+    #[serde(default)]
     pub roles: Vec<Role>,
-    
+
     /// Issued at
+    #[serde(default)]
     pub iat: i64,
-    
+
     /// Expiration time
     pub exp: i64,
-    
+
     /// Not before
+    #[serde(default)]
     pub nbf: i64,
-    
+
     /// Issuer
+    #[serde(default)]
     pub iss: String,
-    
+
     /// Audience
+    #[serde(default)]
     pub aud: String,
-    
+
     /// JWT ID (unique token identifier)
+    #[serde(default)]
     pub jti: String,
 }
 
@@ -47,11 +61,12 @@ impl Claims {
     ) -> Self {
         let now = Utc::now();
         let exp = now + chrono::Duration::hours(expiry_hours);
-        
+
         Self {
             sub: user_id.to_string(),
             username: username.to_string(),
             email: email.to_string(),
+            tenant_id: None,
             roles,
             iat: now.timestamp(),
             exp: exp.timestamp(),

@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, ChevronRight, FileText, Search, FolderTree, Folder, FolderPlus,
-  Table, Network, BarChart3, Sigma, Code2, BookMarked, Bot, Brain,
+  Table, Network, BarChart3, Sigma, Code2, BookMarked, Bot, Brain, Sparkles,
 } from 'lucide-react';
 import { PageContent, PageHeader } from '@/components/layout/AppShell';
 import { StatusPill, Pill } from '@/components/ui/Pill';
@@ -97,10 +97,28 @@ export default function RulesPage() {
           { label: 'Total',     value: stats.total },
         ]}
         actions={
-          <button className="btn-primary" onClick={() => setShowCreate(true)}>
-            <Plus className="h-3.5 w-3.5" />
-            New Rule
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/projects/${projectId}/templates`}
+              className="btn-outline"
+              title="Browse pre-built starter rules"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Templates
+            </Link>
+            <Link
+              href={`/projects/${projectId}/drd`}
+              className="btn-ghost"
+              title="Decision Requirements Diagram — visualize rule dependencies"
+            >
+              <Network className="h-3.5 w-3.5" />
+              Graph
+            </Link>
+            <button className="btn-primary" onClick={() => setShowCreate(true)}>
+              <Plus className="h-3.5 w-3.5" />
+              New Rule
+            </button>
+          </div>
         }
       />
 

@@ -11,25 +11,20 @@ use async_trait::async_trait;
 use serde_json::Value;
 
 pub struct RulesEngine {
-    db_pool: sqlx::PgPool,
     node_registry: NodeRegistry,
 }
 
 impl RulesEngine {
-    pub async fn new(db_pool: sqlx::PgPool) -> Result<Self> {
+    pub async fn new_stateless() -> Result<Self> {
         let node_registry = NodeRegistry::new();
-        
-        Ok(Self {
-            db_pool,
-            node_registry,
-        })
+        Ok(Self { node_registry })
     }
 }
 
 #[async_trait]
 impl Engine for RulesEngine {
     async fn execute(&self, rule: Rule, input: Value) -> Result<Value> {
-        let executor = RulesExecutor::new(self.db_pool.clone(), &self.node_registry);
+        let executor = RulesExecutor::new_stateless(&self.node_registry);
         executor.execute(&rule, input).await
     }
     

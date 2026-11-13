@@ -27,7 +27,9 @@ impl GrpcEngineClient {
             rule_id: rule_id.to_string(),
             input: serde_json::to_vec(&input)?,
             context: std::collections::HashMap::new(),
-            engine_type: "".to_string(),
+            engine_type: "rules".to_string(),
+            rule_type: "DECISION_TABLE".to_string(),
+            definition: vec![],
         };
         
         let response = self.client.execute(request).await?;

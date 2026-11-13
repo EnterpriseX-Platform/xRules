@@ -7,7 +7,7 @@ use crate::grpc::proto::{
     InferenceRequest, InferenceResponse,
     EngineInfo as GrpcEngineInfo,
 };
-use crate::hub::{EngineHub, ExecuteRequest as HubExecuteRequest};
+use crate::hub::{EngineHub, ExecuteRequest as HubExecuteRequest, RulePayload as HubRulePayload};
 use std::pin::Pin;
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
@@ -36,7 +36,7 @@ impl EngineService for GrpcEngineService {
         let start = std::time::Instant::now();
         let request_id = Uuid::new_v4().to_string();
         
-        info!("gRPC Execute request: rule_id={}, request_id={}", req.rule_id, request_id);
+        info!("gRPC Execute request: engine={}, request_id={}", req.engine_type, request_id);
         
         // Parse input JSON
         let input: serde_json::Value = match serde_json::from_slice(&req.input) {
@@ -53,8 +53,18 @@ impl EngineService for GrpcEngineService {
             }
         };
         
+        // Construct inline rule from gRPC fields
+        let definition: serde_json::Value = if req.definition.is_empty() {
+            serde_json::Value::Object(serde_json::Map::new())
+        } else {
+            serde_json::from_slice(&req.definition).unwrap_or_default()
+        };
         let hub_req = HubExecuteRequest {
-            rule_id: req.rule_id,
+            rule: HubRulePayload {
+                rule_type: req.rule_type.clone(),
+                engine: if req.engine_type.is_empty() { "rules".to_string() } else { req.engine_type.clone() },
+                definition,
+            },
             input,
             context: if req.context.is_empty() {
                 None
@@ -131,8 +141,18 @@ impl EngineService for GrpcEngineService {
                     }
                 };
                 
+                // Construct inline rule from gRPC fields
+                let def: serde_json::Value = if req.definition.is_empty() {
+                    serde_json::Value::Object(serde_json::Map::new())
+                } else {
+                    serde_json::from_slice(&req.definition).unwrap_or_default()
+                };
                 let hub_req = HubExecuteRequest {
-                    rule_id: req.rule_id,
+                    rule: HubRulePayload {
+                        rule_type: req.rule_type.clone(),
+                        engine: if req.engine_type.is_empty() { "rules".to_string() } else { req.engine_type.clone() },
+                        definition: def,
+                    },
                     input,
                     context: None,
                 };
@@ -209,7 +229,17 @@ impl EngineService for GrpcEngineService {
     ) -> Result<Response<ValidateResponse>, Status> {
         let req = request.into_inner();
         
-        match self.hub.validate(&req.rule_id).await {
+        let definition: serde_json::Value = if req.definition.is_empty() {
+            serde_json::Value::Object(serde_json::Map::new())
+        } else {
+            serde_json::from_slice(&req.definition).unwrap_or_default()
+        };
+        let payload = HubRulePayload {
+            rule_type: req.rule_type.clone(),
+            engine: if req.engine_type.is_empty() { "rules".to_string() } else { req.engine_type.clone() },
+            definition,
+        };
+        match self.hub.validate_rule(&payload).await {
             Ok(_) => Ok(Response::new(ValidateResponse {
                 valid: true,
                 errors: vec![],

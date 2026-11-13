@@ -214,8 +214,27 @@ router.post('/flows/:slug/execute', apiKeyAuthMiddleware, async (req: Request, r
       if (!r) throw new Error(`Flow node references unknown rule '${slug}'`);
       const result = await executeRule(r.id, payload, {}, SYSTEM_USER);
       return (result as any).output;
-    });
+    }, { projectId: flow.projectId });
     const duration = Date.now() - startTime;
+
+    // Decision flows that return findings are always recorded, so every verdict can be traced and replayed.
+    let executionId: string | undefined;
+    if (output && typeof output === 'object' && Array.isArray((output as any).findings)) {
+      const lineage = { flow: `${flow.slug}@${flow.version}`, ...((output as any).lineage || {}) };
+      (output as any).lineage = lineage;
+      const ex = await prisma.execution.create({
+        data: {
+          flowId: flow.id, flowVersion: flow.version,
+          input: input as object, output: output as object,
+          findings: (output as any).findings, lineage,
+          status: 'SUCCESS', duration,
+          environment: process.env.XRULES_ENV || null,
+          apiKeyId: ((req.apiKey as any)?.id) || null, ipAddress: req.ip, userAgent: req.headers['user-agent'],
+        },
+      });
+      executionId = ex.id;
+      (output as any).executionId = ex.id;
+    }
 
     // Audit row in Execution table — flow runs are first-class executions.
     const headers = parseSolverHeaders(req);
@@ -248,7 +267,7 @@ router.post('/flows/:slug/execute', apiKeyAuthMiddleware, async (req: Request, r
       input, output, duration,
     }, { workspaceId: flow.project.workspaceId });
 
-    res.json({ output, duration_ms: duration, flow: flow.slug, version: flow.version });
+    res.json({ output, duration_ms: duration, flow: flow.slug, version: flow.version, execution_id: executionId });
   } catch (err: any) {
     if (err?.response?.data?.message) {
       res.status(err.response.status || 500).json({ success: false, error: { code: 'FLOW_ERROR', message: err.response.data.message } });

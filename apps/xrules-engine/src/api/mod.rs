@@ -93,9 +93,23 @@ impl utoipa::Modify for SecurityAddon {
 // ============== Request/Response Schemas ==============
 
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema, Debug, Clone)]
+pub struct RulePayloadApi {
+    /// Rule type (DECISION_TABLE, DECISION_TREE, etc.)
+    #[serde(rename = "type")]
+    #[schema(example = "DECISION_TABLE")]
+    pub rule_type: String,
+    /// Engine to use (rules, pmml, ml, llm, ai)
+    #[schema(example = "rules")]
+    pub engine: String,
+    /// Full rule definition JSON
+    #[schema(example = json!({"hitPolicy": "FIRST", "inputs": [], "outputs": [], "rules": []}))]
+    pub definition: serde_json::Value,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema, Debug, Clone)]
 pub struct ExecuteRequest {
-    #[schema(example = "550e8400-e29b-41d4-a716-446655440000")]
-    pub rule_id: String,
+    /// Inline rule definition
+    pub rule: RulePayloadApi,
     #[schema(example = json!({"age": 25, "income": 50000}))]
     pub input: serde_json::Value,
     #[schema(example = json!({"user_id": "user-123", "request_id": "req-456"}))]
@@ -118,8 +132,8 @@ pub struct ExecuteResponse {
 
 #[derive(serde::Deserialize, utoipa::ToSchema, Debug, Clone)]
 pub struct ValidateRequest {
-    #[schema(example = "550e8400-e29b-41d4-a716-446655440000")]
-    pub rule_id: String,
+    /// Inline rule definition to validate
+    pub rule: RulePayloadApi,
 }
 
 #[derive(serde::Serialize, utoipa::ToSchema, Debug, Clone)]

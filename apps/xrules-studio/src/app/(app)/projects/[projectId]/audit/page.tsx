@@ -1,14 +1,17 @@
 'use client';
 // Audit log viewer — backed by /bi/audit/v2 endpoint (cursor pagination + filters).
+import Link from 'next/link';
 import { useState } from 'react';
+import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ListTree, Search } from 'lucide-react';
+import { ListTree, Search, Wrench } from 'lucide-react';
 import { useAuth } from '@/lib/store';
 import { api } from '@/lib/api';
 import { PageContent, PageHeader } from '@/components/layout/AppShell';
 import { EntityTable, StatusPill, Pill } from '@/components/EntityList';
 
 export default function AuditPage() {
+  const { projectId } = useParams<{ projectId: string }>();
   const ws = useAuth(s => s.workspace);
   const [search, setSearch] = useState('');
   const [cursor, setCursor] = useState<string | undefined>(undefined);
@@ -35,6 +38,12 @@ export default function AuditPage() {
         title="Audit Log"
         description="Every rule execution recorded with input, output, duration, correlation ID, and API key."
         stats={[{ label: 'Rows', value: rows.length }]}
+        actions={
+          <Link href={`/projects/${projectId}/tools`} className="btn-ghost" title="Project utilities — DRD JSON, schema bundles, debug helpers">
+            <Wrench className="h-3.5 w-3.5" />
+            Tools
+          </Link>
+        }
       />
 
       <div className="flex items-center gap-3 mb-4">

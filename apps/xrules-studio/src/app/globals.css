@@ -1,9 +1,14 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* ==============================================================
-   XRULES Studio v2 — RunLoop-inspired theme
+   XRULES Studio — Theme v3 "Quiet Authority"
+   • Warm cream / deep zinc backgrounds (no cool blue-gray)
+   • Violet primary, teal secondary — restrained palette
+   • Hairline borders, longer diffuse shadows, generous radius
+   • Subtle radial top-glow for depth without clutter
    Tokens stored as `r g b` triplets so Tailwind alpha (`/<alpha>`)
    keeps working.
    ============================================================== */
@@ -11,65 +16,67 @@
 @layer base {
   :root,
   [data-theme="light"] {
-    /* Surfaces */
-    --c-bg:        250 250 251;   /* page bg */
-    --c-surface:   255 255 255;   /* card, table */
-    --c-elevated:  255 255 255;   /* popover */
-    --c-sidebar:   248 249 251;
-    --c-border:    229 231 235;
-    --c-muted:     243 244 246;
+    /* MaintainX theme = IBM Carbon g10 (see design system "MaintainX"). */
+    --c-bg:        244 244 244;   /* background #f4f4f4 */
+    --c-surface:   255 255 255;   /* layer #ffffff */
+    --c-elevated:  255 255 255;
+    --c-sidebar:   255 255 255;   /* side nav is white */
+    --c-border:    224 224 224;   /* border-subtle #e0e0e0 */
+    --c-muted:     244 244 244;   /* field #f4f4f4 */
 
-    /* Text */
-    --c-text:      17  24  39;    /* near-black */
-    --c-subtle:    107 114 128;   /* muted gray */
+    --c-text:       22  22  22;   /* text-primary #161616 */
+    --c-subtle:     82  82  82;   /* text-secondary #525252 */
 
-    /* Brand (indigo) */
-    --c-accent:    99  102 241;
+    --c-accent:     15  98 254;   /* interactive #0f62fe */
+    --c-accent-2:   15  98 254;
     --c-accent-fg: 255 255 255;
 
-    /* Status */
-    --c-ok:        16  185 129;
-    --c-warn:      245 158  11;
-    --c-danger:    239  68  68;
-    --c-info:       59 130 246;
-    --c-mint:       94 234 212;
+    --c-ok:         14  96  39;   /* tag-green-text #0e6027 */
+    --c-warn:      138  56   0;   /* tag-orange-text #8a3800 */
+    --c-danger:    162  25  31;   /* tag-red-text #a2191f */
+    --c-info:        0  67 206;   /* tag-blue-text #0043ce */
+    --c-mint:       14  96  39;
 
-    /* Engine type colors */
-    --c-eng-rules:  99 102 241;
-    --c-eng-pmml:  139  92 246;
-    --c-eng-ml:     16 185 129;
-    --c-eng-llm:   245 158  11;
+    --c-eng-rules:  15  98 254;
+    --c-eng-pmml:   82  82  82;
+    --c-eng-ml:     14  96  39;
+    --c-eng-llm:   138  56   0;
 
-    /* Subtle dot pattern visible on bg */
-    --c-dot: rgba(0, 0, 0, 0.05);
+    --c-dot: rgba(22, 22, 22, 0.28);
+    --c-glow: 15 98 254;
+    --c-glow-alpha: 0;
   }
 
   [data-theme="dark"] {
-    --c-bg:         15  17  23;     /* deep blue-black */
-    --c-surface:    20  23  31;
-    --c-elevated:   28  32  42;
-    --c-sidebar:    11  13  18;
-    --c-border:     38  43  54;
-    --c-muted:      31  35  45;
+    --c-bg:           9   9  11;   /* zinc-950 */
+    --c-surface:     24  24  27;   /* zinc-900 */
+    --c-elevated:    39  39  42;   /* zinc-800 */
+    --c-sidebar:      9   9  11;   /* match bg — no edge separation */
+    --c-border:      39  39  42;
+    --c-muted:       39  39  42;
 
-    --c-text:       240 243 250;
-    --c-subtle:     156 163 175;
+    --c-text:       244 244 245;   /* zinc-100 */
+    --c-subtle:     161 161 170;   /* zinc-400 */
 
-    --c-accent:    129 140 248;
-    --c-accent-fg:  17  24  39;
+    --c-accent:     167 139 250;   /* violet-400 — brighter on dark */
+    --c-accent-2:   196 181 253;   /* violet-300 */
+    --c-accent-fg:   24  24  27;
 
-    --c-ok:         52 211 153;
-    --c-warn:      251 191  36;
-    --c-danger:    248 113 113;
-    --c-info:      147 197 253;
-    --c-mint:       94 234 212;
+    --c-ok:          52 211 153;   /* emerald-400 */
+    --c-warn:       251 191  36;   /* amber-400 */
+    --c-danger:     248 113 113;   /* red-400 */
+    --c-info:       147 197 253;   /* blue-300 */
+    --c-mint:        45 212 191;   /* teal-400 */
 
-    --c-eng-rules: 129 140 248;
-    --c-eng-pmml:  167 139 250;
-    --c-eng-ml:     52 211 153;
-    --c-eng-llm:   251 191  36;
+    --c-eng-rules:  167 139 250;
+    --c-eng-pmml:   161 161 170;
+    --c-eng-ml:      45 212 191;
+    --c-eng-llm:    251 191  36;
 
-    --c-dot: rgba(255, 255, 255, 0.04);
+    --c-dot: rgba(255, 255, 255, 0.035);
+
+    --c-glow: 167 139 250;
+    --c-glow-alpha: 0.08;
   }
 
   html, body {
@@ -80,12 +87,24 @@
 
   body {
     @apply font-sans antialiased;
+    /* Subtle radial glow at top — adds depth without clutter */
+    background-image:
+      radial-gradient(ellipse 800px 400px at 50% -100px,
+        rgba(var(--c-glow) / var(--c-glow-alpha)),
+        transparent 70%);
+    background-attachment: fixed;
   }
 
-  /* Focus rings */
+  /* Focus rings — softer */
   *:focus-visible {
-    outline: 2px solid rgb(var(--c-accent));
+    outline: 2px solid rgb(var(--c-accent) / 0.6);
     outline-offset: 2px;
+  }
+
+  /* Selection */
+  ::selection {
+    background: rgb(var(--c-accent) / 0.20);
+    color: rgb(var(--c-text));
   }
 
   /* Scrollbars (subtle) */
@@ -99,29 +118,29 @@
   ::-webkit-scrollbar-thumb {
     background: rgb(var(--c-border));
     border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgb(var(--c-subtle));
+    background: rgb(var(--c-subtle) / 0.5);
+    background-clip: padding-box;
+    border: 2px solid transparent;
   }
 }
 
 @layer components {
-  /* Sidebar / column section label */
+  /* Sidebar / column section label — sentence-case, soft */
   .label-section {
-    @apply text-[10.5px] font-semibold uppercase tracking-[0.08em] text-subtle/70;
+    @apply text-[11px] font-medium text-subtle/70;
   }
 
-  /* Sidebar nav row — soft active with left bar accent */
+  /* Sidebar nav row — flat, tight, subtle active state */
   .nav-row {
-    @apply relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] font-medium;
+    @apply relative flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[13px] font-medium;
     @apply text-subtle hover:text-text hover:bg-muted/60 transition-colors;
   }
   .nav-row-active {
-    @apply bg-accent/[0.08] text-accent;
-  }
-  .nav-row-active::before {
-    content: '';
-    @apply absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-accent;
+    @apply bg-accent/10 text-accent hover:bg-accent/[0.13] hover:text-accent;
   }
 
   /* Status pill (top bar / footer) */
@@ -134,26 +153,52 @@
     @apply inline-block h-1.5 w-1.5 rounded-full;
   }
 
-  /* Card — generous radius + warmer shadow for premium feel */
+  /* Card — hairline border, longer diffuse shadow, generous radius */
   .card {
-    @apply rounded-xl border border-border/60 bg-surface;
-    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.03), 0 1px 3px 0 rgb(0 0 0 / 0.02);
+    @apply rounded-2xl border border-border/50 bg-surface;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.02);
   }
   .card-elevated {
     @apply card;
-    box-shadow: 0 4px 16px -4px rgb(0 0 0 / 0.08), 0 2px 4px 0 rgb(0 0 0 / 0.04);
+    box-shadow:
+      0 1px 2px 0 rgb(0 0 0 / 0.04),
+      0 8px 24px -8px rgb(0 0 0 / 0.06);
   }
   .card-hover {
-    @apply transition-all hover:border-border;
+    @apply transition-all;
     transition-property: box-shadow, border-color, transform;
   }
   .card-hover:hover {
-    box-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.06), 0 2px 4px -1px rgb(0 0 0 / 0.04);
+    border-color: rgb(var(--c-border) / 0.9);
+    box-shadow:
+      0 1px 2px 0 rgb(0 0 0 / 0.04),
+      0 12px 32px -12px rgb(var(--c-accent) / 0.10);
+  }
+
+  /* Glow card — radial tint behind content (for hero panels) */
+  .card-glow {
+    @apply card relative overflow-hidden;
+  }
+  .card-glow::before {
+    content: '';
+    @apply absolute inset-0 pointer-events-none;
+    background: radial-gradient(ellipse 60% 40% at 50% 0%,
+      rgb(var(--c-accent) / 0.06), transparent 70%);
   }
 
   /* Page heading */
   .h1-page {
     @apply text-[28px] leading-tight font-semibold tracking-tight;
+  }
+
+  /* Gradient text — for hero numbers / titles */
+  .text-gradient {
+    background: linear-gradient(135deg,
+      rgb(var(--c-accent)) 0%,
+      rgb(var(--c-accent-2)) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 
   /* KPI numeric */
@@ -176,27 +221,96 @@
   .pill-info    { @apply text-info    bg-info/10; }
   .pill-mint    { @apply text-mint    bg-mint/10; }
   .pill-subtle  { @apply text-subtle  bg-muted; }
+  .pill-accent  { @apply text-accent  bg-accent/10; }
 
-  /* Buttons */
+  /* Buttons — softer, slightly larger touch targets */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-lg text-[13px] font-medium transition-all;
+    @apply inline-flex items-center justify-center gap-2 px-3.5 h-8 rounded-lg text-[13px] font-medium transition-all whitespace-nowrap;
   }
   .btn-primary  {
-    @apply btn bg-accent text-accent-fg;
-    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.06), inset 0 1px 0 0 rgb(255 255 255 / 0.15);
+    @apply btn text-accent-fg;
+    background: linear-gradient(180deg,
+      rgb(var(--c-accent-2) / 0.92) 0%,
+      rgb(var(--c-accent)) 100%);
+    box-shadow:
+      0 1px 2px 0 rgb(0 0 0 / 0.06),
+      0 0 0 1px rgb(var(--c-accent) / 0.30),
+      inset 0 1px 0 0 rgb(255 255 255 / 0.18);
   }
-  .btn-primary:hover  { @apply opacity-95; box-shadow: 0 2px 4px 0 rgb(99 102 241 / 0.20), inset 0 1px 0 0 rgb(255 255 255 / 0.15); }
-  .btn-ghost    { @apply btn text-subtle hover:text-text hover:bg-muted; }
-  .btn-outline  { @apply btn border border-border/70 text-text hover:bg-muted hover:border-border; }
+  .btn-primary:hover {
+    box-shadow:
+      0 2px 4px 0 rgb(var(--c-accent) / 0.20),
+      0 0 0 1px rgb(var(--c-accent) / 0.40),
+      inset 0 1px 0 0 rgb(255 255 255 / 0.18);
+  }
+  .btn-primary:active { transform: translateY(0.5px); }
 
-  /* Input */
+  .btn-ghost    { @apply btn text-subtle hover:text-text hover:bg-muted/70; }
+  .btn-outline  {
+    @apply btn border border-border/70 text-text bg-surface/50;
+    @apply hover:bg-muted/60 hover:border-border;
+  }
+
+  /* Input — flat, subtle, only highlights on focus */
   .input {
-    @apply h-9 px-3 rounded-lg bg-muted/50 text-[13.5px] text-text placeholder:text-subtle/80 border border-transparent;
-    @apply focus:border-accent/50 focus:bg-surface focus:ring-2 focus:ring-accent/15 outline-none transition;
+    @apply h-9 px-3 rounded-lg bg-muted/40 text-[13.5px] text-text placeholder:text-subtle/70 border border-transparent;
+    @apply focus:border-accent/40 focus:bg-surface focus:ring-2 focus:ring-accent/15 outline-none transition;
   }
 
   /* Tab pill row */
-  .tabs-row { @apply flex items-center gap-1 p-1 rounded-lg border border-border/60 bg-muted/40 w-fit; }
-  .tab      { @apply px-3 py-1 rounded-md text-xs font-medium text-subtle hover:text-text cursor-pointer transition-colors; }
-  .tab-active { @apply bg-surface text-text shadow-sm; }
+  .tabs-row {
+    @apply flex items-center gap-0.5 p-1 rounded-lg border border-border/50 bg-muted/40 w-fit;
+  }
+  .tab {
+    @apply px-3 py-1 rounded-md text-xs font-medium text-subtle hover:text-text cursor-pointer transition-colors;
+  }
+  .tab-active {
+    @apply bg-surface text-text;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.06);
+  }
+
+  /* Keyboard shortcut badge */
+  .kbd {
+    @apply inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-md;
+    @apply text-[10px] font-mono font-medium text-subtle;
+    @apply border border-border/70 bg-surface;
+    box-shadow: 0 1px 0 0 rgb(0 0 0 / 0.04);
+  }
+
+  /* Hairline horizontal divider */
+  .hr {
+    @apply h-px w-full bg-border/60;
+  }
 }
+
+/* ==============================================================
+   MaintainX theme (Carbon g10) overrides — no rounded corners, no shadows,
+   layers separated by background → layer → field. Tags keep their pill shape.
+   ============================================================== */
+:root { --font-plex: "IBM Plex Sans Thai", "IBM Plex Sans", "Sarabun", system-ui, sans-serif; }
+html body, body.font-sans { font-family: var(--font-plex); background-image: none; font-feature-settings: normal; }
+.font-sans { font-family: var(--font-plex) !important; }
+.font-mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace !important; }
+.card, .btn, .input, .tabs-row, .tab, .kbd { border-radius: 0 !important; }
+.card { box-shadow: none !important; border-color: transparent !important; }
+.btn { height: 32px; font-weight: 400; justify-content: flex-start; padding-right: 32px; }
+.btn-primary { background: rgb(var(--c-accent)) !important; box-shadow: none !important; }
+.btn-primary:hover { background: #0353e9 !important; }
+.btn-primary:active { background: #002d9c !important; transform: none; }
+.btn-secondary { @apply btn; background: #393939; color: #fff; }
+.btn-secondary:hover { background: #474747; }
+.btn-outline { border: 1px solid rgb(var(--c-accent)) !important; color: rgb(var(--c-accent)) !important; background: transparent !important; }
+.btn-outline:hover { background: rgb(var(--c-accent)) !important; color: #fff !important; }
+.btn-ghost { color: rgb(var(--c-accent)); }
+.input { background: rgb(var(--c-muted)) !important; border: 0 !important; border-bottom: 1px solid #8d8d8d !important; height: 40px; }
+.input:focus { outline: 2px solid #0f62fe !important; outline-offset: -2px; box-shadow: none !important; }
+.pill { border-radius: 24px; font-weight: 400; font-size: 11.5px; padding: 1px 8px; }
+.pill-ok { background: #a7f0ba !important; color: #0e6027 !important; }
+.pill-warn { background: #ffd8bd !important; color: #8a3800 !important; }
+.pill-danger { background: #ffd7d9 !important; color: #a2191f !important; }
+.pill-info, .pill-accent { background: #d0e2ff !important; color: #0043ce !important; }
+.pill-mint { background: #a7f0ba !important; color: #0e6027 !important; }
+.pill-subtle { background: #e0e0e0 !important; color: #161616 !important; }
+*:focus-visible { outline: 2px solid #0f62fe; outline-offset: -2px; }
+.nav-row { border-radius: 0 !important; margin: 0 -8px; padding-left: 20px; border-left: 3px solid transparent; }
+.nav-row-active { background: #e0e0e0 !important; border-left-color: #0f62fe !important; color: #161616 !important; font-weight: 600; box-shadow: none !important; }

@@ -21,6 +21,7 @@ const config: Config = {
         text:     'rgb(var(--c-text) / <alpha-value>)',
         subtle:   'rgb(var(--c-subtle) / <alpha-value>)',
         accent:   'rgb(var(--c-accent) / <alpha-value>)',
+        'accent-2': 'rgb(var(--c-accent-2) / <alpha-value>)',
         'accent-fg': 'rgb(var(--c-accent-fg) / <alpha-value>)',
         ok:       'rgb(var(--c-ok) / <alpha-value>)',
         warn:     'rgb(var(--c-warn) / <alpha-value>)',

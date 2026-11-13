@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Gauge, Play, AlertCircle } from 'lucide-react';
 import { PageContent, PageHeader } from '@/components/layout/AppShell';
+import { TestNav } from '@/components/layout/TestNav';
 import { rulesApi, executeApi } from '@/lib/api';
 
 interface Result { ms: number; ok: boolean; error?: string }
@@ -63,13 +64,14 @@ export default function BenchPage() {
   return (
     <PageContent>
       <PageHeader
-        title="Bench"
-        description="Quick-and-dirty latency micro-benchmark — single rule, repeated calls"
+        title="Test"
+        description="Validate rules before they ship — assertion suites, sample data, version diff and replay, and latency benchmarks"
         stats={[
-          { label: 'Rules', value: rules.length },
+          { label: 'Rules',    value: rules.length },
           { label: 'Last run', value: results.length },
         ]}
       />
+      <TestNav />
 
       <div className="grid grid-cols-[360px_1fr] gap-3">
         {/* SETTINGS */}
