@@ -11,7 +11,7 @@ function Bars({ series }: { series: any[] }) {
   return (
     <div className="flex items-end gap-[2px] h-32">
       {series.map((s, i) => (
-        <div key={i} className="flex-1 flex flex-col justify-end" title={`${new Date(s.t).toLocaleString('th-TH')} · ${s.calls} ครั้ง · ผิด ${s.errors} · p95 ${Math.round(s.p95 || 0)} ms`}>
+        <div key={i} className="flex-1 h-full flex flex-col justify-end" title={`${new Date(s.t).toLocaleString('th-TH')} · ${s.calls} ครั้ง · ผิด ${s.errors} · p95 ${Math.round(s.p95 || 0)} ms`}>
           <div className="bg-[#da1e28]" style={{ height: `${(s.errors / max) * 100}%` }} />
           <div className="bg-[#0f62fe]" style={{ height: `${((s.calls - s.errors) / max) * 100}%` }} />
         </div>

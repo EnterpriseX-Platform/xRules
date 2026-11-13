@@ -80,15 +80,21 @@ function useBreadcrumbs(pathname: string): Crumb[] {
   // Add subId as an entity (rule, flow, etc) — but not for integrations,
   // where the sub-path is a sub-section, not an entity.
   const isIntegrationsSub = section === 'integrations';
+  const isMonitorSub = section === 'monitor';
   if (rule) {
     out.push({ label: rule.name });
   } else if (entity && (isFlow || isSet || isSpec)) {
     out.push({ label: entity.name || entity.slug });
-  } else if (subId && !isIntegrationsSub) {
+  } else if (subId && !isIntegrationsSub && !isMonitorSub) {
     const looksLikeId = /^[a-z0-9]{20,}$/i.test(subId) && !subId.includes('-');
     out.push({ label: looksLikeId ? subId.slice(0, 8) + '…' : subId, mono: looksLikeId });
   }
   // Integrations sub-section (api-keys, webhooks, endpoints, connections, api-docs)
+  if (section === 'monitor' && subId) {
+    out.pop();
+    out.push({ label: 'Monitor', href: `/projects/${projectId}/monitor` });
+    out.push({ label: ({ traffic: 'API Traffic', decisions: 'Decisions', 'data-health': 'Data Health', alerts: 'Alerts' } as Record<string, string>)[subId] || subId });
+  }
   if (isIntegrationsSub && subId) {
     const human: Record<string, string> = {
       'api-keys': 'API Keys', webhooks: 'Webhooks', endpoints: 'Endpoints',
