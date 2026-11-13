@@ -9,6 +9,7 @@ interface AuthState {
   user: { id: string; email: string; name?: string } | null;
   workspace: { id: string; slug: string; name: string } | null;
   setAuth: (token: string, user: any, workspace: any, refreshToken?: string) => void;
+  setWorkspace: (workspace: { id: string; slug: string; name: string }) => void;
   clear: () => void;
 }
 
@@ -26,6 +27,7 @@ export const useAuth = create<AuthState>()(
         }
         set({ token, user, workspace, refreshToken: refreshToken ?? null });
       },
+      setWorkspace: (workspace) => set({ workspace }),
       clear: () => {
         if (typeof window !== 'undefined') {
           localStorage.removeItem('xrules_token');

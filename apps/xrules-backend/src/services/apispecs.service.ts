@@ -12,16 +12,16 @@ const RESERVED = /^v\d+$|^(rules|flows|data|auth|health|metrics)$/;
 const fmtOp = (o: any) => ({ id: o.id, specId: o.specId, method: o.method, path: o.path, summary: o.summary, requestSchema: o.requestSchema, responseSchema: o.responseSchema, flowId: o.flowId,
   flow: o.flow ? { id: o.flow.id, slug: o.flow.slug, status: o.flow.status.toLowerCase(), version: o.flow.version, nodes: (o.flow.graph?.nodes || []).length } : undefined });
 const fmt = (s: any) => ({ id: s.id, name: s.name, slug: s.slug, basePath: s.basePath, version: s.version, description: s.description, status: s.status.toLowerCase(), revision: s.revision, reviewState: s.reviewState,
-  projectId: s.projectId, url: `/api/${s.basePath}/v${s.version}`, operations: s.operations?.map(fmtOp), createdAt: s.createdAt.toISOString(), updatedAt: s.updatedAt.toISOString() });
+  projectId: s.projectId, url: `/api/${s.project?.workspace?.slug ? s.project.workspace.slug + '/' : ''}${s.basePath}/v${s.version}`, operations: s.operations?.map(fmtOp), createdAt: s.createdAt.toISOString(), updatedAt: s.updatedAt.toISOString() });
 
 export async function list(projectIdOrSlug: string, user: AuthUser) {
   const p = await assertProjectAccess(projectIdOrSlug, user);
-  const rows = await prisma.apiSpec.findMany({ where: { projectId: p.id }, include: { operations: { include: { flow: true } } }, orderBy: { name: 'asc' } });
+  const rows = await prisma.apiSpec.findMany({ where: { projectId: p.id }, include: { project: { select: { workspace: { select: { slug: true } } } }, operations: { include: { flow: true } } }, orderBy: { name: 'asc' } });
   return rows.map(fmt);
 }
 
 export async function get(id: string, user: AuthUser) {
-  const s = await prisma.apiSpec.findUnique({ where: { id }, include: { operations: { include: { flow: true }, orderBy: { path: 'asc' } } } });
+  const s = await prisma.apiSpec.findUnique({ where: { id }, include: { project: { select: { workspace: { select: { slug: true } } } }, operations: { include: { flow: true }, orderBy: { path: 'asc' } } } });
   if (!s) throw new NotFoundError('API Spec');
   await assertProjectAccess(s.projectId, user);
   return fmt(s);
@@ -33,10 +33,10 @@ export async function create(data: { projectId: string; name: string; basePath?:
   const basePath = generateSlug(data.basePath || data.name);
   if (!basePath || RESERVED.test(basePath)) throw new ValidationError(`basePath '${basePath}' is reserved or empty`);
   const version = Number(data.version || 1);
-  if (await prisma.apiSpec.findUnique({ where: { basePath_version: { basePath, version } } })) throw new ValidationError(`/api/${basePath}/v${version} already exists`);
+  if (await prisma.apiSpec.findUnique({ where: { workspaceId_basePath_version: { workspaceId: p.workspaceId, basePath, version } } })) throw new ValidationError(`/api/${basePath}/v${version} already exists`);
   let slug = generateSlug(data.name), n = 1;
   while (await prisma.apiSpec.findUnique({ where: { projectId_slug: { projectId: p.id, slug } } })) slug = `${generateSlug(data.name)}-${++n}`;
-  const s = await prisma.apiSpec.create({ data: { projectId: p.id, name: data.name, slug, basePath, version, description: data.description }, include: { operations: true } });
+  const s = await prisma.apiSpec.create({ data: { projectId: p.id, workspaceId: p.workspaceId, name: data.name, slug, basePath, version, description: data.description }, include: { project: { select: { workspace: { select: { slug: true } } } }, operations: true } });
   return fmt(s);
 }
 
@@ -46,7 +46,7 @@ export async function update(id: string, data: any, user: AuthUser) {
   await assertProjectAccess(s.projectId, user, 'write');
   const u: any = {};
   for (const k of ['name', 'description']) if (data[k] !== undefined) u[k] = data[k];
-  return fmt(await prisma.apiSpec.update({ where: { id }, data: { ...u, status: 'DRAFT' }, include: { operations: { include: { flow: true } } } }));
+  return fmt(await prisma.apiSpec.update({ where: { id }, data: { ...u, status: 'DRAFT' }, include: { project: { select: { workspace: { select: { slug: true } } } }, operations: { include: { flow: true } } } }));
 }
 
 export async function remove(id: string, user: AuthUser) {
@@ -105,7 +105,7 @@ export async function removeOperation(opId: string, user: AuthUser) {
 
 /** Publish: every operation flow gets a published version; the spec becomes live. */
 export async function publish(specId: string, user: AuthUser, message?: string) {
-  const s = await prisma.apiSpec.findUnique({ where: { id: specId }, include: { operations: { include: { flow: true } } } });
+  const s = await prisma.apiSpec.findUnique({ where: { id: specId }, include: { project: { select: { workspace: { select: { slug: true } } } }, operations: { include: { flow: true } } } });
   if (!s) throw new NotFoundError('API Spec');
   await assertProjectAccess(s.projectId, user, 'write');
   if (!s.operations.length) throw new ValidationError('Add at least one operation before publishing');
@@ -122,7 +122,7 @@ export async function publish(specId: string, user: AuthUser, message?: string) 
     ]);
   }
   invalidateArtifacts();
-  return fmt(await prisma.apiSpec.update({ where: { id: specId }, data: { status: 'PUBLISHED', revision: s.revision + 1, reviewState: 'NONE' }, include: { operations: { include: { flow: true } } } }));
+  return fmt(await prisma.apiSpec.update({ where: { id: specId }, data: { status: 'PUBLISHED', revision: s.revision + 1, reviewState: 'NONE' }, include: { project: { select: { workspace: { select: { slug: true } } } }, operations: { include: { flow: true } } } }));
 }
 
 /** Try an operation against its draft flow — used by the Studio "Try it" panel. */
@@ -137,7 +137,7 @@ export async function tryOperation(opId: string, req: { params?: any; query?: an
 }
 
 export async function openapi(specId: string) {
-  const s = await prisma.apiSpec.findUnique({ where: { id: specId }, include: { operations: true } });
+  const s = await prisma.apiSpec.findUnique({ where: { id: specId }, include: { project: { select: { workspace: { select: { slug: true } } } }, operations: true } });
   if (!s) throw new NotFoundError('API Spec');
   const paths: any = {};
   for (const op of s.operations) {
@@ -151,5 +151,5 @@ export async function openapi(specId: string) {
     };
   }
   return { openapi: '3.0.3', info: { title: s.name, version: `v${s.version}.${s.revision}`, description: s.description || '' },
-    servers: [{ url: `/api/${s.basePath}/v${s.version}` }], components: { securitySchemes: { apiKey: { type: 'apiKey', in: 'header', name: 'X-API-Key' } } }, security: [{ apiKey: [] }], paths };
+    servers: [{ url: `/api/${s.project?.workspace?.slug ? s.project.workspace.slug + '/' : ''}${s.basePath}/v${s.version}` }], components: { securitySchemes: { apiKey: { type: 'apiKey', in: 'header', name: 'X-API-Key' } } }, security: [{ apiKey: [] }], paths };
 }

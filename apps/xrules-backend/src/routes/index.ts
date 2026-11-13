@@ -31,6 +31,8 @@ import compareRoutes from './compare.routes.js';
 import biRoutes from './bi.routes.js';
 import webhooksRoutes from './webhooks.routes.js';
 import assistantRoutes from './assistant.routes.js';
+import tenantRoutes from './tenant.routes.js';
+import { tenantGuard } from '../middleware/tenant.js';
 
 const router = Router();
 
@@ -43,7 +45,9 @@ router.use('/api/v1', publicExecuteRoutes);
 router.use('/api/v1', openapiRoutes);
 router.use('/api', gatewayRoutes);
 
-// Internal admin/UI
+// Internal admin/UI — every request below is tenant-scoped (see middleware/tenant.ts)
+router.use(tenantGuard);
+router.use('/tenant', tenantRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/api-keys', apikeysRoutes);
 router.use('/projects', projectsRoutes);

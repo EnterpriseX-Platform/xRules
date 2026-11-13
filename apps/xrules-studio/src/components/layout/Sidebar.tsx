@@ -8,6 +8,7 @@ import {
   Activity, KeyRound, Plug, Webhook, ScrollText, Settings,
   ChevronDown, Workflow, Briefcase, ListTree, Zap,
   Database, Layers, Network, BookA, Rows3, GitCompare, BadgeCheck, Timer, ListChecks, Gauge, PieChart, HeartPulse, Bell, History,
+  UserCog,
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { useProject } from '@/lib/store';
@@ -93,6 +94,9 @@ export function Sidebar() {
     { href: `${projBase}/executions`,           label: 'Executions',  icon: History },
     { href: `${projBase}/audit`,                label: 'Audit Log',   icon: ListTree },
   ] : [];
+  const projectNav: NavItem[] = projBase ? [
+    { href: `${projBase}/access`, label: 'Members & Access', icon: UserCog },
+  ] : [];
 
   return (
     <aside className="w-[228px] shrink-0 border-r border-border/40 bg-sidebar flex flex-col">
@@ -123,6 +127,7 @@ export function Sidebar() {
         {project && <NavSection id="integration" label="Integration"     items={integration} pathname={pathname} />}
         {project && <NavSection id="testing"     label="Testing"         items={testing}     pathname={pathname} />}
         {project && <NavSection id="monitor"     label="Monitor"         items={monitor}     pathname={pathname} />}
+        {project && <NavSection id="project"     label="Project"         items={projectNav}  pathname={pathname} />}
 
         {/* Settings — ungrouped, with hairline separator */}
         <div className="px-2 pt-3 mt-2">
