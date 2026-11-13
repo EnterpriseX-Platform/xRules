@@ -58,6 +58,31 @@ r.get('/bulk/:id/results.csv', authMiddleware, async (req: any, res, next) => {
   } catch (e) { next(e); }
 });
 
+// ---- Simulations
+r.post('/simulations/backtest', authMiddleware, h(req => bulk.backtest(req.body, req.user), 201));
+r.put('/flows/:id/challenger', authMiddleware, h(async req => {
+  const f = await prisma.flow.findUnique({ where: { id: req.params.id } }); if (!f) throw new NotFoundError('Flow');
+  await assertProjectAccess(f.projectId, req.user, 'write');
+  const b = req.body || {};
+  const challenger = b.off ? null : { draft: b.version ? false : true, version: b.version, sampleRate: Math.min(Math.max(Number(b.sampleRate ?? 0.1), 0), 1), until: b.until || null, startedAt: new Date().toISOString(), by: req.user.email };
+  await prisma.flow.update({ where: { id: f.id }, data: { challenger: challenger as any } });
+  return { challenger };
+}));
+r.get('/flows/:id/challenger', authMiddleware, h(async req => {
+  const f = await prisma.flow.findUnique({ where: { id: req.params.id } }); if (!f) throw new NotFoundError('Flow');
+  await assertProjectAccess(f.projectId, req.user);
+  const { challengerSummary } = await import('../platform/runner.js');
+  return { challenger: f.challenger, summary: await challengerSummary(f.id) };
+}));
+
+// ---- Tests (every target)
+r.get('/tests', authMiddleware, h(async req => (await import('../platform/testing.js')).listCases(String(req.query.project_id), req.user, { targetType: req.query.targetType, targetId: req.query.targetId, suiteId: req.query.suiteId })));
+r.post('/tests', authMiddleware, h(async req => (await import('../platform/testing.js')).createCase(req.body, req.user), 201));
+r.put('/tests/:id', authMiddleware, h(async req => (await import('../platform/testing.js')).updateCase(req.params.id, req.body, req.user)));
+r.post('/tests/:id/run', authMiddleware, h(async req => (await import('../platform/testing.js')).runCase(req.params.id)));
+r.post('/tests/target/:type/:id/run', authMiddleware, h(async req => (await import('../platform/testing.js')).runForTarget(req.params.type, req.params.id)));
+r.post('/suites/:id/run', authMiddleware, h(async req => (await import('../platform/testing.js')).runSuite(req.params.id, req.user)));
+
 // ---- Triggers
 r.get('/triggers', authMiddleware, h(async req => {
   const p = await assertProjectAccess(String(req.query.project_id), req.user);

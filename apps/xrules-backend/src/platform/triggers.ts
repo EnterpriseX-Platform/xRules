@@ -39,6 +39,7 @@ export function startTriggerScheduler() {
       leader = !!r[0]?.ok; if (!leader) return;
     }
     const now = new Date(); const minute = now.toISOString().slice(0, 16);
+    const { scheduleNightly } = await import('./testing.js'); await scheduleNightly(now);
     const flows = await prisma.flow.findMany({ where: { kind: { in: ['TRIGGER', 'DATA'] }, status: 'PUBLISHED' } });
     for (const f of flows) {
       const c = triggerConfig(f);

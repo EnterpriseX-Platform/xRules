@@ -44,7 +44,7 @@ async function solveRule(projectId: string, slug: string, payload: any) {
 export interface RunResult { output: any; trace: TraceStep[]; ms: number; version: number; flowId: string; executionId?: string; error?: string }
 
 /** Run a flow (published unless draft) and return output + trace. Nested decision flows are traced as children. */
-export async function runArtifact(projectId: string, slugOrId: string, input: any, o: { version?: number; draft?: boolean; record?: { targetType: string; operationId?: string; bulkRunId?: string; requestId?: string; apiKeyId?: string; forceTrace?: boolean; ip?: string; ua?: string } } = {}): Promise<RunResult> {
+export async function runArtifact(projectId: string, slugOrId: string, input: any, o: { version?: number; draft?: boolean; subflow?: boolean; record?: { targetType: string; operationId?: string; bulkRunId?: string; requestId?: string; apiKeyId?: string; forceTrace?: boolean; ip?: string; ua?: string } } = {}): Promise<RunResult> {
   const art = await loadFlow(projectId, slugOrId, { version: o.version, draft: o.draft });
   const trace: TraceStep[] = [];
   const t0 = Date.now();
@@ -53,7 +53,7 @@ export async function runArtifact(projectId: string, slugOrId: string, input: an
     output = await runFlow(art.graph, input, (slug, payload) => solveRule(projectId, slug, payload), {
       projectId, trace,
       callFlow: async (slug, sub) => {
-        const r = await runArtifact(projectId, slug, sub);
+        const r = await runArtifact(projectId, slug, sub, { subflow: !o.draft });
         trace.push({ seq: trace.length + 1, nodeId: `flow:${slug}`, kind: 'subflow', label: slug, status: r.error ? 'error' : 'ok', ms: r.ms, children: r.trace, output: r.output?.summary });
         if (r.error) throw new Error(r.error);
         return r.output;
@@ -78,7 +78,32 @@ export async function runArtifact(projectId: string, slugOrId: string, input: an
     } });
     executionId = ex.id;
   }
+  maybeChallenger(projectId, art.id, input, output, executionId, o).catch(() => {});
   return { output, trace, ms, version: art.version, flowId: art.id, executionId, error };
+}
+
+// ---------------------------------------------------------------- champion / challenger
+const fingerprint = (out: any) => {
+  const b = out?.__apiResponse ? out.body : out;
+  return JSON.stringify({ passed: b?.passed, codes: (b?.findings || []).map((f: any) => `${f.severity}:${f.ruleCode}`).sort() });
+};
+async function maybeChallenger(projectId: string, flowId: string, input: any, champion: any, championExecutionId: string | undefined, o: any) {
+  if (o.draft || o.record?.targetType === 'challenger' || (!o.record && !o.subflow)) return;
+  const f = await prisma.flow.findUnique({ where: { id: flowId }, select: { challenger: true } });
+  const c: any = f?.challenger;
+  if (!c || (c.until && new Date(c.until) < new Date()) || Math.random() >= Number(c.sampleRate ?? 0.1)) return;
+  // runs after the champion already answered; never changes the response
+  const r = await runArtifact(projectId, flowId, input, { ...(c.draft ? { draft: true } : { version: c.version }) });
+  await prisma.execution.create({ data: {
+    flowId, flowVersion: r.version, input: input ?? {}, output: r.output ?? undefined, status: r.error ? 'FAILED' : 'SUCCESS', error: r.error, duration: r.ms,
+    targetType: 'challenger', lineage: { championExecutionId, same: !r.error && fingerprint(r.output) === fingerprint(champion), champion: JSON.parse(fingerprint(champion)), challenger: JSON.parse(fingerprint(r.output)) } as any,
+  } });
+}
+
+export async function challengerSummary(flowId: string) {
+  const rows = await prisma.execution.findMany({ where: { flowId, targetType: 'challenger' }, orderBy: { createdAt: 'desc' }, take: 5000, select: { lineage: true, createdAt: true, id: true } });
+  const same = rows.filter(r => (r.lineage as any)?.same).length;
+  return { total: rows.length, same, different: rows.length - same, examples: rows.filter(r => !(r.lineage as any)?.same).slice(0, 50) };
 }
 
 export const newRequestId = () => crypto.randomUUID();

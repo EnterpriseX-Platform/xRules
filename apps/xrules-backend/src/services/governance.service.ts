@@ -8,6 +8,8 @@ import type { AuthUser } from '../middleware/auth.js';
 export const reviewRequired = () => process.env.XRULES_REQUIRE_REVIEW === '1';
 
 export async function assertPublishable(projectId: string, targetType: string, targetId: string, _user: AuthUser) {
+  const { assertTestsPass } = await import('../platform/testing.js');
+  await assertTestsPass(targetType, targetId);
   if (!reviewRequired()) return;
   const ok = await prisma.reviewRequest.findFirst({ where: { projectId, targetType, targetId, status: 'APPROVED' }, orderBy: { decidedAt: 'desc' } });
   if (!ok) throw new ForbiddenError('ต้องผ่านการตรวจก่อน publish');

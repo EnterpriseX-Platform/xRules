@@ -34,6 +34,13 @@ async function loadRows(projectId: string, source: any): Promise<any[]> {
     const rows = await prisma.datasetRow.findMany({ where: { snapshotId: ds.activeSnapshotId }, take: source.limit || MAX_ROWS, orderBy: { id: 'asc' }, select: { data: true } });
     return rows.map(r => r.data);
   }
+  if (source.kind === 'executions') {
+    // past real inputs: of a flow (decision flow) or of an API operation (request body)
+    const where: any = { createdAt: { gte: source.since ? new Date(source.since) : new Date(Date.now() - 30 * 86400_000) }, targetType: { not: 'challenger' } };
+    if (source.operationId) where.operationId = source.operationId; else where.flowId = source.flowId;
+    const ex = await prisma.execution.findMany({ where, orderBy: { createdAt: 'desc' }, take: source.limit || 5000, select: { input: true } });
+    return ex.map(e => (source.operationId ? (e.input as any)?.body : e.input));
+  }
   if (source.kind === 'sql') return query(await resolveBySlug(projectId, source.connection), source.sql, source.params || [], source.limit);
   throw new ValidationError('source.kind must be rows, file, dataset or sql');
 }
@@ -48,7 +55,7 @@ export async function createBulkRun(data: { projectId: string; name?: string; ta
   } else {
     let flowRef = data.target;
     if (data.targetType === 'operation') { const op = await prisma.apiOperation.findUnique({ where: { id: data.target } }); if (!op) throw new NotFoundError('Operation'); flowRef = op.flowId; }
-    const art = await loadFlow(p.id, flowRef); targetId = art.id; targetVersion = art.version;
+    const art = await loadFlow(p.id, flowRef, { draft: !!data.source?.draft }); targetId = art.id; targetVersion = data.source?.draft ? undefined : art.version;
   }
   const rows = await loadRows(p.id, data.source);
   if (!rows.length) throw new ValidationError('No rows to run');
@@ -74,7 +81,7 @@ async function runOne(run: any, input: any): Promise<{ output: any; status: stri
       output = (await executeRule(run.targetId, input, {}, { userId: '__system__', email: 'bulk@xrules', tenantId: '*', roles: ['OWNER'] } as any) as any).output;
     } else {
       const body = run.targetType === 'operation' ? { params: {}, query: {}, body: input } : input;
-      const r = await runArtifact(run.projectId, run.targetId, body, { version: run.targetVersion ?? undefined });
+      const r = await runArtifact(run.projectId, run.targetId, body, run.source?.draft ? { draft: true } : { version: run.targetVersion ?? undefined });
       if (r.error) throw new Error(r.error);
       output = r.output?.__apiResponse ? r.output.body : r.output;
     }
@@ -192,4 +199,15 @@ export async function runBatch(projectId: string, flowId: string, items: any[], 
       out[k] = r.error ? { error: r.error } : r.output?.__apiResponse ? r.output.body : r.output; }
   }));
   return out;
+}
+
+/** Backtest: run the published version and the draft over the same past inputs, then compare. */
+export async function backtest(data: { projectId: string; flow: string; since?: string; limit?: number; operationId?: string }, user: AuthUser) {
+  const p = await assertProjectAccess(data.projectId, user, 'write');
+  const f = await prisma.flow.findFirst({ where: { projectId: p.id, OR: [{ id: data.flow }, { slug: data.flow }] } });
+  if (!f) throw new NotFoundError('Flow');
+  const src = { kind: 'executions', flowId: f.id, operationId: data.operationId, since: data.since, limit: data.limit || 2000 };
+  const live = await createBulkRun({ projectId: p.id, name: `จำลอง: ${f.slug} (ตัวจริง)`, targetType: 'decision_flow', target: f.id, source: src }, user);
+  const draft = await createBulkRun({ projectId: p.id, name: `จำลอง: ${f.slug} (ร่าง)`, targetType: 'decision_flow', target: f.id, source: { ...src, draft: true }, compareToId: live.id }, user);
+  return { liveRunId: live.id, draftRunId: draft.id, compareUrl: `/platform/bulk/${draft.id}/compare/${live.id}` };
 }
