@@ -11,6 +11,8 @@ import analyticsRoutes from './analytics.routes.js';
 import dashboardRoutes from './dashboard.routes.js';
 import apikeysRoutes from './apikeys.routes.js';
 import dataRoutes from './data.routes.js';
+import platformRoutes from './platform.routes.js';
+import gatewayRoutes from './gateway.routes.js';
 import publicExecuteRoutes from './publicExecute.routes.js';
 import testcasesRoutes from './testcases.routes.js';
 import testsuitesRoutes from './testsuites.routes.js';
@@ -39,6 +41,7 @@ router.use('/auth', usersRoutes);
 // Public API (Solver / API key)
 router.use('/api/v1', publicExecuteRoutes);
 router.use('/api/v1', openapiRoutes);
+router.use('/api', gatewayRoutes);
 
 // Internal admin/UI
 router.use('/dashboard', dashboardRoutes);
@@ -61,6 +64,7 @@ router.use('/datasets', datasetsRoutes);
 router.use('/scenarios', scenariosRoutes);
 router.use('/connections', connectionsRoutes);
 router.use('/data', dataRoutes);
+router.use('/platform', platformRoutes);
 router.use('/releases', releasesRoutes);
 router.use('/environments', environmentsRoutes);
 router.use('/simulations', simulationsRoutes);

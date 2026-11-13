@@ -27,7 +27,33 @@ import { prisma } from '../config/database.js';
 //   findings  { }                                                  — output: { passed, summary, findings, lineage }
 // A ruleCall with data.ruleCode collects findings from the rule's output:
 //   output.findings[]  or  output.pass === false / output.valid === false (+ message, severity, lineId, field)
-export interface FlowOptions { projectId?: string }
+export interface FlowOptions {
+  projectId?: string;
+  /** run another (published) flow by slug — used by the callDecisionFlow step */
+  callFlow?: (slug: string, input: any) => Promise<any>;
+  /** collect a step-by-step trace (Rule Trace) */
+  trace?: TraceStep[];
+}
+
+// ---------------------------------------------------------------- Rule Trace
+export interface TraceStep {
+  seq: number; nodeId: string; kind: string; label?: string;
+  status: 'ok' | 'skipped' | 'error'; ms: number;
+  input?: any; output?: any; note?: string; children?: TraceStep[];
+}
+const MAX_TRACE_VALUE = 4000;
+function clip(v: any): any {
+  if (v === undefined) return undefined;
+  try { const s = JSON.stringify(v); return s.length > MAX_TRACE_VALUE ? { __truncated: true, preview: s.slice(0, MAX_TRACE_VALUE) } : v; } catch { return String(v); }
+}
+function pushTrace(opts: FlowOptions, node: any, kind: string, t0: number, status: TraceStep['status'], extra: Partial<TraceStep> = {}) {
+  if (!opts.trace) return;
+  opts.trace.push({ seq: opts.trace.length + 1, nodeId: node.id, kind, label: node.data?.label, status, ms: Date.now() - t0, ...extra,
+    input: clip(extra.input), output: clip(extra.output) });
+}
+
+/** Marker returned by the apiResponse step */
+export interface ApiResponse { __apiResponse: true; status: number; body: any; headers?: Record<string, string> }
 
 interface DataCtx { findings: Finding[]; lineage: Record<string, string>; stale: string[]; skipRules: Set<string> }
 function dataCtx(ctx: any): DataCtx {
@@ -157,7 +183,7 @@ export async function runFlow(graph: FlowGraph, input: any, solve: SolveFn, opts
     childrenOf.set(e.source, arr);
   }
 
-  const start = graph.nodes.find(n => (n.type || n.data?.kind) === 'input');
+  const start = graph.nodes.find(n => ['input', 'apiinput', 'trigger'].includes(String(n.type || n.data?.kind || '').toLowerCase()));
   if (!start) throw new Error('Flow has no input node');
 
   const ctx: Record<string, any> = { input };
@@ -176,14 +202,56 @@ export async function runFlow(graph: FlowGraph, input: any, solve: SolveFn, opts
     const data = cur.data || {};
 
     let pickedHandle: string | undefined;
+    const t0 = Date.now();
+    let stepOut: any = undefined; let stepStatus: TraceStep['status'] = 'ok'; let stepNote: string | undefined;
 
+    try {
     switch (kind) {
       case 'input':
         // Already seeded ctx.input; nothing to do.
         break;
 
-      case 'findings':
-        return findingsOutput(ctx);
+      case 'findings': {
+        const out = findingsOutput(ctx);
+        pushTrace(opts, cur, kind, t0, 'ok', { output: out.summary });
+        return out;
+      }
+
+      case 'trigger':
+      case 'apiinput':
+        stepOut = { params: ctx.input?.params, query: ctx.input?.query };
+        break;
+
+      case 'apiresponse': {
+        const body = data.body !== undefined ? renderObject(data.body, ctx) : (ctx.__data ? findingsOutput(ctx) : (() => { const { input: _i, ...rest } = ctx; return rest; })());
+        const resp: ApiResponse = { __apiResponse: true, status: Number(data.status || 200), body, headers: data.headers };
+        pushTrace(opts, cur, kind, t0, 'ok', { output: { status: resp.status } });
+        return resp;
+      }
+
+      case 'calldecisionflow': {
+        if (!opts.callFlow) throw new Error('callDecisionFlow is not available here');
+        const slug = data.flow || data.flowSlug;
+        if (!slug) throw new Error(`callDecisionFlow node '${cur.id}' needs data.flow`);
+        const mapped = data.inputMap ? renderObject(data.inputMap, ctx) : ctx.input?.body ?? ctx.input;
+        const sub: TraceStep[] = [];
+        const out = await opts.callFlow(String(slug), mapped);
+        ctx[data.outputAs || 'decision'] = out;
+        stepOut = { passed: out?.passed, summary: out?.summary };
+        if (sub.length) stepNote = `${sub.length} steps`;
+        break;
+      }
+
+      case 'lookup': {
+        // single key lookup into a Data Set: { dataset, key: [...templates], outputAs }
+        if (!opts.projectId) throw new Error('lookup needs a project');
+        const key = (data.key || []).map((k: string) => { const v = renderTemplate(k, ctx); return v == null ? '' : String(v).trim(); }).join('|');
+        const r = await datasets.lookup(opts.projectId, String(data.dataset), key);
+        dataCtx(ctx).lineage[String(data.dataset)] = r.snapshotAt || '';
+        ctx[data.outputAs || 'found'] = r.found ? r.data : null;
+        stepOut = { key, found: r.found };
+        break;
+      }
 
       case 'enrich':
         await runEnrich(data, ctx, opts);
@@ -194,6 +262,7 @@ export async function runFlow(graph: FlowGraph, input: any, solve: SolveFn, opts
         break;
 
       case 'output': {
+        pushTrace(opts, cur, kind, t0, 'ok');
         if (ctx.__data && !data.pick && !data.return) return findingsOutput(ctx);
         if (data.pick) return readPath(ctx, String(data.pick));
         // If output node has explicit return shape, render it
@@ -206,12 +275,13 @@ export async function runFlow(graph: FlowGraph, input: any, solve: SolveFn, opts
       case 'rulecall': {
         const slug = data.ruleSlug || data.rule || data.slug;
         if (!slug) throw new Error(`ruleCall node '${cur.id}' missing data.ruleSlug`);
-        if (shouldSkip(data, ctx)) break;
+        if (shouldSkip(data, ctx)) { stepStatus = 'skipped'; stepNote = 'ข้อมูลอ้างอิงไม่พร้อม'; break; }
         const mappedInput = data.inputMap ? renderObject(data.inputMap, ctx) : ctx.input;
         const out = await solve(String(slug), mappedInput);
         const key = data.outputAs || slug.toString().replace(/-/g, '_');
         ctx[key] = out;
         collectRuleFindings(data, out, ctx);
+        stepOut = out;
         break;
       }
 
@@ -262,6 +332,7 @@ export async function runFlow(graph: FlowGraph, input: any, solve: SolveFn, opts
         // no other parents from outside the fanout. Walk past any merge node.
         const mergeNode = findMergeAfter(nodeById, childrenOf, cur.id);
         cur = mergeNode ? mergeNode : null;
+        pushTrace(opts, cur, kind, t0, 'ok', { output: Object.keys(merged) });
         continue; // skip normal child-pick below since we set cur ourselves
       }
 
@@ -274,6 +345,13 @@ export async function runFlow(graph: FlowGraph, input: any, solve: SolveFn, opts
         // Ignore unknown kinds (sticky, declare, etc).
         break;
     }
+
+    } catch (err: any) {
+      pushTrace(opts, cur, kind, t0, 'error', { note: err?.message });
+      throw err;
+    }
+    if (kind === 'enrich' || kind === 'filecheck') stepOut = { findings: dataCtx(ctx).findings.length };
+    pushTrace(opts, cur, kind, t0, stepStatus, { output: stepOut, note: stepNote });
 
     // Pick next node
     const childs = childrenOf.get(cur.id) || [];
@@ -326,6 +404,7 @@ async function runBranch(
     const kind = String(cur.type || cur.data?.kind || '').toLowerCase();
     if (kind === 'merge' || kind === 'output') break;
     const data = cur.data || {};
+    const t0 = Date.now();
 
     if (kind === 'rulecall') {
       const slug = data.ruleSlug || data.rule || data.slug;
@@ -346,6 +425,7 @@ async function runBranch(
         setPath(ctx, String(data.target), val);
       }
     }
+    pushTrace(opts, cur, kind, t0, kind === 'rulecall' && shouldSkip(data, ctx) ? 'skipped' : 'ok', { output: data.outputAs ? ctx[data.outputAs] : undefined });
     // (branch within branch is not supported — keep it simple)
 
     const childs = childrenOf.get(cur.id) || [];

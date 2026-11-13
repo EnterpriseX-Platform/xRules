@@ -6,6 +6,7 @@ import { env } from './config/env.js';
 import routes from './routes/index.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { startScheduler } from './data/dataflow.service.js';
+import { startWorkers } from './platform/queue.js';
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use(errorHandler);
 // Start server
 app.listen(env.port, () => {
   startScheduler();
+  startWorkers();
   console.log(`[xrules-backend] Running on http://localhost:${env.port}`);
   console.log(`[xrules-backend] Engine Hub: ${env.engineHubUrl}`);
   console.log(`[xrules-backend] Environment: ${env.nodeEnv}`);

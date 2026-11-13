@@ -75,9 +75,11 @@ export async function deleteTestCase(testId: string, user: AuthUser) {
   });
   if (!testCase) throw new NotFoundError('Test case');
 
-  const membership = await prisma.workspaceMember.findFirst({
-    where: { workspaceId: testCase.rule.project.workspaceId, userId: user.userId },
-  });
+  const workspaceId = testCase.rule?.project.workspaceId
+    ?? (testCase.projectId ? (await prisma.project.findUnique({ where: { id: testCase.projectId } }))?.workspaceId : undefined);
+  const membership = workspaceId ? await prisma.workspaceMember.findFirst({
+    where: { workspaceId, userId: user.userId },
+  }) : null;
   if (!membership) throw new ForbiddenError('Access denied');
 
   await prisma.testCase.delete({ where: { id: testId } });
