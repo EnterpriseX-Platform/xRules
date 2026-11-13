@@ -57,6 +57,7 @@ spec:
           env:
             - { name: PORT, value: "4000" }
             - { name: XRULES_ENV, value: UAT }
+            - { name: ENGINE_HUB_URL, value: "http://xrules-engine-svc:50051" }
           readinessProbe: { httpGet: { path: /health, port: 4000 }, initialDelaySeconds: 10, periodSeconds: 10 }
           livenessProbe: { httpGet: { path: /health, port: 4000 }, initialDelaySeconds: 60, periodSeconds: 20 }
           resources: { requests: { cpu: 200m, memory: 384Mi }, limits: { cpu: "1", memory: 1536Mi } }
@@ -87,3 +88,30 @@ apiVersion: v1
 kind: Service
 metadata: { name: xrules-web-svc, namespace: budget-bb }
 spec: { selector: { app: xrules-web }, ports: [{ port: 3000, targetPort: 3000 }] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: xrules-engine, namespace: budget-bb, labels: { app: xrules-engine } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: xrules-engine } }
+  template:
+    metadata: { labels: { app: xrules-engine } }
+    spec:
+      imagePullSecrets: [{ name: img-secret }]
+      containers:
+        - name: xrules-engine
+          image: registry.nipa.cloud/ebudet-bb-registry/neb-page:xrules-engine.placeholder
+          ports: [{ containerPort: 50051 }, { containerPort: 50060 }]
+          env:
+            - { name: BACKEND_URL, value: "http://xrules-api-svc:4000" }
+            - { name: JWT_SECRET, valueFrom: { secretKeyRef: { name: xrules-secret, key: JWT_SECRET } } }
+            - { name: JWT_REFRESH_SECRET, valueFrom: { secretKeyRef: { name: xrules-secret, key: JWT_REFRESH_SECRET } } }
+          readinessProbe: { httpGet: { path: /api/v1/health, port: 50051 }, initialDelaySeconds: 5, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /api/v1/health, port: 50051 }, initialDelaySeconds: 30, periodSeconds: 20 }
+          resources: { requests: { cpu: 100m, memory: 128Mi }, limits: { cpu: "1", memory: 512Mi } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: xrules-engine-svc, namespace: budget-bb }
+spec: { selector: { app: xrules-engine }, ports: [{ name: http, port: 50051, targetPort: 50051 }, { name: grpc, port: 50060, targetPort: 50060 }] }

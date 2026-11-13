@@ -28,7 +28,7 @@ export default function DashboardPage() {
     <PageContent>
       <PageHeader
         title="Dashboard"
-        description="Overview of decisions executed across your workspace"
+        description="Overview of decisions executed across your tenant"
         stats={[
           { label: 'Projects',    value: stats.projects },
           { label: 'Rules',       value: stats.rules },

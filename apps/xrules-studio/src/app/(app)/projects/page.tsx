@@ -22,7 +22,7 @@ export default function ProjectsPage() {
     <PageContent>
       <PageHeader
         title="Projects"
-        description="Domain workspaces — each project owns its own rules, flows, and integrations"
+        description="Projects in this tenant — each owns its own rules, flows and integrations"
         stats={[
           { label: 'Total', value: projects.length },
         ]}

@@ -8,7 +8,7 @@ pipeline {
     parameters {
         string(name: 'DOCKER_IMAGE_NAME', defaultValue: 'registry.nipa.cloud/ebudet-bb-registry/neb-page', description: 'Image repository')
         string(name: 'VERSION', defaultValue: "v1.${new Date().format('yyyyMMdd.HHmm', TimeZone.getTimeZone('GMT+7'))}", description: 'Tag suffix; images become xrules-api.<VERSION> / xrules-web.<VERSION>')
-        choice(name: 'COMPONENT', choices: ['both', 'api', 'web'], description: 'What to build and deploy')
+        choice(name: 'COMPONENT', choices: ['both', 'api', 'web', 'engine', 'all'], description: 'both = api + web · all = api + web + engine')
         choice(name: 'KUBE_NAMESPACE', choices: ['budget-bb'], description: '')
         choice(name: 'KUBECONFIG_CREDENTIAL_ID', choices: ['k8s-user-on-uat'], description: '')
         string(name: 'GIT_REF', defaultValue: 'master', description: 'Branch, tag or commit')
@@ -20,7 +20,7 @@ pipeline {
         stage('Build & push') {
             steps {
                 script {
-                    def parts = params.COMPONENT == 'both' ? ['api', 'web'] : [params.COMPONENT]
+                    def parts = params.COMPONENT == 'both' ? ['api', 'web'] : params.COMPONENT == 'all' ? ['api', 'web', 'engine'] : [params.COMPONENT]
                     dir('xrules') {
                         docker.withRegistry('https://registry.nipa.cloud', env.DOCKER_CREDENTIALS_ID) {
                             parts.each { p ->
@@ -37,13 +37,13 @@ pipeline {
         stage('Deploy') {
             steps {
                 script {
-                    def parts = params.COMPONENT == 'both' ? ['api', 'web'] : [params.COMPONENT]
+                    def parts = params.COMPONENT == 'both' ? ['api', 'web'] : params.COMPONENT == 'all' ? ['api', 'web', 'engine'] : [params.COMPONENT]
                     withCredentials([file(credentialsId: params.KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG')]) {
                         parts.each { p ->
                             sh "kubectl -n ${params.KUBE_NAMESPACE} set image deployment/xrules-${p} xrules-${p}=${params.DOCKER_IMAGE_NAME}:xrules-${p}.${params.VERSION}"
                             sh "kubectl -n ${params.KUBE_NAMESPACE} rollout status deployment/xrules-${p} --timeout=300s"
                         }
-                        sh "kubectl -n ${params.KUBE_NAMESPACE} get pods -l 'app in (xrules-api,xrules-web)' -o wide"
+                        sh "kubectl -n ${params.KUBE_NAMESPACE} get pods -l 'app in (xrules-api,xrules-web,xrules-engine)' -o wide"
                     }
                 }
             }
