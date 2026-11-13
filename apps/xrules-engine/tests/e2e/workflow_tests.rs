@@ -1,13 +1,12 @@
 //! End-to-End Workflow Tests
-//! 
+//!
 //! Tests complete user workflows from authentication through rule execution
 
 use reqwest::Client;
 use serde_json::json;
 
 fn base_url() -> String {
-    std::env::var("TEST_SERVER_URL")
-        .unwrap_or_else(|_| "http://127.0.0.1:50051".to_string())
+    std::env::var("TEST_SERVER_URL").unwrap_or_else(|_| "http://127.0.0.1:50051".to_string())
 }
 
 fn create_client() -> Client {
@@ -17,9 +16,13 @@ fn create_client() -> Client {
         .unwrap()
 }
 
-async fn get_auth_token(client: &Client, username: &str, password: &str) -> Option<(String, String)> {
+async fn get_auth_token(
+    client: &Client,
+    username: &str,
+    password: &str,
+) -> Option<(String, String)> {
     let url = format!("{}/api/v1/auth/login", base_url());
-    
+
     let resp = client
         .post(&url)
         .json(&json!({
@@ -29,15 +32,15 @@ async fn get_auth_token(client: &Client, username: &str, password: &str) -> Opti
         .send()
         .await
         .ok()?;
-    
+
     if !resp.status().is_success() {
         return None;
     }
-    
+
     let body: serde_json::Value = resp.json().await.ok()?;
     let access_token = body["access_token"].as_str()?.to_string();
     let refresh_token = body["refresh_token"].as_str()?.to_string();
-    
+
     Some((access_token, refresh_token))
 }
 
@@ -46,7 +49,7 @@ async fn get_auth_token(client: &Client, username: &str, password: &str) -> Opti
 #[tokio::test]
 async fn test_complete_auth_workflow() {
     let client = create_client();
-    
+
     // Step 1: Login
     let (access_token, refresh_token) = match get_auth_token(&client, "admin", "admin123").await {
         Some(t) => t,
@@ -55,7 +58,7 @@ async fn test_complete_auth_workflow() {
             return;
         }
     };
-    
+
     // Step 2: Use access token to access protected resource
     let engines_url = format!("{}/api/v1/engines", base_url());
     let resp = client
@@ -63,7 +66,7 @@ async fn test_complete_auth_workflow() {
         .bearer_auth(&access_token)
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             if r.status().is_success() {
@@ -72,7 +75,7 @@ async fn test_complete_auth_workflow() {
         }
         Err(e) => println!("Failed to access protected endpoint: {}", e),
     }
-    
+
     // Step 3: Refresh token
     let refresh_url = format!("{}/api/v1/auth/refresh", base_url());
     let resp = client
@@ -80,7 +83,7 @@ async fn test_complete_auth_workflow() {
         .json(&json!({"refresh_token": refresh_token}))
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             if r.status().is_success() {
@@ -89,7 +92,7 @@ async fn test_complete_auth_workflow() {
         }
         Err(e) => println!("Failed to refresh token: {}", e),
     }
-    
+
     // Step 4: Logout (if supported)
     let logout_url = format!("{}/api/v1/auth/logout", base_url());
     let resp = client
@@ -97,7 +100,7 @@ async fn test_complete_auth_workflow() {
         .bearer_auth(&access_token)
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             if r.status().is_success() {
@@ -111,7 +114,7 @@ async fn test_complete_auth_workflow() {
 #[tokio::test]
 async fn test_rules_engine_workflow() {
     let client = create_client();
-    
+
     // Get auth token
     let token = match get_auth_token(&client, "admin", "admin123").await {
         Some((t, _)) => t,
@@ -120,7 +123,7 @@ async fn test_rules_engine_workflow() {
             return;
         }
     };
-    
+
     // Execute a DMN-based decision
     let url = format!("{}/api/v1/execute", base_url());
     let resp = client
@@ -144,13 +147,13 @@ async fn test_rules_engine_workflow() {
         }))
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             if r.status().is_success() {
                 let body: serde_json::Value = r.json().await.unwrap();
                 println!("Rules engine result: {:?}", body);
-                
+
                 if let Some(success) = body["success"].as_bool() {
                     if success {
                         println!("Rule executed successfully");
@@ -167,7 +170,7 @@ async fn test_rules_engine_workflow() {
 #[tokio::test]
 async fn test_ml_engine_workflow() {
     let client = create_client();
-    
+
     let token = match get_auth_token(&client, "admin", "admin123").await {
         Some((t, _)) => t,
         None => {
@@ -175,7 +178,7 @@ async fn test_ml_engine_workflow() {
             return;
         }
     };
-    
+
     // Execute ML prediction
     let url = format!("{}/api/v1/execute", base_url());
     let resp = client
@@ -197,7 +200,7 @@ async fn test_ml_engine_workflow() {
         }))
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             if r.status().is_success() {
@@ -212,7 +215,7 @@ async fn test_ml_engine_workflow() {
 #[tokio::test]
 async fn test_pmml_engine_workflow() {
     let client = create_client();
-    
+
     let token = match get_auth_token(&client, "admin", "admin123").await {
         Some((t, _)) => t,
         None => {
@@ -220,7 +223,7 @@ async fn test_pmml_engine_workflow() {
             return;
         }
     };
-    
+
     // Execute PMML scoring
     let url = format!("{}/api/v1/execute", base_url());
     let resp = client
@@ -238,7 +241,7 @@ async fn test_pmml_engine_workflow() {
         }))
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             if r.status().is_success() {
@@ -253,7 +256,7 @@ async fn test_pmml_engine_workflow() {
 #[tokio::test]
 async fn test_llm_engine_workflow() {
     let client = create_client();
-    
+
     let token = match get_auth_token(&client, "admin", "admin123").await {
         Some((t, _)) => t,
         None => {
@@ -261,7 +264,7 @@ async fn test_llm_engine_workflow() {
             return;
         }
     };
-    
+
     // Execute LLM inference
     let url = format!("{}/api/v1/execute", base_url());
     let resp = client
@@ -277,7 +280,7 @@ async fn test_llm_engine_workflow() {
         }))
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             if r.status().is_success() {
@@ -292,7 +295,7 @@ async fn test_llm_engine_workflow() {
 #[tokio::test]
 async fn test_ai_engine_workflow() {
     let client = create_client();
-    
+
     let token = match get_auth_token(&client, "admin", "admin123").await {
         Some((t, _)) => t,
         None => {
@@ -300,7 +303,7 @@ async fn test_ai_engine_workflow() {
             return;
         }
     };
-    
+
     // Execute AI/Deep Learning inference
     let url = format!("{}/api/v1/execute", base_url());
     let resp = client
@@ -320,7 +323,7 @@ async fn test_ai_engine_workflow() {
         }))
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             if r.status().is_success() {
@@ -335,7 +338,7 @@ async fn test_ai_engine_workflow() {
 #[tokio::test]
 async fn test_chained_rules_workflow() {
     let client = create_client();
-    
+
     let token = match get_auth_token(&client, "admin", "admin123").await {
         Some((t, _)) => t,
         None => {
@@ -343,7 +346,7 @@ async fn test_chained_rules_workflow() {
             return;
         }
     };
-    
+
     // Execute a rule that chains multiple engines
     let url = format!("{}/api/v1/execute", base_url());
     let resp = client
@@ -369,7 +372,7 @@ async fn test_chained_rules_workflow() {
         }))
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             if r.status().is_success() {
@@ -384,7 +387,7 @@ async fn test_chained_rules_workflow() {
 #[tokio::test]
 async fn test_batch_processing_workflow() {
     let client = create_client();
-    
+
     let token = match get_auth_token(&client, "admin", "admin123").await {
         Some((t, _)) => t,
         None => {
@@ -392,7 +395,7 @@ async fn test_batch_processing_workflow() {
             return;
         }
     };
-    
+
     // Execute batch of rules
     let url = format!("{}/api/v1/execute/batch", base_url());
     let resp = client
@@ -416,13 +419,13 @@ async fn test_batch_processing_workflow() {
         }))
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             if r.status().is_success() {
                 let body: serde_json::Value = r.json().await.unwrap();
                 println!("Batch processing result: {:?}", body);
-                
+
                 if let Some(results) = body["results"].as_array() {
                     assert_eq!(results.len(), 3);
                     println!("Processed {} requests in batch", results.len());
@@ -436,28 +439,24 @@ async fn test_batch_processing_workflow() {
 #[tokio::test]
 async fn test_role_based_workflow() {
     let client = create_client();
-    
+
     // Test that different roles have appropriate access
     let roles = vec![
         ("admin", vec!["read", "write", "execute", "admin"]),
         ("editor", vec!["read", "write", "execute"]),
         ("viewer", vec!["read", "execute"]),
     ];
-    
+
     for (role, _permissions) in roles {
         let password = format!("{}123", role);
         let result = get_auth_token(&client, role, &password).await;
-        
+
         match result {
             Some((token, _)) => {
                 // Try to access engines list
                 let url = format!("{}/api/v1/engines", base_url());
-                let resp = client
-                    .get(&url)
-                    .bearer_auth(&token)
-                    .send()
-                    .await;
-                
+                let resp = client.get(&url).bearer_auth(&token).send().await;
+
                 match resp {
                     Ok(r) => {
                         if r.status().is_success() {

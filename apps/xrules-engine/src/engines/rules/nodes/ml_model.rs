@@ -1,7 +1,7 @@
 use crate::engines::rules::context::ExecutionContext;
 use crate::engines::rules::nodes::types::NodeExecutor;
-use crate::engines::EngineError;
 use crate::engines::rules::Result;
+use crate::engines::EngineError;
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -63,7 +63,9 @@ impl NodeExecutor for MlModelNode {
                 .await
                 .map_err(|e| EngineError::External(format!("ML engine call failed: {}", e)))?;
 
-            let body: Value = response.json().await
+            let body: Value = response
+                .json()
+                .await
                 .map_err(|e| EngineError::External(format!("ML response parse failed: {}", e)))?;
 
             if let Some(output) = body.get("output") {

@@ -35,7 +35,7 @@ impl SchemaValidator {
     /// Validate a value against a schema
     pub fn validate(value: &Value, schema: &JsonSchema) -> Vec<ValidationError> {
         let mut errors = vec![];
-        
+
         // Type validation
         if let Some(ref schema_type) = schema.schema_type {
             if !Self::check_type(value, schema_type) {
@@ -45,10 +45,10 @@ impl SchemaValidator {
                 });
             }
         }
-        
+
         errors
     }
-    
+
     fn check_type(value: &Value, expected: &str) -> bool {
         match expected {
             "object" => value.is_object(),

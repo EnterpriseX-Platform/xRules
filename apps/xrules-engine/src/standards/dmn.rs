@@ -16,12 +16,12 @@ pub struct DecisionTable {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum HitPolicy {
-    UNIQUE,      // Only one rule can match
-    ANY,         // All matching rules must produce same output
-    PRIORITY,    // First rule in priority order
-    FIRST,       // First rule in order
-    COLLECT,     // Collect all outputs
-    RULE_ORDER,  // Return all matches in rule order
+    UNIQUE,       // Only one rule can match
+    ANY,          // All matching rules must produce same output
+    PRIORITY,     // First rule in priority order
+    FIRST,        // First rule in order
+    COLLECT,      // Collect all outputs
+    RULE_ORDER,   // Return all matches in rule order
     OUTPUT_ORDER, // Return all matches in output priority order
 }
 
@@ -37,7 +37,7 @@ pub enum Aggregation {
 pub struct InputClause {
     pub id: String,
     pub label: Option<String>,
-    pub expression: String, // FEEL expression
+    pub expression: String,                // FEEL expression
     pub input_values: Option<Vec<String>>, // Allowed values
 }
 

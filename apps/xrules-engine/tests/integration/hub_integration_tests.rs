@@ -1,13 +1,12 @@
 //! Rule Hub Integration Tests
-//! 
+//!
 //! ทดสอบการทำงานของ Engine Hub ในการ route และ execute rules
 
 use reqwest::Client;
 use serde_json::json;
 
 fn base_url() -> String {
-    std::env::var("TEST_SERVER_URL")
-        .unwrap_or_else(|_| "http://127.0.0.1:50051".to_string())
+    std::env::var("TEST_SERVER_URL").unwrap_or_else(|_| "http://127.0.0.1:50051".to_string())
 }
 
 fn create_client() -> Client {
@@ -19,7 +18,7 @@ fn create_client() -> Client {
 
 async fn get_auth_token(client: &Client, username: &str, password: &str) -> Option<String> {
     let url = format!("{}/api/v1/auth/login", base_url());
-    
+
     let resp = client
         .post(&url)
         .json(&json!({
@@ -29,11 +28,11 @@ async fn get_auth_token(client: &Client, username: &str, password: &str) -> Opti
         .send()
         .await
         .ok()?;
-    
+
     if !resp.status().is_success() {
         return None;
     }
-    
+
     let body: serde_json::Value = resp.json().await.ok()?;
     body["access_token"].as_str().map(|s| s.to_string())
 }
@@ -50,19 +49,15 @@ async fn test_hub_lists_all_engines() {
             return;
         }
     };
-    
+
     let url = format!("{}/api/v1/engines", base_url());
-    let resp = client
-        .get(&url)
-        .bearer_auth(&token)
-        .send()
-        .await;
-    
+    let resp = client.get(&url).bearer_auth(&token).send().await;
+
     match resp {
         Ok(r) if r.status().is_success() => {
             let body: serde_json::Value = r.json().await.unwrap();
             let engines = body.as_array().expect("Expected array of engines");
-            
+
             println!("✅ Found {} engines:", engines.len());
             for engine in engines {
                 let name = engine["name"].as_str().unwrap_or("unknown");
@@ -70,26 +65,26 @@ async fn test_hub_lists_all_engines() {
                 let status = engine["status"].as_str().unwrap_or("unknown");
                 println!("   - {} (type: {}, status: {})", name, engine_type, status);
             }
-            
+
             // ต้องมี 5 engines
             assert!(
                 engines.len() >= 5,
                 "Expected at least 5 engines, found {}",
                 engines.len()
             );
-            
+
             // ตรวจสอบว่ามี engine types ที่ถูกต้อง
             let types: Vec<String> = engines
                 .iter()
                 .map(|e| e["engine_type"].as_str().unwrap().to_string())
                 .collect();
-            
+
             assert!(types.contains(&"rules".to_string()), "Missing rules engine");
             assert!(types.contains(&"pmml".to_string()), "Missing pmml engine");
             assert!(types.contains(&"ml".to_string()), "Missing ml engine");
             assert!(types.contains(&"llm".to_string()), "Missing llm engine");
             assert!(types.contains(&"ai".to_string()), "Missing ai engine");
-            
+
             println!("✅ All 5 engine types present");
         }
         Ok(r) => {
@@ -111,7 +106,7 @@ async fn test_hub_routes_to_rules_engine() {
             return;
         }
     };
-    
+
     let url = format!("{}/api/v1/execute", base_url());
     let resp = client
         .post(&url)
@@ -135,16 +130,22 @@ async fn test_hub_routes_to_rules_engine() {
         }))
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             let status = r.status();
-            let body: serde_json::Value = r.json().await.unwrap_or_else(|_| json!({"error": "parse failed"}));
-            
+            let body: serde_json::Value = r
+                .json()
+                .await
+                .unwrap_or_else(|_| json!({"error": "parse failed"}));
+
             if status.is_success() {
                 println!("✅ Rules engine execution successful");
-                println!("   Output: {}", serde_json::to_string_pretty(&body).unwrap());
-                
+                println!(
+                    "   Output: {}",
+                    serde_json::to_string_pretty(&body).unwrap()
+                );
+
                 if let Some(engine) = body["engine_used"].as_str() {
                     println!("   Engine used: {}", engine);
                 }
@@ -169,7 +170,7 @@ async fn test_hub_routes_to_ml_engine() {
             return;
         }
     };
-    
+
     let url = format!("{}/api/v1/execute", base_url());
     let resp = client
         .post(&url)
@@ -192,7 +193,7 @@ async fn test_hub_routes_to_ml_engine() {
         }))
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             let status = r.status();
@@ -221,7 +222,7 @@ async fn test_hub_routes_to_pmml_engine() {
             return;
         }
     };
-    
+
     let url = format!("{}/api/v1/execute", base_url());
     let resp = client
         .post(&url)
@@ -239,7 +240,7 @@ async fn test_hub_routes_to_pmml_engine() {
         }))
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             let status = r.status();
@@ -268,7 +269,7 @@ async fn test_hub_routes_to_llm_engine() {
             return;
         }
     };
-    
+
     let url = format!("{}/api/v1/execute", base_url());
     let resp = client
         .post(&url)
@@ -283,7 +284,7 @@ async fn test_hub_routes_to_llm_engine() {
         }))
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             let status = r.status();
@@ -312,7 +313,7 @@ async fn test_hub_routes_to_ai_engine() {
             return;
         }
     };
-    
+
     let url = format!("{}/api/v1/execute", base_url());
     let resp = client
         .post(&url)
@@ -334,7 +335,7 @@ async fn test_hub_routes_to_ai_engine() {
         }))
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             let status = r.status();
@@ -365,7 +366,7 @@ async fn test_hub_handles_invalid_rule_id() {
             return;
         }
     };
-    
+
     let url = format!("{}/api/v1/execute", base_url());
     let resp = client
         .post(&url)
@@ -376,15 +377,18 @@ async fn test_hub_handles_invalid_rule_id() {
         }))
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             let status = r.status();
             let body: serde_json::Value = r.json().await.unwrap_or_else(|_| json!({}));
-            
+
             // ควรได้รับ error (404 หรือ 400)
             if !status.is_success() {
-                println!("✅ Hub correctly rejected invalid rule_id with status: {}", status);
+                println!(
+                    "✅ Hub correctly rejected invalid rule_id with status: {}",
+                    status
+                );
                 assert!(body["success"].as_bool() == Some(false) || status.as_u16() == 404);
             } else {
                 println!("⚠️  Hub accepted invalid rule_id (might be stub implementation)");
@@ -406,7 +410,7 @@ async fn test_hub_handles_malformed_input() {
             return;
         }
     };
-    
+
     let url = format!("{}/api/v1/execute", base_url());
     let resp = client
         .post(&url)
@@ -415,12 +419,15 @@ async fn test_hub_handles_malformed_input() {
         .body("{invalid json}")
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             let status = r.status();
             if status.is_client_error() {
-                println!("✅ Hub correctly rejected malformed input with status: {}", status);
+                println!(
+                    "✅ Hub correctly rejected malformed input with status: {}",
+                    status
+                );
             } else {
                 println!("⚠️  Hub accepted malformed input");
             }
@@ -443,10 +450,10 @@ async fn test_hub_batch_execution() {
             return;
         }
     };
-    
+
     let url = format!("{}/api/v1/execute/batch", base_url());
     let start = std::time::Instant::now();
-    
+
     let resp = client
         .post(&url)
         .bearer_auth(&token)
@@ -461,20 +468,20 @@ async fn test_hub_batch_execution() {
         }))
         .send()
         .await;
-    
+
     let duration = start.elapsed();
-    
+
     match resp {
         Ok(r) if r.status().is_success() => {
             let body: serde_json::Value = r.json().await.unwrap();
             let results = body["results"].as_array().unwrap();
-            
+
             println!("✅ Batch execution completed in {:?}", duration);
             println!("   Processed {} requests", results.len());
-            
+
             // ควรประมวลผลทั้ง 5 requests
             assert_eq!(results.len(), 5);
-            
+
             // ตรวจสอบว่าแต่ละ request มีผลลัพธ์
             for (i, result) in results.iter().enumerate() {
                 let success = result["success"].as_bool().unwrap_or(false);
@@ -500,16 +507,16 @@ async fn test_hub_concurrent_requests() {
             return;
         }
     };
-    
+
     let url = format!("{}/api/v1/execute", base_url());
     let mut handles = vec![];
-    
+
     // สร้าง 5 concurrent requests
     for i in 0..5 {
         let client = client.clone();
         let token = token.clone();
         let url = url.clone();
-        
+
         let handle = tokio::spawn(async move {
             let resp = client
                 .post(&url)
@@ -520,7 +527,7 @@ async fn test_hub_concurrent_requests() {
                 }))
                 .send()
                 .await;
-            
+
             match resp {
                 Ok(r) => {
                     let status = r.status();
@@ -533,10 +540,10 @@ async fn test_hub_concurrent_requests() {
                 }
             }
         });
-        
+
         handles.push(handle);
     }
-    
+
     // รอทุก request เสร็จ
     let mut success_count = 0;
     for handle in handles {
@@ -544,6 +551,6 @@ async fn test_hub_concurrent_requests() {
             success_count += 1;
         }
     }
-    
+
     println!("✅ Concurrent execution: {}/5 succeeded", success_count);
 }

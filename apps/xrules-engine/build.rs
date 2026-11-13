@@ -5,6 +5,6 @@ fn main() -> Result<()> {
         .build_server(true)
         .build_client(true)
         .compile(&["proto/engine.proto"], &["proto"])?;
-    
+
     Ok(())
 }

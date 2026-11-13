@@ -1,11 +1,11 @@
 //! Unit tests
-//! 
+//!
 //! Fast, isolated tests with no external dependencies
 
 pub mod auth_tests;
-pub mod hub_tests;
-pub mod engine_tests;
 pub mod decision_table_tests;
+pub mod engine_tests;
+pub mod hub_tests;
 
 use std::sync::Once;
 

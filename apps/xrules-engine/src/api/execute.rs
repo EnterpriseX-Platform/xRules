@@ -53,18 +53,25 @@ pub async fn execute_rule(
         Err(e) => {
             let (status, error_code) = match e {
                 crate::hub::HubError::RuleNotFound(_) => (StatusCode::NOT_FOUND, "NOT_FOUND"),
-                crate::hub::HubError::Validation(_) => (StatusCode::UNPROCESSABLE_ENTITY, "VALIDATION_ERROR"),
-                crate::hub::HubError::EngineNotFound(_) => (StatusCode::BAD_REQUEST, "ENGINE_NOT_FOUND"),
+                crate::hub::HubError::Validation(_) => {
+                    (StatusCode::UNPROCESSABLE_ENTITY, "VALIDATION_ERROR")
+                }
+                crate::hub::HubError::EngineNotFound(_) => {
+                    (StatusCode::BAD_REQUEST, "ENGINE_NOT_FOUND")
+                }
                 _ => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR"),
             };
 
-            Err((status, Json(ErrorResponse {
-                status: status.as_u16(),
-                error: error_code.to_string(),
-                message: e.to_string(),
-                request_id: format!("req-{}", uuid::Uuid::new_v4()),
-                details: None,
-            })))
+            Err((
+                status,
+                Json(ErrorResponse {
+                    status: status.as_u16(),
+                    error: error_code.to_string(),
+                    message: e.to_string(),
+                    request_id: format!("req-{}", uuid::Uuid::new_v4()),
+                    details: None,
+                }),
+            ))
         }
     }
 }

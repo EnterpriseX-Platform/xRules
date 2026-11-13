@@ -6,7 +6,7 @@ use axum::{
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
-use tracing::{info, error};
+use tracing::{error, info};
 
 mod api;
 mod auth;

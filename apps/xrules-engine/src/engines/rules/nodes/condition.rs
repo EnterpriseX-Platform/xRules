@@ -1,7 +1,7 @@
 use crate::engines::rules::context::ExecutionContext;
 use crate::engines::rules::nodes::types::NodeExecutor;
-use crate::engines::EngineError;
 use crate::engines::rules::Result;
+use crate::engines::EngineError;
 use serde::Deserialize;
 use serde_json::Value;
 use std::future::Future;
@@ -25,11 +25,12 @@ impl NodeExecutor for ConditionNode {
         Box::pin(async move {
             let cfg: ConditionConfig = serde_json::from_value(config.clone())
                 .map_err(|e| EngineError::Validation(format!("Invalid condition config: {}", e)))?;
-            
-            let field_value = context.get_variable(&cfg.field)
+
+            let field_value = context
+                .get_variable(&cfg.field)
                 .or_else(|| Some(&context.input))
                 .unwrap_or(&Value::Null);
-            
+
             let result = match cfg.operator.as_str() {
                 "equals" => field_value == &cfg.value,
                 "not_equals" => field_value != &cfg.value,
@@ -39,7 +40,7 @@ impl NodeExecutor for ConditionNode {
                 "exists" => !field_value.is_null(),
                 _ => false,
             };
-            
+
             Ok(Value::Bool(result))
         })
     }
@@ -50,7 +51,13 @@ fn compare_values(a: &Value, b: &Value) -> i32 {
         (Value::Number(n1), Value::Number(n2)) => {
             let f1 = n1.as_f64().unwrap_or(0.0);
             let f2 = n2.as_f64().unwrap_or(0.0);
-            if f1 > f2 { 1 } else if f1 < f2 { -1 } else { 0 }
+            if f1 > f2 {
+                1
+            } else if f1 < f2 {
+                -1
+            } else {
+                0
+            }
         }
         (Value::String(s1), Value::String(s2)) => s1.cmp(s2) as i32,
         _ => 0,

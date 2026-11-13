@@ -1,5 +1,5 @@
 //! Integration tests
-//! 
+//!
 //! Tests that verify components work together, may require external services
 
 pub mod api_tests;
@@ -13,9 +13,7 @@ static INIT: Once = Once::new();
 
 pub fn setup() {
     INIT.call_once(|| {
-        let _ = tracing_subscriber::fmt()
-            .with_env_filter("info")
-            .try_init();
+        let _ = tracing_subscriber::fmt().with_env_filter("info").try_init();
     });
 }
 
@@ -26,12 +24,10 @@ pub fn should_skip_grpc_tests() -> bool {
 
 /// Helper function to get the test server URL
 pub fn test_server_url() -> String {
-    std::env::var("TEST_SERVER_URL")
-        .unwrap_or_else(|_| "http://127.0.0.1:50051".to_string())
+    std::env::var("TEST_SERVER_URL").unwrap_or_else(|_| "http://127.0.0.1:50051".to_string())
 }
 
 /// Helper function to get the gRPC server URL
 pub fn grpc_server_url() -> String {
-    std::env::var("GRPC_SERVER_URL")
-        .unwrap_or_else(|_| "http://127.0.0.1:50060".to_string())
+    std::env::var("GRPC_SERVER_URL").unwrap_or_else(|_| "http://127.0.0.1:50060".to_string())
 }

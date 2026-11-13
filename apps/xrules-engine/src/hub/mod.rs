@@ -2,8 +2,8 @@ pub mod registry;
 pub mod router;
 pub mod types;
 
-pub use types::{EngineType, ExecuteRequest, ExecuteResponse, RulePayload, Standard};
 pub use registry::EngineRegistry;
+pub use types::{EngineType, ExecuteRequest, ExecuteResponse, RulePayload, Standard};
 
 use crate::engines::ai::AiEngine;
 use crate::engines::llm::LlmEngine;
@@ -58,28 +58,16 @@ impl EngineHub {
         );
 
         // PMML Engine (R)
-        engines.insert(
-            EngineType::Pmml,
-            Box::new(PmmlEngine::new().await?),
-        );
+        engines.insert(EngineType::Pmml, Box::new(PmmlEngine::new().await?));
 
         // ML Engine (Python)
-        engines.insert(
-            EngineType::Ml,
-            Box::new(MlEngine::new().await?),
-        );
+        engines.insert(EngineType::Ml, Box::new(MlEngine::new().await?));
 
         // LLM Engine (Python)
-        engines.insert(
-            EngineType::Llm,
-            Box::new(LlmEngine::new().await?),
-        );
+        engines.insert(EngineType::Llm, Box::new(LlmEngine::new().await?));
 
         // AI Engine (Python)
-        engines.insert(
-            EngineType::Ai,
-            Box::new(AiEngine::new().await?),
-        );
+        engines.insert(EngineType::Ai, Box::new(AiEngine::new().await?));
 
         let registry = EngineRegistry::new(engines);
 
@@ -102,8 +90,7 @@ impl EngineHub {
         };
 
         // Route to appropriate engine
-        let engine_type =
-            EngineType::from_str(engine_str).map_err(|e| HubError::EngineError(e))?;
+        let engine_type = EngineType::from_str(engine_str).map_err(|e| HubError::EngineError(e))?;
 
         // Execute on target engine
         let engine = self.registry.get(engine_type)?;
@@ -159,5 +146,3 @@ pub struct EngineInfo {
     pub standards: Vec<String>,
     pub version: String,
 }
-
-

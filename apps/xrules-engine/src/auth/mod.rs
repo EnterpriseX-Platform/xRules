@@ -1,15 +1,13 @@
 pub mod claims;
-pub mod middleware;
 pub mod errors;
+pub mod middleware;
 pub mod service;
 
 use crate::auth::claims::{Claims, Role};
 use crate::auth::errors::AuthError;
 use crate::auth::service::AuthService;
 use crate::AppState;
-use axum::{
-    Json,
-};
+use axum::Json;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use utoipa::ToSchema;
@@ -20,7 +18,7 @@ pub struct LoginRequest {
     /// Username or email
     #[schema(example = "admin@xrules.io")]
     pub username: String,
-    
+
     /// Password
     #[schema(example = "secure_password")]
     pub password: String,
@@ -32,19 +30,19 @@ pub struct LoginResponse {
     /// JWT access token
     #[schema(example = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...")]
     pub access_token: String,
-    
+
     /// JWT refresh token
     #[schema(example = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...")]
     pub refresh_token: String,
-    
+
     /// Token type (Bearer)
     #[schema(example = "Bearer")]
     pub token_type: String,
-    
+
     /// Access token expiration time in seconds
     #[schema(example = 3600)]
     pub expires_in: i64,
-    
+
     /// User information
     pub user: UserInfo,
 }
@@ -55,15 +53,15 @@ pub struct UserInfo {
     /// User ID
     #[schema(example = "550e8400-e29b-41d4-a716-446655440000")]
     pub id: String,
-    
+
     /// Username
     #[schema(example = "admin")]
     pub username: String,
-    
+
     /// Email
     #[schema(example = "admin@xrules.io")]
     pub email: String,
-    
+
     /// User roles
     #[schema(example = json![["Admin", "Editor"]])]
     pub roles: Vec<String>,

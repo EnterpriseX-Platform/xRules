@@ -43,13 +43,16 @@ pub async fn validate_rule(
             }
 
             let status = StatusCode::INTERNAL_SERVER_ERROR;
-            Err((status, Json(ErrorResponse {
-                status: status.as_u16(),
-                error: "INTERNAL_ERROR".to_string(),
-                message: e.to_string(),
-                request_id: format!("req-{}", uuid::Uuid::new_v4()),
-                details: None,
-            })))
+            Err((
+                status,
+                Json(ErrorResponse {
+                    status: status.as_u16(),
+                    error: "INTERNAL_ERROR".to_string(),
+                    message: e.to_string(),
+                    request_id: format!("req-{}", uuid::Uuid::new_v4()),
+                    details: None,
+                }),
+            ))
         }
     }
 }

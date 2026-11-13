@@ -1,12 +1,12 @@
 //! Decision Table (DMN) Unit Tests
-//! 
+//!
 //! ทดสอบการทำงานของ DMN Decision Tables ตามมาตรฐาน DMN 1.4
 
+use serde_json::json;
 use xrules_engine::engines::rules::{
     context::ExecutionContext,
     nodes::{dmn_table::DmnTableNode, types::NodeExecutor},
 };
-use serde_json::json;
 
 // ==================== Helper Functions ====================
 
@@ -127,15 +127,16 @@ fn create_discount_table() -> serde_json::Value {
     })
 }
 
-fn run_dmn_test(config: &serde_json::Value, input: serde_json::Value) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+fn run_dmn_test(
+    config: &serde_json::Value,
+    input: serde_json::Value,
+) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
     let node = DmnTableNode;
     let mut context = ExecutionContext::new(input);
-    
+
     let runtime = tokio::runtime::Runtime::new()?;
-    let result = runtime.block_on(async {
-        node.execute(config, &mut context).await
-    })?;
-    
+    let result = runtime.block_on(async { node.execute(config, &mut context).await })?;
+
     Ok(result)
 }
 
@@ -153,9 +154,9 @@ fn test_dmn_first_policy_approved_low_rate() {
             "amount": 200000
         }
     });
-    
+
     let result = run_dmn_test(&config, input).unwrap();
-    
+
     assert_eq!(result["decision"], "approved");
     assert_eq!(result["interest_rate"], 3.5);
 }
@@ -172,9 +173,9 @@ fn test_dmn_first_policy_approved_medium_rate() {
             "amount": 200000
         }
     });
-    
+
     let result = run_dmn_test(&config, input).unwrap();
-    
+
     assert_eq!(result["decision"], "approved");
     assert_eq!(result["interest_rate"], 5.5);
 }
@@ -191,9 +192,9 @@ fn test_dmn_first_policy_declined() {
             "amount": 100000
         }
     });
-    
+
     let result = run_dmn_test(&config, input).unwrap();
-    
+
     assert_eq!(result["decision"], "declined");
     assert_eq!(result["max_loan_amount"], "Credit score too low");
 }
@@ -210,9 +211,9 @@ fn test_dmn_first_policy_manual_review() {
             "amount": 600000  // High amount triggers review (matches rule 5)
         }
     });
-    
+
     let result = run_dmn_test(&config, input).unwrap();
-    
+
     assert_eq!(result["decision"], "review_required");
     assert_eq!(result["max_loan_amount"], "Manual review needed");
 }
@@ -229,9 +230,9 @@ fn test_dmn_first_policy_default() {
             "amount": 100000
         }
     });
-    
+
     let result = run_dmn_test(&config, input).unwrap();
-    
+
     // Should match default rule (last rule)
     assert_eq!(result["decision"], "approved");
     assert_eq!(result["interest_rate"], 6.5);
@@ -251,9 +252,9 @@ fn test_dmn_unique_policy_young_driver() {
             "type": "sports"
         }
     });
-    
+
     let result = run_dmn_test(&config, input).unwrap();
-    
+
     assert_eq!(result["base_premium"], 2500);
     assert_eq!(result["risk_category"], "high");
 }
@@ -270,9 +271,9 @@ fn test_dmn_unique_policy_adult_driver() {
             "type": "sedan"
         }
     });
-    
+
     let result = run_dmn_test(&config, input).unwrap();
-    
+
     assert_eq!(result["base_premium"], 1000);
     assert_eq!(result["risk_category"], "standard");
 }
@@ -294,15 +295,15 @@ fn test_dmn_unique_policy_senior_driver() {
             {"inputs": ["< 65"], "outputs": ["adult"]}
         ]
     });
-    
+
     let input = json!({
         "driver": {
             "age": 70
         }
     });
-    
+
     let result = run_dmn_test(&config, input).unwrap();
-    
+
     assert_eq!(result["category"], "senior");
 }
 
@@ -318,9 +319,9 @@ fn test_dmn_unique_policy_young_but_experienced() {
             "type": "sedan"
         }
     });
-    
+
     let result = run_dmn_test(&config, input).unwrap();
-    
+
     assert_eq!(result["base_premium"], 1500);
     assert_eq!(result["risk_category"], "medium");
 }
@@ -339,9 +340,9 @@ fn test_dmn_collect_policy_single_match() {
             "total": 1500  // Matches bulk order rule only
         }
     });
-    
+
     let result = run_dmn_test(&config, input).unwrap();
-    
+
     // Should return array with single result
     let discounts = result.as_array().unwrap();
     assert_eq!(discounts.len(), 1);
@@ -361,24 +362,31 @@ fn test_dmn_collect_policy_multiple_matches() {
             "total": 2000  // Also matches Bulk Order
         }
     });
-    
+
     let result = run_dmn_test(&config, input).unwrap();
-    
+
     // Should return array with all matching discounts
     let discounts = result.as_array().unwrap();
     assert_eq!(discounts.len(), 3);
-    
+
     // Check all discounts present
-    let vip = discounts.iter().find(|d| d["discount_reason"] == "VIP Status");
-    let bulk = discounts.iter().find(|d| d["discount_reason"] == "Bulk Order");
-    let loyalty = discounts.iter().find(|d| d["discount_reason"] == "Loyalty Reward");
-    
+    let vip = discounts
+        .iter()
+        .find(|d| d["discount_reason"] == "VIP Status");
+    let bulk = discounts
+        .iter()
+        .find(|d| d["discount_reason"] == "Bulk Order");
+    let loyalty = discounts
+        .iter()
+        .find(|d| d["discount_reason"] == "Loyalty Reward");
+
     assert!(vip.is_some());
     assert!(bulk.is_some());
     assert!(loyalty.is_some());
-    
+
     // Total discount would be 20% + 10% + 5% = 35%
-    let total_discount: i64 = discounts.iter()
+    let total_discount: i64 = discounts
+        .iter()
         .map(|d| d["discount_percent"].as_i64().unwrap())
         .sum();
     assert_eq!(total_discount, 35);
@@ -396,9 +404,9 @@ fn test_dmn_collect_policy_no_match() {
             "total": 100  // Small order
         }
     });
-    
+
     let result = run_dmn_test(&config, input).unwrap();
-    
+
     // Should return empty array
     let discounts = result.as_array().unwrap();
     assert_eq!(discounts.len(), 0);
@@ -424,19 +432,19 @@ fn test_dmn_expressions_comparison_operators() {
             {"inputs": ["-"], "outputs": ["other"]}
         ]
     });
-    
+
     // Test > 100
     let result = run_dmn_test(&config, json!({"value": 150})).unwrap();
     assert_eq!(result["result"], "greater");
-    
+
     // Test >= 100
     let result = run_dmn_test(&config, json!({"value": 100})).unwrap();
     assert_eq!(result["result"], "greater_or_equal");
-    
+
     // Test < 50
     let result = run_dmn_test(&config, json!({"value": 30})).unwrap();
     assert_eq!(result["result"], "less");
-    
+
     // Test <= 50
     let result = run_dmn_test(&config, json!({"value": 50})).unwrap();
     assert_eq!(result["result"], "less_or_equal");
@@ -458,13 +466,13 @@ fn test_dmn_expressions_equality() {
             {"inputs": ["-"], "outputs": ["reject"]}
         ]
     });
-    
+
     let result = run_dmn_test(&config, json!({"status": "active"})).unwrap();
     assert_eq!(result["action"], "process");
-    
+
     let result = run_dmn_test(&config, json!({"status": "pending"})).unwrap();
     assert_eq!(result["action"], "wait");
-    
+
     let result = run_dmn_test(&config, json!({"status": "inactive"})).unwrap();
     assert_eq!(result["action"], "reject");
 }
@@ -484,10 +492,10 @@ fn test_dmn_expressions_not_equal() {
             {"inputs": ["-"], "outputs": [false]}
         ]
     });
-    
+
     let result = run_dmn_test(&config, json!({"type": "normal"})).unwrap();
     assert_eq!(result["allowed"], true);
-    
+
     let result = run_dmn_test(&config, json!({"type": "blocked"})).unwrap();
     assert_eq!(result["allowed"], false);
 }
@@ -509,15 +517,15 @@ fn test_dmn_wildcard() {
             {"inputs": ["-", "-"], "outputs": ["junior"]}            // Default
         ]
     });
-    
+
     // Urgent + any priority -> senior
     let result = run_dmn_test(&config, json!({"category": "urgent", "priority": 1})).unwrap();
     assert_eq!(result["handler"], "senior");
-    
+
     // Normal + high priority -> team_lead
     let result = run_dmn_test(&config, json!({"category": "normal", "priority": 8})).unwrap();
     assert_eq!(result["handler"], "team_lead");
-    
+
     // Low priority + any category -> junior
     let result = run_dmn_test(&config, json!({"category": "normal", "priority": 2})).unwrap();
     assert_eq!(result["handler"], "junior");
@@ -542,7 +550,7 @@ fn test_dmn_nested_input_paths() {
             {"inputs": ["-", "-"], "outputs": ["none"]}
         ]
     });
-    
+
     let input = json!({
         "user": {
             "profile": {
@@ -553,7 +561,7 @@ fn test_dmn_nested_input_paths() {
             }
         }
     });
-    
+
     let result = run_dmn_test(&config, input).unwrap();
     assert_eq!(result["access_level"], "full");
 }
@@ -575,7 +583,7 @@ fn test_dmn_missing_input_path() {
             {"inputs": ["-"], "outputs": ["default"]}
         ]
     });
-    
+
     // Missing required field - should error
     let result = run_dmn_test(&config, json!({"other_field": "value"}));
     assert!(result.is_err());
@@ -587,7 +595,7 @@ fn test_dmn_invalid_config() {
         "hit_policy": "FIRST",
         // Missing required fields
     });
-    
+
     let result = run_dmn_test(&config, json!({}));
     assert!(result.is_err());
 }
@@ -600,7 +608,7 @@ fn test_dmn_unknown_hit_policy() {
         "outputs": [{"name": "y"}],
         "rules": [{"inputs": ["-"], "outputs": [1]}]
     });
-    
+
     let result = run_dmn_test(&config, json!({"x": 1}));
     assert!(result.is_err());
 }

@@ -1,7 +1,7 @@
 use crate::engines::rules::context::ExecutionContext;
 use crate::engines::rules::nodes::types::NodeExecutor;
-use crate::engines::EngineError;
 use crate::engines::rules::Result;
+use crate::engines::EngineError;
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -43,7 +43,10 @@ impl NodeExecutor for SubflowNode {
             } else {
                 let mut mapped = serde_json::Map::new();
                 for (target, source) in &cfg.input_mapping {
-                    let val = context.input.get(source).cloned()
+                    let val = context
+                        .input
+                        .get(source)
+                        .cloned()
                         .or_else(|| context.variables.get(source).cloned())
                         .unwrap_or(Value::Null);
                     mapped.insert(target.clone(), val);
@@ -64,8 +67,9 @@ impl NodeExecutor for SubflowNode {
                 .await
                 .map_err(|e| EngineError::External(format!("Subflow call failed: {}", e)))?;
 
-            let body: Value = response.json().await
-                .map_err(|e| EngineError::External(format!("Subflow response parse failed: {}", e)))?;
+            let body: Value = response.json().await.map_err(|e| {
+                EngineError::External(format!("Subflow response parse failed: {}", e))
+            })?;
 
             if let Some(data) = body.get("data") {
                 if let Some(output) = data.get("output") {

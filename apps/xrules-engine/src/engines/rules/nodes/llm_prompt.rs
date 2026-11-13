@@ -1,7 +1,7 @@
 use crate::engines::rules::context::ExecutionContext;
 use crate::engines::rules::nodes::types::NodeExecutor;
-use crate::engines::EngineError;
 use crate::engines::rules::Result;
+use crate::engines::EngineError;
 use serde::Deserialize;
 use serde_json::Value;
 use std::future::Future;
@@ -31,10 +31,18 @@ struct LlmPromptConfig {
 fn default_llm_endpoint() -> String {
     std::env::var("LLM_ENGINE_URL").unwrap_or_else(|_| "http://localhost:50054".to_string())
 }
-fn default_provider() -> String { "openai".to_string() }
-fn default_model() -> String { "gpt-4".to_string() }
-fn default_temperature() -> f64 { 0.7 }
-fn default_max_tokens() -> u32 { 1000 }
+fn default_provider() -> String {
+    "openai".to_string()
+}
+fn default_model() -> String {
+    "gpt-4".to_string()
+}
+fn default_temperature() -> f64 {
+    0.7
+}
+fn default_max_tokens() -> u32 {
+    1000
+}
 
 impl NodeExecutor for LlmPromptNode {
     fn execute<'a>(
@@ -70,7 +78,9 @@ impl NodeExecutor for LlmPromptNode {
                 .await
                 .map_err(|e| EngineError::External(format!("LLM engine call failed: {}", e)))?;
 
-            let body: Value = response.json().await
+            let body: Value = response
+                .json()
+                .await
                 .map_err(|e| EngineError::External(format!("LLM response parse failed: {}", e)))?;
 
             // Return the generated text and metadata

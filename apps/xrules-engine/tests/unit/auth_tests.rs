@@ -1,14 +1,14 @@
 //! Authentication Unit Tests
-//! 
+//!
 //! Tests JWT claims, token generation, and auth service
 
+use std::sync::Arc;
 use xrules_engine::auth::{
     claims::{Claims, Role},
     errors::AuthError,
-    service::AuthService,
     middleware::AuthConfig,
+    service::AuthService,
 };
-use std::sync::Arc;
 
 fn create_test_config() -> Arc<AuthConfig> {
     Arc::new(AuthConfig {
@@ -28,7 +28,7 @@ fn test_claims_creation() {
         vec![Role::Viewer],
         1,
     );
-    
+
     assert_eq!(claims.sub, "user-123");
     assert_eq!(claims.username, "testuser");
     assert_eq!(claims.email, "test@example.com");
@@ -46,7 +46,7 @@ fn test_claims_refresh_token() {
         "test@example.com",
         vec![Role::Admin],
     );
-    
+
     // Refresh tokens should be valid for 7 days (168 hours)
     let now = chrono::Utc::now().timestamp();
     let expected_exp = now + (168 * 3600);
@@ -62,7 +62,7 @@ fn test_claims_has_role() {
         vec![Role::Admin, Role::Editor],
         1,
     );
-    
+
     assert!(claims.has_role(Role::Admin));
     assert!(claims.has_role(Role::Editor));
     assert!(!claims.has_role(Role::Viewer));
@@ -77,7 +77,7 @@ fn test_claims_has_any_role() {
         vec![Role::Editor, Role::Viewer],
         1,
     );
-    
+
     assert!(claims.has_any_role(&[Role::Admin, Role::Editor]));
     assert!(claims.has_any_role(&[Role::Viewer]));
     assert!(!claims.has_any_role(&[Role::Admin, Role::Service]));
@@ -92,7 +92,7 @@ fn test_claims_not_expired() {
         vec![Role::Viewer],
         1, // 1 hour expiry
     );
-    
+
     assert!(!claims.is_expired());
 }
 
@@ -107,13 +107,13 @@ fn test_role_display() {
 #[test]
 fn test_role_from_str() {
     use std::str::FromStr;
-    
+
     assert_eq!(Role::from_str("ADMIN").unwrap(), Role::Admin);
     assert_eq!(Role::from_str("admin").unwrap(), Role::Admin);
     assert_eq!(Role::from_str("Editor").unwrap(), Role::Editor);
     assert_eq!(Role::from_str("viewer").unwrap(), Role::Viewer);
     assert_eq!(Role::from_str("SERVICE").unwrap(), Role::Service);
-    
+
     assert!(Role::from_str("unknown").is_err());
 }
 
@@ -121,10 +121,10 @@ fn test_role_from_str() {
 async fn test_auth_service_authenticate_success() {
     let config = create_test_config();
     let auth_service = AuthService::new(config);
-    
+
     let result = auth_service.authenticate("admin", "admin123").await;
     assert!(result.is_ok());
-    
+
     let (access_token, refresh_token, claims) = result.unwrap();
     assert!(!access_token.is_empty());
     assert!(!refresh_token.is_empty());
@@ -136,10 +136,10 @@ async fn test_auth_service_authenticate_success() {
 async fn test_auth_service_authenticate_editor() {
     let config = create_test_config();
     let auth_service = AuthService::new(config);
-    
+
     let result = auth_service.authenticate("editor", "editor123").await;
     assert!(result.is_ok());
-    
+
     let (_, _, claims) = result.unwrap();
     assert_eq!(claims.username, "editor");
     assert!(claims.has_role(Role::Editor));
@@ -151,10 +151,10 @@ async fn test_auth_service_authenticate_editor() {
 async fn test_auth_service_authenticate_viewer() {
     let config = create_test_config();
     let auth_service = AuthService::new(config);
-    
+
     let result = auth_service.authenticate("viewer", "viewer123").await;
     assert!(result.is_ok());
-    
+
     let (_, _, claims) = result.unwrap();
     assert_eq!(claims.username, "viewer");
     assert!(claims.has_role(Role::Viewer));
@@ -165,12 +165,12 @@ async fn test_auth_service_authenticate_viewer() {
 async fn test_auth_service_authenticate_invalid_credentials() {
     let config = create_test_config();
     let auth_service = AuthService::new(config);
-    
+
     let result = auth_service.authenticate("admin", "wrongpassword").await;
     assert!(result.is_err());
-    
+
     match result.unwrap_err() {
-        AuthError::InvalidCredentials => {},
+        AuthError::InvalidCredentials => {}
         _ => panic!("Expected InvalidCredentials error"),
     }
 }
@@ -179,12 +179,12 @@ async fn test_auth_service_authenticate_invalid_credentials() {
 async fn test_auth_service_authenticate_unknown_user() {
     let config = create_test_config();
     let auth_service = AuthService::new(config);
-    
+
     let result = auth_service.authenticate("unknown", "password").await;
     assert!(result.is_err());
-    
+
     match result.unwrap_err() {
-        AuthError::InvalidCredentials => {},
+        AuthError::InvalidCredentials => {}
         _ => panic!("Expected InvalidCredentials error"),
     }
 }
@@ -193,13 +193,16 @@ async fn test_auth_service_authenticate_unknown_user() {
 async fn test_auth_service_token_refresh() {
     let config = create_test_config();
     let auth_service = AuthService::new(config);
-    
+
     // First authenticate
-    let (_, refresh_token, _) = auth_service.authenticate("admin", "admin123").await.unwrap();
-    
+    let (_, refresh_token, _) = auth_service
+        .authenticate("admin", "admin123")
+        .await
+        .unwrap();
+
     // Then refresh
     let result = auth_service.refresh(&refresh_token).await;
-    
+
     // Token refresh may fail due to validation settings - check it works or gives expected error
     match result {
         Ok((new_access, new_refresh, claims)) => {
@@ -219,12 +222,12 @@ async fn test_auth_service_token_refresh() {
 async fn test_auth_service_refresh_invalid_token() {
     let config = create_test_config();
     let auth_service = AuthService::new(config);
-    
+
     let result = auth_service.refresh("invalid.token.here").await;
     assert!(result.is_err());
-    
+
     match result.unwrap_err() {
-        AuthError::InvalidToken => {},
+        AuthError::InvalidToken => {}
         _ => panic!("Expected InvalidToken error"),
     }
 }
@@ -233,20 +236,23 @@ async fn test_auth_service_refresh_invalid_token() {
 async fn test_auth_service_revoke_token() {
     let config = create_test_config();
     let auth_service = AuthService::new(config);
-    
+
     // First authenticate
-    let (_, refresh_token, _) = auth_service.authenticate("admin", "admin123").await.unwrap();
-    
+    let (_, refresh_token, _) = auth_service
+        .authenticate("admin", "admin123")
+        .await
+        .unwrap();
+
     // Revoke the token
     let result = auth_service.revoke(&refresh_token).await;
     assert!(result.is_ok());
-    
+
     // Verify token is marked as revoked
     assert!(auth_service.is_revoked(&refresh_token));
-    
+
     // Try to refresh with revoked token
     let result = auth_service.refresh(&refresh_token).await;
-    
+
     // Check that we get an error - could be TokenRevoked or InvalidToken depending on implementation
     match result {
         Err(AuthError::TokenRevoked) => {
@@ -265,13 +271,13 @@ async fn test_auth_service_revoke_token() {
 async fn test_auth_service_is_revoked() {
     let config = create_test_config();
     let auth_service = AuthService::new(config);
-    
+
     let token = "test-token-to-revoke";
-    
+
     assert!(!auth_service.is_revoked(token));
-    
+
     auth_service.revoke(token).await.unwrap();
-    
+
     assert!(auth_service.is_revoked(token));
 }
 
@@ -279,7 +285,7 @@ async fn test_auth_service_is_revoked() {
 async fn test_auth_service_access_token_expiry() {
     let config = create_test_config();
     let auth_service = AuthService::new(config);
-    
+
     // Should be 1 hour = 3600 seconds
     assert_eq!(auth_service.access_token_expiry(), 3600);
 }

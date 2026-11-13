@@ -4,7 +4,7 @@ use crate::hub::types::Standard;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tracing::{info, error};
+use tracing::{error, info};
 
 /// PMML Engine client for R-based statistical models
 pub struct PmmlEngine {
@@ -18,22 +18,26 @@ impl PmmlEngine {
     pub async fn new() -> Result<Self> {
         let endpoint = std::env::var("PMML_ENGINE_URL")
             .unwrap_or_else(|_| "http://localhost:50052".to_string());
-        
-        info!("Initializing PMML Engine client with endpoint: {}", endpoint);
-        
+
+        info!(
+            "Initializing PMML Engine client with endpoint: {}",
+            endpoint
+        );
+
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(60))
             .build()
             .map_err(|e| EngineError::External(format!("Failed to create HTTP client: {}", e)))?;
-        
+
         Ok(Self { endpoint, client })
     }
-    
+
     /// Load a PMML model from file path
     pub async fn load_model(&self, model_path: &str) -> Result<String> {
         let url = format!("{}/models/load", self.endpoint);
-        
-        let response = self.client
+
+        let response = self
+            .client
             .post(&url)
             .json(&serde_json::json!({
                 "model_path": model_path
@@ -41,22 +45,25 @@ impl PmmlEngine {
             .send()
             .await
             .map_err(|e| EngineError::External(format!("PMML service error: {}", e)))?;
-        
-        let result: LoadModelResponse = response.json().await
+
+        let result: LoadModelResponse = response
+            .json()
+            .await
             .map_err(|e| EngineError::External(format!("Invalid response: {}", e)))?;
-        
+
         if result.success {
             Ok(result.model_id)
         } else {
             Err(EngineError::External(result.error.unwrap_or_default()))
         }
     }
-    
+
     /// Validate PMML content
     pub async fn validate_pmml(&self, pmml_content: &str) -> Result<bool> {
         let url = format!("{}/validate", self.endpoint);
-        
-        let response = self.client
+
+        let response = self
+            .client
             .post(&url)
             .json(&serde_json::json!({
                 "pmml_content": pmml_content
@@ -64,10 +71,12 @@ impl PmmlEngine {
             .send()
             .await
             .map_err(|e| EngineError::External(format!("PMML validation error: {}", e)))?;
-        
-        let result: ValidateResponse = response.json().await
+
+        let result: ValidateResponse = response
+            .json()
+            .await
             .map_err(|e| EngineError::External(format!("Invalid response: {}", e)))?;
-        
+
         Ok(result.valid)
     }
 }
@@ -76,9 +85,9 @@ impl PmmlEngine {
 impl Engine for PmmlEngine {
     async fn execute(&self, rule: Rule, input: Value) -> Result<Value> {
         info!("PMML Engine executing rule: {}", rule.id);
-        
+
         let url = format!("{}/execute", self.endpoint);
-        
+
         let request = ExecuteRequest {
             rule: RuleInfo {
                 id: rule.id,
@@ -86,44 +95,55 @@ impl Engine for PmmlEngine {
             },
             input,
         };
-        
-        let response = self.client
+
+        let response = self
+            .client
             .post(&url)
             .json(&request)
             .send()
             .await
             .map_err(|e| EngineError::External(format!("PMML service error: {}", e)))?;
-        
-        let result: ExecuteResponse = response.json().await
+
+        let result: ExecuteResponse = response
+            .json()
+            .await
             .map_err(|e| EngineError::External(format!("Invalid PMML response: {}", e)))?;
-        
+
         if result.success {
             info!("PMML model executed successfully");
             Ok(result.output.unwrap_or(Value::Null))
         } else {
-            error!("PMML execution failed: {}", result.error.as_deref().unwrap_or("Unknown error"));
+            error!(
+                "PMML execution failed: {}",
+                result.error.as_deref().unwrap_or("Unknown error")
+            );
             Err(EngineError::Execution(result.error.unwrap_or_default()))
         }
     }
-    
+
     async fn is_healthy(&self) -> bool {
-        match self.client.get(format!("{}/health", self.endpoint)).send().await {
+        match self
+            .client
+            .get(format!("{}/health", self.endpoint))
+            .send()
+            .await
+        {
             Ok(resp) => resp.status().is_success(),
             Err(_) => false,
         }
     }
-    
+
     fn supported_standards(&self) -> Vec<Standard> {
         vec![
             Standard::new("PMML", "4.4", "Predictive Model Markup Language"),
             Standard::new("DMG", "4.4", "Data Mining Group Standard"),
         ]
     }
-    
+
     fn name(&self) -> &str {
         "pmml-engine"
     }
-    
+
     fn version(&self) -> &str {
         "0.1.0"
     }

@@ -1,6 +1,5 @@
 use crate::grpc::proto::{
-    engine_service_client::EngineServiceClient,
-    ExecuteRequest, ExecuteResponse,
+    engine_service_client::EngineServiceClient, ExecuteRequest, ExecuteResponse,
     HealthCheckRequest, HealthCheckResponse,
 };
 use tonic::transport::Channel;
@@ -16,7 +15,7 @@ impl GrpcEngineClient {
         let client = EngineServiceClient::connect(addr.to_string()).await?;
         Ok(Self { client })
     }
-    
+
     /// Execute a rule via gRPC
     pub async fn execute(
         &mut self,
@@ -31,13 +30,15 @@ impl GrpcEngineClient {
             rule_type: "DECISION_TABLE".to_string(),
             definition: vec![],
         };
-        
+
         let response = self.client.execute(request).await?;
         Ok(response.into_inner())
     }
-    
+
     /// Health check
-    pub async fn health_check(&mut self) -> Result<HealthCheckResponse, Box<dyn std::error::Error>> {
+    pub async fn health_check(
+        &mut self,
+    ) -> Result<HealthCheckResponse, Box<dyn std::error::Error>> {
         let request = HealthCheckRequest {};
         let response = self.client.health_check(request).await?;
         Ok(response.into_inner())

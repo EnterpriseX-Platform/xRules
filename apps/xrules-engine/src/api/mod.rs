@@ -1,8 +1,8 @@
-pub mod health;
-pub mod execute;
-pub mod engines;
-pub mod validate;
 pub mod docs;
+pub mod engines;
+pub mod execute;
+pub mod health;
+pub mod validate;
 
 use utoipa::OpenApi;
 

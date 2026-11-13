@@ -1,7 +1,7 @@
 use crate::engines::rules::context::ExecutionContext;
 use crate::engines::rules::nodes::types::NodeExecutor;
-use crate::engines::EngineError;
 use crate::engines::rules::Result;
+use crate::engines::EngineError;
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -62,8 +62,9 @@ impl NodeExecutor for RuleRefNode {
                 .await
                 .map_err(|e| EngineError::External(format!("RuleRef call failed: {}", e)))?;
 
-            let body: Value = response.json().await
-                .map_err(|e| EngineError::External(format!("RuleRef response parse failed: {}", e)))?;
+            let body: Value = response.json().await.map_err(|e| {
+                EngineError::External(format!("RuleRef response parse failed: {}", e))
+            })?;
 
             // Extract output from backend response: { success, data: { output: ... } }
             if let Some(data) = body.get("data") {

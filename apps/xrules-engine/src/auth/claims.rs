@@ -76,24 +76,24 @@ impl Claims {
             jti: uuid::Uuid::new_v4().to_string(),
         }
     }
-    
+
     /// Create refresh token claims with longer expiry
     pub fn new_refresh(user_id: &str, username: &str, email: &str, roles: Vec<Role>) -> Self {
         // Refresh tokens valid for 7 days
         Self::new(user_id, username, email, roles, 24 * 7)
     }
-    
+
     /// Check if token is expired
     pub fn is_expired(&self) -> bool {
         let now = Utc::now().timestamp();
         self.exp < now
     }
-    
+
     /// Check if user has a specific role
     pub fn has_role(&self, role: Role) -> bool {
         self.roles.contains(&role)
     }
-    
+
     /// Check if user has any of the required roles
     pub fn has_any_role(&self, roles: &[Role]) -> bool {
         roles.iter().any(|r| self.roles.contains(r))
@@ -106,13 +106,13 @@ impl Claims {
 pub enum Role {
     /// Full access to all resources
     Admin,
-    
+
     /// Can create and modify rules
     Editor,
-    
+
     /// Can view and execute rules
     Viewer,
-    
+
     /// Service account for automated access
     Service,
 }
@@ -130,7 +130,7 @@ impl fmt::Display for Role {
 
 impl std::str::FromStr for Role {
     type Err = String;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_uppercase().as_str() {
             "ADMIN" => Ok(Role::Admin),

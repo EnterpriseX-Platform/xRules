@@ -1,10 +1,10 @@
 //! Engine Hub Unit Tests
 
+use serde_json::json;
 use xrules_engine::hub::{
     types::{EngineType, ExecuteRequest, ExecuteResponse, Standard},
     EngineInfo,
 };
-use serde_json::json;
 
 #[test]
 fn test_engine_type_display() {
@@ -28,28 +28,31 @@ fn test_engine_type_from_str() {
     assert_eq!(EngineType::from_str("RULES").unwrap(), EngineType::Rules);
     assert_eq!(EngineType::from_str("rust").unwrap(), EngineType::Rules);
     assert_eq!(EngineType::from_str("Rust").unwrap(), EngineType::Rules);
-    
+
     // PMML engine variations
     assert_eq!(EngineType::from_str("pmml").unwrap(), EngineType::Pmml);
     assert_eq!(EngineType::from_str("PMML").unwrap(), EngineType::Pmml);
     assert_eq!(EngineType::from_str("r").unwrap(), EngineType::Pmml);
     assert_eq!(EngineType::from_str("R").unwrap(), EngineType::Pmml);
-    
+
     // ML engine variations
     assert_eq!(EngineType::from_str("ml").unwrap(), EngineType::Ml);
     assert_eq!(EngineType::from_str("ML").unwrap(), EngineType::Ml);
     assert_eq!(EngineType::from_str("python-ml").unwrap(), EngineType::Ml);
     assert_eq!(EngineType::from_str("Python-ML").unwrap(), EngineType::Ml);
-    
+
     // LLM engine
     assert_eq!(EngineType::from_str("llm").unwrap(), EngineType::Llm);
     assert_eq!(EngineType::from_str("LLM").unwrap(), EngineType::Llm);
-    
+
     // AI engine variations
     assert_eq!(EngineType::from_str("ai").unwrap(), EngineType::Ai);
     assert_eq!(EngineType::from_str("AI").unwrap(), EngineType::Ai);
-    assert_eq!(EngineType::from_str("deep-learning").unwrap(), EngineType::Ai);
-    
+    assert_eq!(
+        EngineType::from_str("deep-learning").unwrap(),
+        EngineType::Ai
+    );
+
     // Invalid engine type
     assert!(EngineType::from_str("unknown").is_err());
     assert!(EngineType::from_str("").is_err());
@@ -57,12 +60,8 @@ fn test_engine_type_from_str() {
 
 #[test]
 fn test_standard_creation() {
-    let standard = Standard::new(
-        "DMN",
-        "1.4",
-        "Decision Model and Notation",
-    );
-    
+    let standard = Standard::new("DMN", "1.4", "Decision Model and Notation");
+
     assert_eq!(standard.name, "DMN");
     assert_eq!(standard.version, "1.4");
     assert_eq!(standard.description, "Decision Model and Notation");
@@ -71,7 +70,7 @@ fn test_standard_creation() {
 #[test]
 fn test_standard_serialization() {
     let standard = Standard::new("PMML", "4.4", "Predictive Model Markup Language");
-    
+
     let json = serde_json::to_string(&standard).unwrap();
     assert!(json.contains("PMML"));
     assert!(json.contains("4.4"));
@@ -87,7 +86,7 @@ fn test_execute_request_deserialization() {
             "income": 50000
         }
     });
-    
+
     let req: ExecuteRequest = serde_json::from_value(json_data).unwrap();
     assert_eq!(req.rule_id, "test-rule-123");
     assert_eq!(req.input["age"], 30);
@@ -102,7 +101,7 @@ fn test_execute_request_with_context() {
         "input": {"value": 100},
         "context": {"tenant_id": "tenant-1"}
     });
-    
+
     let req: ExecuteRequest = serde_json::from_value(json_data).unwrap();
     assert_eq!(req.rule_id, "test-rule-123");
     assert!(req.context.is_some());
@@ -118,7 +117,7 @@ fn test_execute_response_serialization() {
         duration_ms: 150,
         engine_used: Some("rules".to_string()),
     };
-    
+
     let json_str = serde_json::to_string(&response).unwrap();
     assert!(json_str.contains("\"success\":true"));
     assert!(json_str.contains("\"result\":\"approved\""));
@@ -134,7 +133,7 @@ fn test_execute_response_error() {
         duration_ms: 10,
         engine_used: None,
     };
-    
+
     let json = serde_json::to_value(&response).unwrap();
     assert_eq!(json["success"], false);
     assert_eq!(json["error"], "Rule not found");
@@ -150,7 +149,7 @@ fn test_engine_info_creation() {
         standards: vec!["DMN".to_string(), "JSON".to_string()],
         version: "1.0.0".to_string(),
     };
-    
+
     assert_eq!(info.name, "Rules Engine");
     assert_eq!(info.engine_type, "rules");
     assert_eq!(info.status, "healthy");
@@ -167,11 +166,14 @@ fn test_engine_info_serialization() {
         standards: vec!["PMML".to_string(), "ONNX".to_string()],
         version: "2.1.0".to_string(),
     };
-    
+
     let json = serde_json::to_value(&info).unwrap();
     assert_eq!(json["name"], "ML Engine");
     assert_eq!(json["engine_type"], "ml");
-    assert!(json["standards"].as_array().unwrap().contains(&json!("PMML")));
+    assert!(json["standards"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("PMML")));
 }
 
 #[test]
@@ -179,7 +181,7 @@ fn test_engine_type_equality() {
     let rules1 = EngineType::Rules;
     let rules2 = EngineType::Rules;
     let pmml = EngineType::Pmml;
-    
+
     assert_eq!(rules1, rules2);
     assert_ne!(rules1, pmml);
 }
@@ -187,11 +189,11 @@ fn test_engine_type_equality() {
 #[test]
 fn test_engine_type_hash() {
     use std::collections::HashSet;
-    
+
     let mut set = HashSet::new();
     set.insert(EngineType::Rules);
     set.insert(EngineType::Pmml);
     set.insert(EngineType::Rules); // Duplicate
-    
+
     assert_eq!(set.len(), 2);
 }

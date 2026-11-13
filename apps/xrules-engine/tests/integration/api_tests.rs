@@ -1,13 +1,12 @@
 //! HTTP API Integration Tests
-//! 
+//!
 //! Tests REST API endpoints
 
 use reqwest::Client;
 use serde_json::json;
 
 fn base_url() -> String {
-    std::env::var("TEST_SERVER_URL")
-        .unwrap_or_else(|_| "http://127.0.0.1:50051".to_string())
+    std::env::var("TEST_SERVER_URL").unwrap_or_else(|_| "http://127.0.0.1:50051".to_string())
 }
 
 fn create_client() -> Client {
@@ -19,7 +18,7 @@ fn create_client() -> Client {
 
 async fn get_auth_token(client: &Client, username: &str, password: &str) -> Option<String> {
     let url = format!("{}/api/v1/auth/login", base_url());
-    
+
     let resp = client
         .post(&url)
         .json(&json!({
@@ -29,11 +28,11 @@ async fn get_auth_token(client: &Client, username: &str, password: &str) -> Opti
         .send()
         .await
         .ok()?;
-    
+
     if !resp.status().is_success() {
         return None;
     }
-    
+
     let body: serde_json::Value = resp.json().await.ok()?;
     body["access_token"].as_str().map(|s| s.to_string())
 }
@@ -44,9 +43,9 @@ async fn get_auth_token(client: &Client, username: &str, password: &str) -> Opti
 async fn test_health_endpoint() {
     let client = create_client();
     let url = format!("{}/health", base_url());
-    
+
     let resp = client.get(&url).send().await;
-    
+
     match resp {
         Ok(r) => {
             assert!(r.status().is_success());
@@ -63,9 +62,9 @@ async fn test_health_endpoint() {
 async fn test_health_live_endpoint() {
     let client = create_client();
     let url = format!("{}/health/live", base_url());
-    
+
     let resp = client.get(&url).send().await;
-    
+
     match resp {
         Ok(r) => {
             assert!(r.status().is_success());
@@ -80,9 +79,9 @@ async fn test_health_live_endpoint() {
 async fn test_health_ready_endpoint() {
     let client = create_client();
     let url = format!("{}/health/ready", base_url());
-    
+
     let resp = client.get(&url).send().await;
-    
+
     match resp {
         Ok(r) => {
             assert!(r.status().is_success());
@@ -101,9 +100,9 @@ async fn test_health_ready_endpoint() {
 async fn test_openapi_json_endpoint() {
     let client = create_client();
     let url = format!("{}/api/v1/openapi.json", base_url());
-    
+
     let resp = client.get(&url).send().await;
-    
+
     match resp {
         Ok(r) => {
             assert!(r.status().is_success());
@@ -121,9 +120,9 @@ async fn test_openapi_json_endpoint() {
 async fn test_swagger_ui_endpoint() {
     let client = create_client();
     let url = format!("{}/docs", base_url());
-    
+
     let resp = client.get(&url).send().await;
-    
+
     match resp {
         Ok(r) => {
             // Should return HTML
@@ -145,31 +144,31 @@ async fn test_swagger_ui_endpoint() {
 async fn test_list_engines() {
     let client = create_client();
     let token = get_auth_token(&client, "admin", "admin123").await;
-    
+
     let url = format!("{}/api/v1/engines", base_url());
     let mut req = client.get(&url);
-    
+
     if let Some(t) = token {
         req = req.bearer_auth(t);
     }
-    
+
     let resp = req.send().await;
-    
+
     match resp {
         Ok(r) => {
             if r.status().is_success() {
                 let body: serde_json::Value = r.json().await.unwrap();
                 let engines = body.as_array().unwrap();
-                
+
                 // Should have 5 engines
                 assert!(engines.len() >= 5, "Expected at least 5 engines");
-                
+
                 // Check engine names
                 let engine_names: Vec<String> = engines
                     .iter()
                     .map(|e| e["name"].as_str().unwrap().to_string())
                     .collect();
-                
+
                 assert!(engine_names.iter().any(|n| n.contains("Rules")));
                 assert!(engine_names.iter().any(|n| n.contains("PMML")));
                 assert!(engine_names.iter().any(|n| n.contains("ML")));
@@ -187,9 +186,9 @@ async fn test_list_engines() {
 async fn test_list_engines_unauthorized() {
     let client = create_client();
     let url = format!("{}/api/v1/engines", base_url());
-    
+
     let resp = client.get(&url).send().await;
-    
+
     match resp {
         Ok(r) => {
             // Should require authentication
@@ -215,7 +214,7 @@ async fn test_execute_endpoint_rules_engine() {
             return;
         }
     };
-    
+
     let url = format!("{}/api/v1/execute", base_url());
     let resp = client
         .post(&url)
@@ -229,7 +228,7 @@ async fn test_execute_endpoint_rules_engine() {
         }))
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             if r.status().is_success() {
@@ -254,7 +253,7 @@ async fn test_execute_endpoint_missing_rule_id() {
             return;
         }
     };
-    
+
     let url = format!("{}/api/v1/execute", base_url());
     let resp = client
         .post(&url)
@@ -265,7 +264,7 @@ async fn test_execute_endpoint_missing_rule_id() {
         }))
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             if !r.status().is_success() {
@@ -288,7 +287,7 @@ async fn test_execute_endpoint_invalid_rule() {
             return;
         }
     };
-    
+
     let url = format!("{}/api/v1/execute", base_url());
     let resp = client
         .post(&url)
@@ -299,7 +298,7 @@ async fn test_execute_endpoint_invalid_rule() {
         }))
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             if !r.status().is_success() {
@@ -326,14 +325,10 @@ async fn test_validate_endpoint() {
             return;
         }
     };
-    
+
     let url = format!("{}/api/v1/validate/test-rule-1", base_url());
-    let resp = client
-        .post(&url)
-        .bearer_auth(token)
-        .send()
-        .await;
-    
+    let resp = client.post(&url).bearer_auth(token).send().await;
+
     match resp {
         Ok(r) => {
             if r.status().is_success() {
@@ -359,7 +354,7 @@ async fn test_batch_execute() {
             return;
         }
     };
-    
+
     let url = format!("{}/api/v1/execute/batch", base_url());
     let resp = client
         .post(&url)
@@ -372,7 +367,7 @@ async fn test_batch_execute() {
         }))
         .send()
         .await;
-    
+
     match resp {
         Ok(r) => {
             if r.status().is_success() {
@@ -392,9 +387,9 @@ async fn test_batch_execute() {
 async fn test_404_error() {
     let client = create_client();
     let url = format!("{}/api/v1/non-existent-endpoint", base_url());
-    
+
     let resp = client.get(&url).send().await;
-    
+
     match resp {
         Ok(r) => {
             assert_eq!(r.status(), 404);
@@ -409,10 +404,10 @@ async fn test_404_error() {
 async fn test_method_not_allowed() {
     let client = create_client();
     let url = format!("{}/api/v1/engines", base_url());
-    
+
     // Try to POST to a GET-only endpoint
     let resp = client.post(&url).send().await;
-    
+
     match resp {
         Ok(r) => {
             // Should return 405 or require auth first
