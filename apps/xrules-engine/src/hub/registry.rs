@@ -1,5 +1,5 @@
 use crate::engines::Engine;
-use crate::hub::types::{EngineType, Standard};
+use crate::hub::types::EngineType;
 use crate::hub::{EngineInfo, HubError};
 use std::collections::HashMap;
 

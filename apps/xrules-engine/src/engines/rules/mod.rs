@@ -4,7 +4,7 @@ pub mod nodes;
 
 use crate::engines::rules::executor::RulesExecutor;
 use crate::engines::rules::nodes::NodeRegistry;
-use crate::engines::{Engine, EngineError, Result};
+use crate::engines::{Engine, Result};
 use crate::hub::router::Rule;
 use crate::hub::types::Standard;
 use async_trait::async_trait;

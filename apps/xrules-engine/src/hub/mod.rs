@@ -3,7 +3,7 @@ pub mod router;
 pub mod types;
 
 pub use registry::EngineRegistry;
-pub use types::{EngineType, ExecuteRequest, ExecuteResponse, RulePayload, Standard};
+pub use types::{EngineType, ExecuteRequest, RulePayload, Standard};
 
 use crate::engines::ai::AiEngine;
 use crate::engines::llm::LlmEngine;
@@ -90,7 +90,7 @@ impl EngineHub {
         };
 
         // Route to appropriate engine
-        let engine_type = EngineType::from_str(engine_str).map_err(|e| HubError::EngineError(e))?;
+        let engine_type = EngineType::from_str(engine_str).map_err(HubError::EngineError)?;
 
         // Execute on target engine
         let engine = self.registry.get(engine_type)?;
@@ -116,7 +116,7 @@ impl EngineHub {
         };
 
         let engine_type =
-            EngineType::from_str(&rule_payload.engine).map_err(|e| HubError::EngineError(e))?;
+            EngineType::from_str(&rule_payload.engine).map_err(HubError::EngineError)?;
         let engine = self.registry.get(engine_type)?;
 
         engine

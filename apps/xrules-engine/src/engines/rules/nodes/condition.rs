@@ -28,7 +28,7 @@ impl NodeExecutor for ConditionNode {
 
             let field_value = context
                 .get_variable(&cfg.field)
-                .or_else(|| Some(&context.input))
+                .or(Some(&context.input))
                 .unwrap_or(&Value::Null);
 
             let result = match cfg.operator.as_str() {

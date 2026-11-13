@@ -6,7 +6,7 @@ use crate::grpc::proto::{
 use crate::hub::{EngineHub, ExecuteRequest as HubExecuteRequest, RulePayload as HubRulePayload};
 use std::pin::Pin;
 use std::sync::Arc;
-use tokio_stream::{Stream, StreamExt};
+use tokio_stream::Stream;
 use tonic::{Request, Response, Status};
 use tracing::{error, info};
 use uuid::Uuid;
@@ -268,7 +268,7 @@ impl EngineService for GrpcEngineService {
         let mut stream = request.into_inner();
 
         let output_stream = async_stream::try_stream! {
-            while let Some(req) = stream.message().await? {
+            while let Some(_req) = stream.message().await? {
                 // Process inference chunk
                 // This is a placeholder - implement actual streaming inference
                 yield InferenceResponse {

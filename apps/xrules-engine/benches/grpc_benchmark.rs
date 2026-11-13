@@ -1,4 +1,4 @@
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tokio::runtime::Runtime;
 
 // Simple benchmark comparing HTTP vs gRPC performance

@@ -80,7 +80,7 @@ fn test_standard_serialization() {
 #[test]
 fn test_execute_request_deserialization() {
     let json_data = json!({
-        "rule_id": "test-rule-123",
+        "rule": {"type": "DECISION_TABLE", "engine": "rules", "definition": {}},
         "input": {
             "age": 30,
             "income": 50000
@@ -88,7 +88,8 @@ fn test_execute_request_deserialization() {
     });
 
     let req: ExecuteRequest = serde_json::from_value(json_data).unwrap();
-    assert_eq!(req.rule_id, "test-rule-123");
+    assert_eq!(req.rule.rule_type, "DECISION_TABLE");
+    assert_eq!(req.rule.engine, "rules");
     assert_eq!(req.input["age"], 30);
     assert_eq!(req.input["income"], 50000);
     assert!(req.context.is_none());
@@ -97,13 +98,14 @@ fn test_execute_request_deserialization() {
 #[test]
 fn test_execute_request_with_context() {
     let json_data = json!({
-        "rule_id": "test-rule-123",
+        "rule": {"type": "DECISION_TABLE", "engine": "rules", "definition": {}},
         "input": {"value": 100},
         "context": {"tenant_id": "tenant-1"}
     });
 
     let req: ExecuteRequest = serde_json::from_value(json_data).unwrap();
-    assert_eq!(req.rule_id, "test-rule-123");
+    assert_eq!(req.rule.rule_type, "DECISION_TABLE");
+    assert_eq!(req.rule.engine, "rules");
     assert!(req.context.is_some());
     assert_eq!(req.context.unwrap()["tenant_id"], "tenant-1");
 }

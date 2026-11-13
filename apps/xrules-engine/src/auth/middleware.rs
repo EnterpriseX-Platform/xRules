@@ -1,12 +1,6 @@
 use crate::auth::claims::{Claims, Role, TokenMetadata};
 use crate::auth::errors::AuthError;
-use axum::{
-    body::Body,
-    extract::State,
-    http::{Request, StatusCode},
-    middleware::Next,
-    response::Response,
-};
+use axum::{body::Body, extract::State, http::Request, middleware::Next, response::Response};
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use std::sync::Arc;
 

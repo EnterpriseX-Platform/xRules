@@ -20,6 +20,7 @@ struct DmnConfig {
 #[derive(Debug, Deserialize)]
 struct DmnInput {
     name: String,
+    #[allow(dead_code)]
     expression: String,
 }
 
@@ -93,37 +94,37 @@ fn evaluate_feel(actual: &Value, expression: &str) -> Result<bool> {
         return Ok(true);
     }
 
-    if expr.starts_with(">=") {
-        let expected = parse_number(&expr[2..])?;
+    if let Some(rest) = expr.strip_prefix(">=") {
+        let expected = parse_number(rest.trim())?;
         let actual = value_to_number(actual)?;
         return Ok(actual >= expected);
     }
 
-    if expr.starts_with(">") {
-        let expected = parse_number(&expr[1..])?;
+    if let Some(rest) = expr.strip_prefix(">") {
+        let expected = parse_number(rest.trim())?;
         let actual = value_to_number(actual)?;
         return Ok(actual > expected);
     }
 
-    if expr.starts_with("<=") {
-        let expected = parse_number(&expr[2..])?;
+    if let Some(rest) = expr.strip_prefix("<=") {
+        let expected = parse_number(rest.trim())?;
         let actual = value_to_number(actual)?;
         return Ok(actual <= expected);
     }
 
-    if expr.starts_with("<") {
-        let expected = parse_number(&expr[1..])?;
+    if let Some(rest) = expr.strip_prefix("<") {
+        let expected = parse_number(rest.trim())?;
         let actual = value_to_number(actual)?;
         return Ok(actual < expected);
     }
 
-    if expr.starts_with("!=") {
-        let expected = parse_value(&expr[2..])?;
+    if let Some(rest) = expr.strip_prefix("!=") {
+        let expected = parse_value(rest.trim())?;
         return Ok(actual != &expected);
     }
 
-    if expr.starts_with('=') {
-        let expected = parse_value(&expr[1..])?;
+    if let Some(rest) = expr.strip_prefix('=') {
+        let expected = parse_value(rest.trim())?;
         return Ok(actual == &expected);
     }
 

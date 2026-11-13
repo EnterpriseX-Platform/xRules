@@ -145,42 +145,42 @@ impl<'a> RulesExecutor<'a> {
         // Supports: "> 18", ">= 18", "< 18", "<= 18", "= 'value'", "!= 'value'"
         let expr = expression.trim();
 
-        if expr == "-" || expr == "" {
+        if expr == "-" || expr.is_empty() {
             return Ok(true); // Dash means "any value"
         }
 
         // Parse comparison operators
-        if expr.starts_with(">=") {
-            let expected = self.parse_number(&expr[2..])?;
+        if let Some(rest) = expr.strip_prefix(">=") {
+            let expected = self.parse_number(rest.trim())?;
             let actual = self.value_to_number(actual)?;
             return Ok(actual >= expected);
         }
 
-        if expr.starts_with(">") {
-            let expected = self.parse_number(&expr[1..])?;
+        if let Some(rest) = expr.strip_prefix(">") {
+            let expected = self.parse_number(rest.trim())?;
             let actual = self.value_to_number(actual)?;
             return Ok(actual > expected);
         }
 
-        if expr.starts_with("<=") {
-            let expected = self.parse_number(&expr[2..])?;
+        if let Some(rest) = expr.strip_prefix("<=") {
+            let expected = self.parse_number(rest.trim())?;
             let actual = self.value_to_number(actual)?;
             return Ok(actual <= expected);
         }
 
-        if expr.starts_with("<") {
-            let expected = self.parse_number(&expr[1..])?;
+        if let Some(rest) = expr.strip_prefix("<") {
+            let expected = self.parse_number(rest.trim())?;
             let actual = self.value_to_number(actual)?;
             return Ok(actual < expected);
         }
 
-        if expr.starts_with("!=") {
-            let expected = self.parse_value(&expr[2..])?;
+        if let Some(rest) = expr.strip_prefix("!=") {
+            let expected = self.parse_value(rest.trim())?;
             return Ok(actual != &expected);
         }
 
-        if expr.starts_with('=') {
-            let expected = self.parse_value(&expr[1..])?;
+        if let Some(rest) = expr.strip_prefix('=') {
+            let expected = self.parse_value(rest.trim())?;
             return Ok(actual == &expected);
         }
 
