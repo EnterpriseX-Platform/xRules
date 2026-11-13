@@ -65,6 +65,11 @@ router.use('/scenarios', scenariosRoutes);
 router.use('/connections', connectionsRoutes);
 router.use('/data', dataRoutes);
 router.use('/platform', platformRoutes);
+router.get('/ready', async (_req, res) => {
+  try { const { prisma } = await import('../config/database.js'); await prisma.$queryRawUnsafe('SELECT 1'); res.json({ ready: true }); }
+  catch (e: any) { res.status(503).json({ ready: false, error: e.message }); }
+});
+router.get('/metrics', async (_req, res) => { const { metricsText } = await import('../platform/monitor.js'); res.type('text/plain').send(await metricsText()); });
 router.post('/hooks/:slug', async (req, res) => {
   const { webhook } = await import('../platform/triggers.js');
   const r = await webhook(req.params.slug, req.headers['x-hook-token'] as string | undefined, req.body);

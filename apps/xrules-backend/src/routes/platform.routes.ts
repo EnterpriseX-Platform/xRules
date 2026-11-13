@@ -93,6 +93,26 @@ r.post('/vocabulary/rules', authMiddleware, h(async req => (await import('../pla
 r.post('/cowork/draft', authMiddleware, h(async req => (await import('../platform/cowork.js')).draft(req.body, req.user)));
 r.post('/cowork/apply', authMiddleware, h(async req => (await import('../platform/cowork.js')).apply(req.body, req.user), 201));
 
+// ---- Monitor
+r.get('/monitor/overview', authMiddleware, h(async req => (await import('../platform/monitor.js')).overview(String(req.query.project_id), req.user)));
+r.get('/monitor/traffic', authMiddleware, h(async req => (await import('../platform/monitor.js')).traffic(String(req.query.project_id), req.user, Number(req.query.hours) || 24)));
+r.get('/monitor/decisions', authMiddleware, h(async req => (await import('../platform/monitor.js')).decisions(String(req.query.project_id), req.user, Number(req.query.hours) || 168)));
+r.get('/monitor/data-health', authMiddleware, h(async req => (await import('../platform/monitor.js')).dataHealth(String(req.query.project_id), req.user)));
+r.get('/alerts', authMiddleware, h(async req => {
+  const p = await assertProjectAccess(String(req.query.project_id), req.user);
+  const m = await import('../platform/monitor.js'); await m.ensureDefaultAlerts(p.id);
+  return { rules: await prisma.alertRule.findMany({ where: { projectId: p.id }, orderBy: { createdAt: 'asc' } }),
+    events: await prisma.alertEvent.findMany({ where: { rule: { projectId: p.id } }, include: { rule: { select: { name: true } } }, orderBy: { startedAt: 'desc' }, take: 100 }) };
+}));
+r.put('/alerts/:id', authMiddleware, h(async req => {
+  const a = await prisma.alertRule.findUnique({ where: { id: req.params.id } }); if (!a) throw new NotFoundError('Alert');
+  await assertProjectAccess(a.projectId, req.user, 'write');
+  const u: any = {}; for (const k of ['threshold', 'windowMin', 'enabled', 'channels', 'name']) if (req.body[k] !== undefined) u[k] = req.body[k];
+  return prisma.alertRule.update({ where: { id: a.id }, data: u });
+}));
+r.post('/alerts/events/:id/ack', authMiddleware, h(async req => prisma.alertEvent.update({ where: { id: req.params.id }, data: { ackBy: req.user.email } })));
+r.post('/alerts/evaluate', authMiddleware, h(async () => (await import('../platform/queue.js')).enqueue('alerts.evaluate', {})));
+
 // ---- Triggers
 r.get('/triggers', authMiddleware, h(async req => {
   const p = await assertProjectAccess(String(req.query.project_id), req.user);
