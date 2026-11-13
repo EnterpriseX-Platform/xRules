@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { PageHead, Tag, fmtTime } from '@/components/pipeline/ui';
+import { TraceView } from '@/components/pipeline/TraceView';
 
 const SEV: Record<string, any> = { ERROR: 'red', WARNING: 'orange', SKIPPED: 'gray', INFO: 'blue' };
 
@@ -45,6 +46,10 @@ export default function ExecutionDetailPage() {
           <details className="border-t border-[#e0e0e0]"><summary className="px-4 h-12 flex items-center text-[14px] text-[#0f62fe] cursor-pointer">Input JSON</summary>
             <pre className="px-4 pb-4 text-[12px] font-mono overflow-x-auto">{JSON.stringify(e.input, null, 2)}</pre></details>
         </div>
+      </div>
+      <div className="bg-white mt-4">
+        <div className="px-4 h-12 flex items-center text-[16px] border-b border-[#e0e0e0]">Rule Trace</div>
+        <div className="p-4"><TraceView steps={Array.isArray(e.trace) ? e.trace : []} /></div>
       </div>
     </div>
   );

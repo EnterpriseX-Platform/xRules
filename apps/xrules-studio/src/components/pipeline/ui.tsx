@@ -45,3 +45,51 @@ export function cronText(cron?: string | null): string {
   if (/^\d+$/.test(f[2]) && f[3] === '*' && f[4] === '*') return `ทุกวันที่ ${f[2]} ${t}`;
   return cron;
 }
+
+export function Tabs({ tabs, value, onChange }: { tabs: string[]; value: string; onChange: (t: string) => void }) {
+  return (
+    <div className="flex border-b border-[#e0e0e0] mb-4">
+      {tabs.map(t => <button key={t} onClick={() => onChange(t)} className={`h-10 px-4 text-[14px] ${value === t ? 'border-b-2 border-[#0f62fe] text-[#161616] font-semibold' : 'text-[#525252] hover:bg-[#e8e8e8]'}`}>{t}</button>)}
+    </div>
+  );
+}
+export function Input({ label, id, value, onChange, mono, placeholder, type = 'text', className = '' }: any) {
+  return (
+    <div className={className}>
+      {label && <label htmlFor={id} className="block text-[12px] text-[#525252] mb-1.5">{label}</label>}
+      <input id={id} type={type} className={`input w-full ${mono ? 'font-mono text-[13px]' : ''}`} value={value ?? ''} placeholder={placeholder} onChange={e => onChange(e.target.value)} />
+    </div>
+  );
+}
+export function TextArea({ label, id, value, onChange, rows = 6, mono = true }: any) {
+  return (
+    <div>
+      {label && <label htmlFor={id} className="block text-[12px] text-[#525252] mb-1.5">{label}</label>}
+      <textarea id={id} rows={rows} className={`w-full bg-[#f4f4f4] border-b border-[#8d8d8d] px-3 py-2 text-[13px] ${mono ? 'font-mono' : ''} focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2`} value={value ?? ''} onChange={e => onChange(e.target.value)} />
+    </div>
+  );
+}
+export function Panel({ title, actions, children, className = '' }: { title?: React.ReactNode; actions?: React.ReactNode; children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`bg-white ${className}`}>
+      {(title || actions) && <div className="h-12 px-4 flex items-center justify-between border-b border-[#e0e0e0]"><div className="text-[16px]">{title}</div><div className="flex gap-2">{actions}</div></div>}
+      <div className="p-4">{children}</div>
+    </div>
+  );
+}
+export function Notice({ kind = 'info', children }: { kind?: 'info' | 'error' | 'success' | 'warning'; children: React.ReactNode }) {
+  const c = { info: ['#edf5ff', '#0043ce'], error: ['#fff1f1', '#da1e28'], success: ['#defbe6', '#24a148'], warning: ['#fcf4d6', '#f1c21b'] }[kind];
+  return <div className="px-4 py-3 text-[14px] border-l-[3px]" style={{ background: c[0], borderColor: c[1] }}>{children}</div>;
+}
+export function DropZone({ onFile, label = 'ลากไฟล์มาวาง หรือคลิกเพื่อเลือก', accept }: { onFile: (f: File) => void; label?: string; accept?: string }) {
+  const id = `dz-${Math.random().toString(36).slice(2)}`;
+  return (
+    <label htmlFor={id} className="block border border-dashed border-[#8d8d8d] bg-[#f4f4f4] px-4 py-6 text-center text-[14px] text-[#525252] cursor-pointer hover:bg-[#e8e8e8]"
+      onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) onFile(f); }}>
+      {label}
+      <input id={id} type="file" accept={accept} className="sr-only" onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
+    </label>
+  );
+}
+export const fileToBase64 = (f: File) => new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = rej; r.readAsDataURL(f); });
+export const pct = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : 0);

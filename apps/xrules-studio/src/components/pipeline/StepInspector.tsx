@@ -33,7 +33,7 @@ export function StepInspector({ node, projectId, onChange, onRemove, onClose }: 
   const set = (patch: any) => onChange(node.id, { ...d, ...patch });
   const k = node.type;
   const needsConns = k === 'source';
-  const needsSets = k === 'join' || k === 'enrich' || k === 'write';
+  const needsSets = k === 'join' || k === 'enrich' || k === 'write' || k === 'lookup';
   const { data: conns } = useQuery({ queryKey: ['connections', projectId], queryFn: () => api.get<any[]>(`/connections?project_id=${projectId}`), enabled: needsConns });
   const { data: sets } = useQuery({ queryKey: ['datasets', projectId], queryFn: () => api.get<any[]>(`/datasets?project_id=${projectId}`), enabled: needsSets });
   const { data: rules } = useQuery({ queryKey: ['rules', projectId], queryFn: () => rulesApi.list(projectId), enabled: k === 'ruleCall' || k === 'rulecall' });
@@ -52,7 +52,10 @@ export function StepInspector({ node, projectId, onChange, onRemove, onClose }: 
       <div className="flex-1 overflow-y-auto p-4 space-y-5">
         <Field label="ชื่อขั้น" htmlFor="st-label"><Text id="st-label" value={d.label} onChange={(v: string) => set({ label: v })} placeholder={m.title} /></Field>
 
-        {k === 'trigger' && <>
+        {k === 'trigger' && <Field label="เริ่มเมื่อ"><Dropdown value={d.type || 'schedule'} onChange={v => set({ type: v })} options={[{ value: 'schedule', label: 'ตามรอบเวลา' }, { value: 'webhook', label: 'มี Webhook เข้ามา' }, { value: 'manual', label: 'กดรันเอง' }]} /></Field>}
+        {k === 'trigger' && d.type === 'webhook' && <Field label="รหัสลับของ Webhook (ส่งใน X-Hook-Token)" htmlFor="st-sec"><Text id="st-sec" mono value={d.secret} onChange={(v: string) => set({ secret: v })} /></Field>}
+        {k === 'trigger' && <Field label="แจ้งเมื่อล้ม (Webhook URL)" htmlFor="st-nf"><Text id="st-nf" mono value={d.notifyUrl} onChange={(v: string) => set({ notifyUrl: v })} /></Field>}
+        {k === 'trigger' && (d.type || 'schedule') === 'schedule' && <>
           <Field label="รอบการรัน (cron)" htmlFor="st-cron"><Text id="st-cron" mono value={d.cron} onChange={(v: string) => set({ cron: v })} placeholder="0 23 * * *" /></Field>
           <Field label="รันเมื่อมีเหตุการณ์" htmlFor="st-ev"><Text id="st-ev" mono value={csv(d.events)} onChange={(v: string) => set({ events: fromCsv(v) })} placeholder="das.published" /></Field>
           <label className="flex items-center gap-2 text-[14px]"><input type="checkbox" checked={d.enabled !== false} onChange={e => set({ enabled: e.target.checked })} /> เปิดใช้รอบอัตโนมัติ</label>
@@ -117,6 +120,21 @@ export function StepInspector({ node, projectId, onChange, onRemove, onClose }: 
           <Field label="รหัสกฎ (ใส่แล้วผลไปรวมใน Findings)" htmlFor="st-rcode"><Text id="st-rcode" mono value={d.ruleCode} onChange={(v: string) => set({ ruleCode: v })} placeholder="TOR-4.4.1.4" /></Field>
           <Field label="ระดับเมื่อไม่ผ่าน"><Dropdown value={d.severity || 'ERROR'} onChange={v => set({ severity: v })} options={[{ value: 'ERROR', label: 'ERROR · ส่งไม่ได้' }, { value: 'WARNING', label: 'WARNING · ส่งได้' }]} /></Field>
           <Field label="เก็บผลไว้ที่" htmlFor="st-oa"><Text id="st-oa" mono value={d.outputAs} onChange={(v: string) => set({ outputAs: v })} /></Field>
+        </>}
+
+        {(k === 'apiResponse' || k === 'apiresponse') && <>
+          <Field label="Status code" htmlFor="st-sc"><Text id="st-sc" mono value={d.status ?? 200} onChange={(v: string) => set({ status: Number(v) || 200 })} /></Field>
+          <Field label="Body (JSON หรือ {{ตัวแปร}})" htmlFor="st-body"><Area id="st-body" rows={8} value={typeof d.body === 'string' ? d.body : JSON.stringify(d.body ?? '', null, 2)} onChange={(v: string) => { try { set({ body: JSON.parse(v) }); } catch { set({ body: v }); } }} /></Field>
+        </>}
+        {(k === 'callDecisionFlow' || k === 'calldecisionflow') && <>
+          <Field label="Decision Flow (slug)" htmlFor="st-df"><Text id="st-df" mono value={d.flow} onChange={(v: string) => set({ flow: v })} placeholder="neb-prescreen" /></Field>
+          <Field label="ส่งข้อมูลเข้า" htmlFor="st-im"><Text id="st-im" mono value={typeof d.inputMap === 'string' ? d.inputMap : JSON.stringify(d.inputMap ?? '')} onChange={(v: string) => set({ inputMap: v })} placeholder="{{input.body}}" /></Field>
+          <Field label="เก็บผลไว้ที่" htmlFor="st-oa2"><Text id="st-oa2" mono value={d.outputAs} onChange={(v: string) => set({ outputAs: v })} placeholder="decision" /></Field>
+        </>}
+        {k === 'lookup' && <>
+          <Field label="Data Set"><Dropdown value={d.dataset} onChange={v => set({ dataset: v })} options={setOpts} /></Field>
+          <Field label="คีย์ (คั่นด้วย ,)" htmlFor="st-lk"><Text id="st-lk" mono value={csv(d.key)} onChange={(v: string) => set({ key: fromCsv(v) })} placeholder="{{input.params.itemCode}}, {{input.query.fiscalYear}}" /></Field>
+          <Field label="เก็บผลไว้ที่" htmlFor="st-lo"><Text id="st-lo" mono value={d.outputAs} onChange={(v: string) => set({ outputAs: v })} /></Field>
         </>}
 
         {k === 'branch' && <Field label="เงื่อนไข" htmlFor="st-cond"><Text id="st-cond" mono value={d.condition} onChange={(v: string) => set({ condition: v })} /></Field>}

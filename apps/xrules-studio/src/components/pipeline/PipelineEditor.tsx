@@ -15,6 +15,7 @@ import { api, flowsApi } from '@/lib/api';
 import { pipelineNodeTypes } from './PipelineNode';
 import { STEPS, metaFor, type FlowKindName } from './registry';
 import { StepInspector } from './StepInspector';
+import { TraceView } from './TraceView';
 
 type Graph = { nodes: Node[]; edges: Edge[] };
 const EDGE = { type: 'smoothstep', style: { stroke: '#161616', strokeWidth: 1.4 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#161616', width: 18, height: 18 } } as const;
@@ -128,6 +129,7 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
     onSuccess: () => qc.invalidateQueries({ queryKey: ['flow', flowId] }),
   });
   const runNow = useMutation({ mutationFn: () => api.post<any>(`/data/flows/${flowId}/run`), onSuccess: r => setPreview({ ...r, mode: 'run' }) });
+  const runTrigger = useMutation({ mutationFn: () => api.post<any>(`/platform/triggers/${flowId}/run-now`, {}), onSuccess: r => setPreview({ ok: !r.error, mode: 'run', rowCount: undefined, error: r.error, trace: undefined, traceSteps: r.trace }), onError: (e: any) => setPreview({ ok: false, mode: 'run', error: e.message }) });
   const doPreview = useMutation({ mutationFn: async () => { if (dirty) await save.mutateAsync(); return api.post<any>(`/data/flows/${flowId}/preview`); }, onSuccess: r => setPreview({ ...r, mode: 'preview' }) });
 
   const buildAi = useMutation({
@@ -176,6 +178,10 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
             <span className="w-4" />
             <button className="h-10 pl-3 pr-6 text-[14px] text-[#0f62fe] border border-[#0f62fe] hover:bg-[#0f62fe] hover:text-white flex items-center gap-2" onClick={() => doPreview.mutate()} disabled={doPreview.isPending}><Eye className="h-4 w-4" /> ลองกับ 100 แถว</button>
             <button className="h-10 pl-3 pr-6 text-[14px] text-[#0f62fe] border border-[#0f62fe] hover:bg-[#0f62fe] hover:text-white flex items-center gap-2" onClick={() => runNow.mutate()} disabled={runNow.isPending || !published}><Play className="h-4 w-4" /> รันตอนนี้</button>
+          </>}
+          {kind === 'trigger' && <>
+            <span className="w-4" />
+            <button className="h-10 pl-3 pr-6 text-[14px] text-[#0f62fe] border border-[#0f62fe] hover:bg-[#0f62fe] hover:text-white flex items-center gap-2" onClick={() => runTrigger.mutate()} disabled={runTrigger.isPending || !published}><Play className="h-4 w-4" /> รันตอนนี้</button>
           </>}
           {(save.error || publish.error) && <span className="text-[13px] text-[#da1e28] ml-3">{String((save.error as any)?.message || (publish.error as any)?.message)}</span>}
         </div>
@@ -257,7 +263,7 @@ function PreviewDrawer({ result, onClose }: { result: any; onClose: () => void }
       <div className="h-12 px-6 flex items-center gap-4 border-b border-[#e0e0e0]">
         <span className={`px-2 rounded-full text-[12px] ${ok ? 'bg-[#a7f0ba] text-[#0e6027]' : 'bg-[#ffd7d9] text-[#a2191f]'}`}>{ok ? (result.mode === 'run' ? 'รันสำเร็จ' : 'ผ่าน') : 'ไม่ผ่าน'}</span>
         <span className="text-[14px] text-[#161616]">
-          {result.mode === 'run' ? `บันทึก ${result.rowCount ?? 0} แถว` : `${result.rowCount ?? rows.length} แถวผ่าน · ตัดทิ้ง ${result.rejectedCount ?? 0} แถว`}
+          {result.mode === 'run' ? (result.rowCount !== undefined ? `บันทึก ${result.rowCount} แถว` : 'รันแล้ว') : `${result.rowCount ?? rows.length} แถวผ่าน · ตัดทิ้ง ${result.rejectedCount ?? 0} แถว`}
           {result.error && <span className="text-[#a2191f]"> · {result.error}</span>}
         </span>
         {result.trace && <span className="text-[12px] text-[#525252] font-mono">{result.trace.map((t: any) => `${t.kind} ${t.rowsOut}`).join(' → ')}</span>}
@@ -270,6 +276,7 @@ function PreviewDrawer({ result, onClose }: { result: any; onClose: () => void }
             <tbody>{rows.map((r, i) => <tr key={i} className="border-b border-[#e0e0e0] hover:bg-[#e8e8e8]">{cols.map(c => <td key={c} className="px-4 h-10 whitespace-nowrap">{typeof r[c] === 'object' ? JSON.stringify(r[c]) : String(r[c] ?? '')}</td>)}</tr>)}</tbody>
           </table>
         )}
+        {result.traceSteps && <div className="px-6 py-3"><TraceView steps={result.traceSteps} /></div>}
         {(result.rejected || []).length > 0 && (
           <div className="px-6 py-3 text-[13px]">
             <div className="text-[#525252] mb-1">แถวที่ถูกตัดทิ้ง</div>

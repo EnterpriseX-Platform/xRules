@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FolderKanban, FileText, Brain, FlaskConical,
   Activity, KeyRound, Plug, Webhook, ScrollText, Settings,
   ChevronDown, Workflow, Briefcase, ListTree, Zap,
-  Database, Layers, Network,
+  Database, Layers, Network, BookA, Rows3, GitCompare, BadgeCheck, Timer, ListChecks, Gauge, PieChart, HeartPulse, Bell, History,
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { useProject } from '@/lib/store';
@@ -54,39 +54,42 @@ export function Sidebar() {
     { href: `/projects`, label: 'Projects',  icon: FolderKanban },
   ];
 
-  // Workspace — author. (Templates lives as a CTA on Rules. DRD as a tab.)
-  const workspace: NavItem[] = project ? [
-    { href: `${projBase}/rules`,       label: 'Rules',       icon: FileText },
-    { href: `${projBase}/models`,      label: 'Models',      icon: Brain },
-    { href: `${projBase}/test-suites`, label: 'Test Suites', icon: FlaskConical },
+  // Decision Engine — write, check and ship decisions.
+  const engine: NavItem[] = project ? [
+    { href: `${projBase}/rules`,            label: 'Rules',          icon: FileText },
+    { href: `${projBase}/flows?kind=DECISION`, label: 'Decision Flows', icon: Workflow },
+    { href: `${projBase}/vocabulary`,       label: 'Vocabulary',     icon: BookA },
+    { href: `${projBase}/bulk`,             label: 'Bulk Runs',      icon: Rows3 },
+    { href: `${projBase}/simulations`,      label: 'Simulations',    icon: GitCompare },
+    { href: `${projBase}/models`,           label: 'Models',         icon: Brain },
+    { href: `${projBase}/releases`,         label: 'Releases',       icon: ScrollText },
+    { href: `${projBase}/approvals`,        label: 'Approvals',      icon: BadgeCheck },
   ] : [];
 
-  // Data — Data Layer: pull, shape, check and keep the data rules read.
-  const data: NavItem[] = project ? [
-    { href: `${projBase}/data-flows`,                label: 'Data Flows',  icon: Network },
+  // Integration — data in, APIs out (DEH style: REST APIs and Triggers).
+  const integration: NavItem[] = project ? [
+    { href: `${projBase}/apis`,                      label: 'REST APIs',   icon: Zap },
+    { href: `${projBase}/triggers`,                  label: 'Triggers',    icon: Timer },
     { href: `${projBase}/data-sets`,                 label: 'Data Sets',   icon: Layers },
     { href: `${projBase}/integrations/connections`, label: 'Connections', icon: Database },
-  ] : [];
-
-  // Ship — expose, version, distribute. (Environments folded into Releases.)
-  const ship: NavItem[] = project ? [
-    { href: `${projBase}/integrations/endpoints`,   label: 'Endpoints',         icon: Zap },
-    { href: `${projBase}/flows?kind=DECISION`,      label: 'Decision Flows',    icon: Workflow },
-    { href: `${projBase}/flows?kind=INTEGRATION`,   label: 'Integration Flows', icon: Workflow },
-    { href: `${projBase}/releases`,                 label: 'Releases',          icon: ScrollText },
-  ] : [];
-
-  // Access — credentials & external systems.
-  const access: NavItem[] = project ? [
     { href: `${projBase}/integrations/api-keys`,    label: 'API Keys',    icon: KeyRound },
-    { href: `${projBase}/integrations/webhooks`,    label: 'Webhooks',    icon: Webhook },
   ] : [];
 
-  // Observe — read-only.
-  const observe: NavItem[] = project ? [
-    { href: `${projBase}/executions`, label: 'Executions', icon: Activity },
-    { href: `${projBase}/jobs`,       label: 'Jobs',       icon: Briefcase },
-    { href: `${projBase}/audit`,      label: 'Audit Log',  icon: ListTree },
+  // Testing
+  const testing: NavItem[] = project ? [
+    { href: `${projBase}/tests`,       label: 'Test Suites', icon: FlaskConical },
+    { href: `${projBase}/test-runs`,   label: 'Test Runs',   icon: ListChecks },
+  ] : [];
+
+  // Monitor
+  const monitor: NavItem[] = project ? [
+    { href: `${projBase}/monitor`,              label: 'Overview',    icon: Gauge },
+    { href: `${projBase}/monitor/traffic`,      label: 'API Traffic', icon: Activity },
+    { href: `${projBase}/monitor/decisions`,    label: 'Decisions',   icon: PieChart },
+    { href: `${projBase}/monitor/data-health`,  label: 'Data Health', icon: HeartPulse },
+    { href: `${projBase}/monitor/alerts`,       label: 'Alerts',      icon: Bell },
+    { href: `${projBase}/executions`,           label: 'Executions',  icon: History },
+    { href: `${projBase}/audit`,                label: 'Audit Log',   icon: ListTree },
   ] : [];
 
   return (
@@ -114,11 +117,10 @@ export function Sidebar() {
           {top.map((it) => <NavRow key={it.href} item={it} pathname={pathname} />)}
         </div>
 
-        {project && <NavSection id="workspace" label="Workspace" items={workspace} pathname={pathname} />}
-        {project && <NavSection id="data"      label="Data"      items={data}      pathname={pathname} />}
-        {project && <NavSection id="ship"      label="Ship"      items={ship}      pathname={pathname} />}
-        {project && <NavSection id="access"    label="Access"    items={access}    pathname={pathname} />}
-        {project && <NavSection id="observe"   label="Observe"   items={observe}   pathname={pathname} />}
+        {project && <NavSection id="engine"      label="Decision Engine" items={engine}      pathname={pathname} />}
+        {project && <NavSection id="integration" label="Integration"     items={integration} pathname={pathname} />}
+        {project && <NavSection id="testing"     label="Testing"         items={testing}     pathname={pathname} />}
+        {project && <NavSection id="monitor"     label="Monitor"         items={monitor}     pathname={pathname} />}
 
         {/* Settings — ungrouped, with hairline separator */}
         <div className="px-2 pt-3 mt-2">
@@ -142,49 +144,20 @@ export function Sidebar() {
   );
 }
 
-function NavSection({ id, label, items, pathname }: {
+function NavSection({ label, items, pathname }: {
   id: string; label: string; items: NavItem[]; pathname: string;
 }) {
-  const [collapsed, setCollapsed] = useState<boolean>(false);
-  // Hydrate from localStorage on mount
-  useEffect(() => {
-    setCollapsed(!!readCollapsed()[id]);
-  }, [id]);
-  function toggle() {
-    const next = { ...readCollapsed(), [id]: !collapsed };
-    writeCollapsed(next);
-    setCollapsed(!collapsed);
-  }
   if (!items.length) return null;
-  // If active route is inside this section, force open
-  const hasActive = items.some((i) => pathname === i.href || pathname.startsWith(i.href + '/'));
-  const open = !collapsed || hasActive;
   return (
     <div className="space-y-0.5">
-      <button
-        type="button"
-        onClick={toggle}
-        className="w-full flex items-center gap-1.5 px-4 py-1 text-left group"
-      >
-        <span className="label-section">{label}</span>
-        <ChevronDown
-          className={cn(
-            'h-3 w-3 text-subtle/40 ml-auto transition-transform',
-            !open && '-rotate-90',
-          )}
-        />
-      </button>
-      {open && (
-        <div className="px-2 space-y-0.5">
-          {items.map((it) => <NavRow key={it.href} item={it} pathname={pathname} />)}
-        </div>
-      )}
+      <div className="px-4 pt-1 pb-0.5 text-[12px] font-semibold text-[#525252]">{label}</div>
+      <div className="px-2">
+        {items.map((it) => <NavRow key={it.href} item={it} pathname={pathname} />)}
+      </div>
     </div>
   );
 }
 
-// Pick the single nav item that best matches the current URL: longest path prefix wins,
-// and items sharing a path (Decision / Integration Flows) are told apart by their ?kind=.
 let ALL_ITEMS: NavItem[] = [];
 function bestHref(pathname: string): string | null {
   const kind = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('kind') : null;

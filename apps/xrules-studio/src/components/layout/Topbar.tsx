@@ -40,10 +40,11 @@ function useBreadcrumbs(pathname: string): Crumb[] {
   // Flow / Data Set names for their detail pages
   const isFlow = (section === 'flows' || section === 'data-flows') && !!subId;
   const isSet = section === 'data-sets' && !!subId;
+  const isSpec = section === 'apis' && !!subId;
   const { data: entity } = useQuery({
     queryKey: ['crumb', section, subId],
-    queryFn: () => api.get<any>(isFlow ? `/flows/${subId}` : `/data/datasets/${subId}`),
-    enabled: isFlow || isSet,
+    queryFn: () => api.get<any>(isFlow ? `/flows/${subId}` : isSpec ? `/platform/specs/${subId}` : `/data/datasets/${subId}`),
+    enabled: isFlow || isSet || isSpec,
     staleTime: 60_000,
     retry: false,
   });
@@ -66,7 +67,8 @@ function useBreadcrumbs(pathname: string): Crumb[] {
       environments: 'Environments', executions: 'Executions', jobs: 'Jobs',
       audit: 'Audit Log', tools: 'Tools', bench: 'Bench', drd: 'DRD',
       templates: 'Templates', integrations: 'Integrations', connections: 'Connections',
-      'data-flows': 'Data Flows', 'data-sets': 'Data Sets',
+      'data-flows': 'Data Flows', 'data-sets': 'Data Sets', apis: 'REST APIs', triggers: 'Triggers', bulk: 'Bulk Runs',
+      approvals: 'Approvals', vocabulary: 'Vocabulary', tests: 'Test Suites', 'test-runs': 'Test Runs', monitor: 'Monitor',
     };
     const sectionLabel = human[section] || section;
     if (subId) {
@@ -80,7 +82,7 @@ function useBreadcrumbs(pathname: string): Crumb[] {
   const isIntegrationsSub = section === 'integrations';
   if (rule) {
     out.push({ label: rule.name });
-  } else if (entity && (isFlow || isSet)) {
+  } else if (entity && (isFlow || isSet || isSpec)) {
     out.push({ label: entity.name || entity.slug });
   } else if (subId && !isIntegrationsSub) {
     const looksLikeId = /^[a-z0-9]{20,}$/i.test(subId) && !subId.includes('-');
