@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // basePath disabled for v2 — Studio runs at root.
-  // To deploy under a sub-path (e.g. /studio), set NEXT_PUBLIC_BASE_PATH and re-enable below.
+  // Root in dev; set NEXT_PUBLIC_BASE_PATH at build time to serve under a sub-path (UAT: /xrules).
+  basePath: process.env.NEXT_PUBLIC_BASE_PATH || undefined,
+  output: 'standalone',
   reactStrictMode: true,
   images: {
     remotePatterns: [{ protocol: 'https', hostname: '**' }],

@@ -1,6 +1,7 @@
 'use client';
 // Reusable entity list — table view used by flows, test-suites, simulations, etc.
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
 import { StatusPill, Pill } from './ui/Pill';
 
@@ -23,6 +24,7 @@ export function EntityTable<T extends { id: string }>({
   emptyCta?: React.ReactNode;
   hrefFor?: (row: T) => string | undefined;
 }) {
+  const router = useRouter();
   return (
     <div className="card overflow-x-auto">
       <table className="w-full min-w-[640px]">
@@ -70,7 +72,7 @@ export function EntityTable<T extends { id: string }>({
             );
             if (href) {
               return (
-                <tr key={row.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => (window.location.href = href)}>
+                <tr key={row.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => router.push(href)}>
                   {Cells}
                 </tr>
               );

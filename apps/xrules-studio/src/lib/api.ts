@@ -91,8 +91,9 @@ async function request<T>(path: string, init?: RequestInit, _retried = false): P
     const fresh = await tryRefresh();
     if (fresh) return request<T>(path, init, true);
     if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-      const next = encodeURIComponent(window.location.pathname + window.location.search);
-      window.location.href = `/login?next=${next}`;
+      const bp = process.env.NEXT_PUBLIC_BASE_PATH || '';
+      const next = encodeURIComponent(window.location.pathname.slice(bp.length) + window.location.search);
+      window.location.href = `${bp}/login?next=${next}`;
     }
   }
 

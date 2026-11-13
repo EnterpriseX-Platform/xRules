@@ -1,0 +1,89 @@
+# xRules on NEB UAT (namespace budget-bb).
+# Images are set by Jenkins (kubectl set image); ":placeholder" stays in Git.
+# Secret xrules-secret is created out of band (see README.md) — never committed.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: xrules-postgres-pvc, namespace: budget-bb, labels: { app: xrules-postgres } }
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: standard-ssd-ebudgeting
+  resources: { requests: { storage: 10Gi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: xrules-postgres, namespace: budget-bb, labels: { app: xrules-postgres } }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: xrules-postgres } }
+  template:
+    metadata: { labels: { app: xrules-postgres } }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports: [{ containerPort: 5432 }]
+          env:
+            - { name: POSTGRES_DB, value: xrulesdb }
+            - { name: POSTGRES_USER, value: xrules }
+            - { name: POSTGRES_PASSWORD, valueFrom: { secretKeyRef: { name: xrules-secret, key: POSTGRES_PASSWORD } } }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+            - { name: TZ, value: Asia/Bangkok }
+          readinessProbe: { exec: { command: [pg_isready, -U, xrules, -d, xrulesdb] }, periodSeconds: 10 }
+          resources: { requests: { cpu: 200m, memory: 512Mi }, limits: { cpu: "1", memory: 2Gi } }
+          volumeMounts: [{ name: data, mountPath: /var/lib/postgresql/data }]
+      volumes: [{ name: data, persistentVolumeClaim: { claimName: xrules-postgres-pvc } }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: xrules-postgres-svc, namespace: budget-bb }
+spec: { selector: { app: xrules-postgres }, ports: [{ port: 5432, targetPort: 5432 }] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: xrules-api, namespace: budget-bb, labels: { app: xrules-api } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: xrules-api } }
+  template:
+    metadata: { labels: { app: xrules-api } }
+    spec:
+      imagePullSecrets: [{ name: img-secret }]
+      containers:
+        - name: xrules-api
+          image: registry.nipa.cloud/ebudet-bb-registry/neb-page:xrules-api.placeholder
+          ports: [{ containerPort: 4000 }]
+          envFrom: [{ secretRef: { name: xrules-secret } }]
+          env:
+            - { name: PORT, value: "4000" }
+            - { name: XRULES_ENV, value: UAT }
+          readinessProbe: { httpGet: { path: /health, port: 4000 }, initialDelaySeconds: 10, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /health, port: 4000 }, initialDelaySeconds: 60, periodSeconds: 20 }
+          resources: { requests: { cpu: 200m, memory: 384Mi }, limits: { cpu: "1", memory: 1536Mi } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: xrules-api-svc, namespace: budget-bb }
+spec: { selector: { app: xrules-api }, ports: [{ port: 4000, targetPort: 4000 }] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: xrules-web, namespace: budget-bb, labels: { app: xrules-web } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: xrules-web } }
+  template:
+    metadata: { labels: { app: xrules-web } }
+    spec:
+      imagePullSecrets: [{ name: img-secret }]
+      containers:
+        - name: xrules-web
+          image: registry.nipa.cloud/ebudet-bb-registry/neb-page:xrules-web.placeholder
+          ports: [{ containerPort: 3000 }]
+          readinessProbe: { httpGet: { path: /xrules/login, port: 3000 }, initialDelaySeconds: 5, periodSeconds: 10 }
+          resources: { requests: { cpu: 100m, memory: 192Mi }, limits: { cpu: 500m, memory: 768Mi } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: xrules-web-svc, namespace: budget-bb }
+spec: { selector: { app: xrules-web }, ports: [{ port: 3000, targetPort: 3000 }] }
