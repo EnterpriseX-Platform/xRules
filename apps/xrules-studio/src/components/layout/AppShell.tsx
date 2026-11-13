@@ -30,8 +30,8 @@ export function PageHeader({
   stats?: { label: string; value: string | number }[];
 }) {
   return (
-    <div className="flex items-end justify-between gap-6 mb-6">
-      <div className="flex-1 min-w-0">
+    <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 mb-6">
+      <div className="flex-1 min-w-[min(100%,360px)]">
         <h1 className="text-[28px] leading-9 font-normal text-text">{title}</h1>
         {description && <p className="text-subtle text-[14px] mt-1 max-w-[70ch]">{description}</p>}
         {stats && stats.length > 0 && (
@@ -40,7 +40,7 @@ export function PageHeader({
           </div>
         )}
       </div>
-      {actions && <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }

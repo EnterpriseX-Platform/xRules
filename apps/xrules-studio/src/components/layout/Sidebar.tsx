@@ -38,12 +38,14 @@ export function Sidebar() {
     retry: false,
   });
 
-  // Auto-pick first project
+  // Follow the project in the URL; drop a stored project that no longer exists
   useEffect(() => {
-    if (!project && projects && projects.length > 0) {
-      setProject(projects[0].id);
-    }
-  }, [projects, project, setProject]);
+    if (!projects?.length) return;
+    const fromUrl = pathname.match(/^\/projects\/([^/]+)/)?.[1];
+    const urlProject = fromUrl && projects.find((p: any) => p.id === fromUrl || p.slug === fromUrl);
+    if (urlProject && urlProject.id !== project) { setProject(urlProject.id); return; }
+    if (!project || !projects.some((p: any) => p.id === project)) setProject(projects[0].id);
+  }, [projects, project, setProject, pathname]);
 
   const currentProject = projects?.find((p: any) => p.id === project);
   const projBase = `/projects/${project || '_'}`;
