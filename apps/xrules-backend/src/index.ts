@@ -7,6 +7,8 @@ import routes from './routes/index.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { startScheduler } from './data/dataflow.service.js';
 import { startWorkers } from './platform/queue.js';
+import { startTriggerScheduler } from './platform/triggers.js';
+import './platform/bulk.js';
 
 const app = express();
 
@@ -31,6 +33,7 @@ app.use(errorHandler);
 app.listen(env.port, () => {
   startScheduler();
   startWorkers();
+  startTriggerScheduler();
   console.log(`[xrules-backend] Running on http://localhost:${env.port}`);
   console.log(`[xrules-backend] Engine Hub: ${env.engineHubUrl}`);
   console.log(`[xrules-backend] Environment: ${env.nodeEnv}`);

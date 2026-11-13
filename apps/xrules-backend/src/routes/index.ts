@@ -65,6 +65,11 @@ router.use('/scenarios', scenariosRoutes);
 router.use('/connections', connectionsRoutes);
 router.use('/data', dataRoutes);
 router.use('/platform', platformRoutes);
+router.post('/hooks/:slug', async (req, res) => {
+  const { webhook } = await import('../platform/triggers.js');
+  const r = await webhook(req.params.slug, req.headers['x-hook-token'] as string | undefined, req.body);
+  res.status(r.status).json(r.status === 202 ? { accepted: true, jobId: (r as any).jobId } : { error: r.status === 404 ? 'not found' : 'invalid token' });
+});
 router.use('/releases', releasesRoutes);
 router.use('/environments', environmentsRoutes);
 router.use('/simulations', simulationsRoutes);

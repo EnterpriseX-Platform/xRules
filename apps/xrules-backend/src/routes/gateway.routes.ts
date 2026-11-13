@@ -5,6 +5,7 @@ import Ajv from 'ajv';
 import { prisma } from '../config/database.js';
 import { validateApiKey } from '../services/apikeys.service.js';
 import { runArtifact, newRequestId } from '../platform/runner.js';
+import { runBatch } from '../platform/bulk.js';
 
 const r = Router();
 const ajv = new Ajv({ allErrors: true, strict: false });
@@ -53,7 +54,10 @@ r.all('/:base/:ver/*', async (req: Request, res: Response, next) => {
   try {
     const list = (await routes()).get(`${req.params.base}/${req.params.ver}`);
     if (!list) return next();
-    const path = '/' + (req.params as any)[0];
+    let path = '/' + (req.params as any)[0];
+    // POST …/batch → run the POST operation for each item in { items: [...] } (max 1,000)
+    let batch = false;
+    if (req.method === 'POST' && path.endsWith('/batch') && !list.some(x => x.re.test(path))) { batch = true; path = path.slice(0, -'/batch'.length) || '/'; }
     const candidates = list.filter(x => x.re.test(path));
     if (!candidates.length) return err(res, 404, 'NOT_FOUND', `No operation for ${req.method} ${path}`);
     const route = candidates.find(x => x.method === req.method);
@@ -70,11 +74,24 @@ r.all('/:base/:ver/*', async (req: Request, res: Response, next) => {
 
     const m = route.re.exec(path)!;
     const params: any = {}; route.keys.forEach((k, i) => (params[k] = decodeURIComponent(m[i + 1])));
-    if (route.requestSchema && req.method !== 'GET') {
+    if (route.requestSchema && req.method !== 'GET' && !batch) {
       let v = validators.get(route.opId);
       if (!v) { v = ajv.compile(route.requestSchema); validators.set(route.opId, v); }
       if (!v(req.body)) return err(res, 400, 'INVALID_REQUEST', 'Request body does not match the schema',
         { details: v.errors.map((e: any) => ({ field: e.instancePath || e.params?.missingProperty, message: e.message })) });
+    }
+
+    if (batch) {
+      const items = Array.isArray(req.body?.items) ? req.body.items : null;
+      if (!items) return err(res, 400, 'INVALID_REQUEST', 'Body must be { items: [...] }');
+      if (items.length > 1000) return err(res, 413, 'TOO_MANY_ITEMS', 'At most 1,000 items per batch; use a Bulk Run for more');
+      if (route.requestSchema) {
+        let v = validators.get(route.opId); if (!v) { v = ajv.compile(route.requestSchema); validators.set(route.opId, v); }
+        const bad = items.findIndex((it: any) => !v(it));
+        if (bad >= 0) return err(res, 400, 'INVALID_REQUEST', `items[${bad}] does not match the schema`, { details: v.errors });
+      }
+      const results = await runBatch(route.projectId, route.flowId, items, 8);
+      return res.json({ count: results.length, results });
     }
 
     const idemKey = req.headers['idempotency-key'] as string | undefined;
