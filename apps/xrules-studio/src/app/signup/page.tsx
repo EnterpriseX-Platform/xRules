@@ -43,7 +43,7 @@ export default function SignupPage() {
 
         <div className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight">Create account</h1>
-          <p className="text-sm text-subtle font-mono">spin up a new workspace</p>
+          <p className="text-sm text-subtle font-mono">create your tenant</p>
         </div>
 
         <form onSubmit={submit} className="space-y-4">
@@ -52,7 +52,7 @@ export default function SignupPage() {
             <input required className="input w-full" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div>
-            <label className="label-section block mb-1.5">Workspace name</label>
+            <label className="label-section block mb-1.5">Tenant name</label>
             <input required className="input w-full" value={workspaceName} onChange={(e) => setWorkspaceName(e.target.value)} />
           </div>
           <div>

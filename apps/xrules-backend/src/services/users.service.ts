@@ -32,8 +32,9 @@ export async function signup(data: { email: string; password: string; name: stri
       },
     });
 
-    // Create default workspace
-    const baseSlug = generateSlug(data.name);
+    // Create the user's tenant — named as typed on the sign-up form
+    const tenantName = String((data as any).workspaceName || (data as any).tenantName || '').trim() || `${data.name}'s tenant`;
+    const baseSlug = generateSlug(tenantName) || generateSlug(data.name);
     let slug = baseSlug;
     let counter = 1;
     while (await tx.workspace.findUnique({ where: { slug } })) {
@@ -43,7 +44,7 @@ export async function signup(data: { email: string; password: string; name: stri
 
     const workspace = await tx.workspace.create({
       data: {
-        name: `${data.name}'s Workspace`,
+        name: tenantName,
         slug,
         members: { create: { userId: user.id, role: 'OWNER' } },
       },
@@ -121,7 +122,7 @@ export async function listMembers(workspaceId: string, user: AuthUser) {
   const workspace = await prisma.workspace.findFirst({
     where: { OR: [{ id: workspaceId }, { slug: workspaceId }] },
   });
-  if (!workspace) throw new NotFoundError('Workspace');
+  if (!workspace) throw new NotFoundError('Tenant');
 
   const membership = await prisma.workspaceMember.findFirst({
     where: { workspaceId: workspace.id, userId: user.userId },
@@ -149,7 +150,7 @@ export async function updateMemberRole(workspaceId: string, memberId: string, ro
   const workspace = await prisma.workspace.findFirst({
     where: { OR: [{ id: workspaceId }, { slug: workspaceId }] },
   });
-  if (!workspace) throw new NotFoundError('Workspace');
+  if (!workspace) throw new NotFoundError('Tenant');
 
   const myMembership = await prisma.workspaceMember.findFirst({
     where: { workspaceId: workspace.id, userId: user.userId },
@@ -171,7 +172,7 @@ export async function removeMember(workspaceId: string, memberId: string, user: 
   const workspace = await prisma.workspace.findFirst({
     where: { OR: [{ id: workspaceId }, { slug: workspaceId }] },
   });
-  if (!workspace) throw new NotFoundError('Workspace');
+  if (!workspace) throw new NotFoundError('Tenant');
 
   const myMembership = await prisma.workspaceMember.findFirst({
     where: { workspaceId: workspace.id, userId: user.userId },

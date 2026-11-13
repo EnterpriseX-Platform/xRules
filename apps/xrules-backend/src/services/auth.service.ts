@@ -39,7 +39,7 @@ export async function login(email: string, password: string) {
 
   const defaultWorkspace = user.workspaces[0]?.workspace;
   if (!defaultWorkspace) {
-    throw new ForbiddenError('User has no workspace assigned');
+    throw new ForbiddenError('User has no tenant assigned');
   }
 
   const role = user.workspaces[0]?.role || 'MEMBER';
