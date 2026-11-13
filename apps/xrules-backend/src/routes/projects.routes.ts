@@ -1,50 +1,24 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
 import * as projectsService from '../services/projects.service.js';
 import { authMiddleware } from '../middleware/auth.js';
 
+// Tenant + project role are already checked by tenantGuard (req.tenant / req.projectRole).
 const router = Router();
+const h = (fn: (req: Request, res: Response) => Promise<any>) => (req: Request, res: Response, next: NextFunction) => fn(req, res).catch(next);
+router.use(authMiddleware);
 
-router.get('/', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const workspaceSlug = (req.query.workspace as string) || req.user!.tenantId;
-    if (!workspaceSlug) {
-      res.status(400).json({
-        success: false,
-        error: { code: 'INVALID_INPUT', message: 'Workspace slug is required (or set tenantId on user)' },
-      });
-      return;
-    }
-    const result = await projectsService.listProjects(workspaceSlug, req.user!);
-    res.json({ success: true, data: result });
-  } catch (err) { next(err); }
-});
+router.get('/', h(async (req, res) => { res.json({ success: true, data: await projectsService.listProjects(req.user!.userId, req.tenant!) }); }));
+router.get('/:id', h(async (req, res) => { res.json({ success: true, data: await projectsService.getProject(req.params.id, req.user!.userId, req.tenant!) }); }));
+router.post('/', h(async (req, res) => { res.status(201).json({ success: true, data: await projectsService.createProject(req.body ?? {}, req.user!.userId, req.tenant!) }); }));
+router.put('/:id', h(async (req, res) => { res.json({ success: true, data: await projectsService.updateProject(req.params.id, req.body ?? {}, req.user!.userId, req.tenant!) }); }));
+router.delete('/:id', h(async (req, res) => { await projectsService.deleteProject(req.params.id, req.tenant!); res.json({ success: true }); }));
 
-router.get('/:id', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const result = await projectsService.getProject(req.params.id, req.user!);
-    res.json({ success: true, data: result });
-  } catch (err) { next(err); }
-});
-
-router.post('/', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const result = await projectsService.createProject(req.body, req.user!);
-    res.status(201).json({ success: true, data: result });
-  } catch (err) { next(err); }
-});
-
-router.put('/:id', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const result = await projectsService.updateProject(req.params.id, req.body, req.user!);
-    res.json({ success: true, data: result });
-  } catch (err) { next(err); }
-});
-
-router.delete('/:id', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    await projectsService.deleteProject(req.params.id, req.user!);
-    res.json({ success: true });
-  } catch (err) { next(err); }
-});
+router.get('/:id/members', h(async (req, res) => { res.json({ success: true, data: await projectsService.listProjectMembers(req.params.id, req.tenant!) }); }));
+router.put('/:id/members/:userId', h(async (req, res) => {
+  res.json({ success: true, data: await projectsService.setProjectMember(req.params.id, req.params.userId, req.body?.role ?? null, req.tenant!) });
+}));
+router.delete('/:id/members/:userId', h(async (req, res) => {
+  res.json({ success: true, data: await projectsService.setProjectMember(req.params.id, req.params.userId, null, req.tenant!) });
+}));
 
 export default router;

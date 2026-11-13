@@ -7,7 +7,7 @@ const r = Router();
 function parseListOpts(req: any) {
   const q = req.query;
   return {
-    workspaceId: q.workspaceId as string,
+    workspaceId: req.tenant!.id,   // always the active tenant — never from the query
     ruleIds:        Array.isArray(q.ruleIds)        ? q.ruleIds        : (q.ruleIds        ? [q.ruleIds]        : undefined),
     correlationIds: Array.isArray(q.correlationIds) ? q.correlationIds : (q.correlationIds ? [q.correlationIds] : undefined),
     apiKeyIds:      Array.isArray(q.apiKeyIds)      ? q.apiKeyIds      : (q.apiKeyIds      ? [q.apiKeyIds]      : undefined),
@@ -36,7 +36,7 @@ r.get('/audit/v2/count', authMiddleware, async (req, res, next) => {
 r.delete('/audit/v2', authMiddleware, async (req, res, next) => {
   try {
     const ids = req.body?.ids || [];
-    res.json({ success: true, ...(await svc.deleteAudits(ids, req.user!, req.body?.workspaceId)) });
+    res.json({ success: true, ...(await svc.deleteAudits(ids, req.user!, req.tenant!.id)) });
   } catch (e) { next(e); }
 });
 

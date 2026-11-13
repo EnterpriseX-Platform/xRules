@@ -41,16 +41,17 @@ export default function ProjectsPage() {
               <th className="py-3 px-4 label-section w-12">#</th>
               <th className="py-3 px-4 label-section">Project</th>
               <th className="py-3 px-4 label-section text-right">Rules</th>
-              <th className="py-3 px-4 label-section text-right">Flows</th>
+              <th className="py-3 px-4 label-section">Access</th>
+              <th className="py-3 px-4 label-section">Your role</th>
               <th className="py-3 px-4 label-section w-12"></th>
             </tr>
           </thead>
           <tbody>
             {isLoading && (
-              <tr><td colSpan={5} className="text-center py-12 text-subtle font-mono text-sm">Loading…</td></tr>
+              <tr><td colSpan={6} className="text-center py-12 text-subtle font-mono text-sm">Loading…</td></tr>
             )}
             {!isLoading && projects.length === 0 && (
-              <tr><td colSpan={5} className="text-center py-16">
+              <tr><td colSpan={6} className="text-center py-16">
                 <FolderKanban className="h-10 w-10 mx-auto text-subtle/40 mb-2" />
                 <div className="text-sm text-subtle">No projects yet — create your first one</div>
               </td></tr>
@@ -70,11 +71,10 @@ export default function ProjectsPage() {
                   </Link>
                 </td>
                 <td className="py-3 px-4 text-right font-mono text-xs text-subtle tabular-nums">
-                  {p._count?.rules ?? '—'}
+                  {p.ruleCount ?? '—'}
                 </td>
-                <td className="py-3 px-4 text-right font-mono text-xs text-subtle tabular-nums">
-                  {p._count?.flows ?? '—'}
-                </td>
+                <td className="py-3 px-4 text-sm">{p.visibility === 'PRIVATE' ? 'Private' : 'Tenant'}</td>
+                <td className="py-3 px-4 text-sm">{p.myRole ? p.myRole[0] + p.myRole.slice(1).toLowerCase() : '—'}</td>
                 <td className="py-3 px-4 text-right">
                   <Link href={`/projects/${p.slug || p.id}/rules`}>
                     <ChevronRight className="h-4 w-4 text-subtle inline" />

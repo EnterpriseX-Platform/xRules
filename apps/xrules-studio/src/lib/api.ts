@@ -18,6 +18,12 @@ function token(): string | null {
   return localStorage.getItem('xrules_token');
 }
 
+/** Active tenant slug — sent on every request as X-Tenant. */
+export function activeTenant(): string | null {
+  if (typeof window === 'undefined') return null;
+  try { return JSON.parse(localStorage.getItem('xrules-auth') || '{}')?.state?.workspace?.slug || null; } catch { return null; }
+}
+
 function refreshToken(): string | null {
   if (typeof window === 'undefined') return null;
   // The persisted zustand auth store keeps refresh_token alongside the
@@ -75,6 +81,8 @@ async function request<T>(path: string, init?: RequestInit, _retried = false): P
   };
   const t = token();
   if (t) headers['Authorization'] = `Bearer ${t}`;
+  const tenant = activeTenant();
+  if (tenant && !headers['X-Tenant']) headers['X-Tenant'] = tenant;
 
   const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
 
@@ -108,6 +116,21 @@ export const api = {
 };
 
 // Resource clients
+export const tenantApi = {
+  list: () => api.get<any[]>('/workspaces'),
+  create: (body: { name: string; description?: string }) => api.post<any>('/workspaces', body),
+  current: () => api.get<any>('/tenant'),
+  update: (body: any) => api.put<any>('/tenant', body),
+  members: () => api.get<any[]>('/tenant/members'),
+  addMember: (body: { email: string; role: string }) => api.post<any>('/tenant/members', body),
+  setRole: (userId: string, role: string) => api.put<any>(`/tenant/members/${userId}`, { role }),
+  removeMember: (userId: string) => api.del<any>(`/tenant/members/${userId}`),
+};
+export const projectAccessApi = {
+  members: (projectId: string) => api.get<any[]>(`/projects/${projectId}/members`),
+  setRole: (projectId: string, userId: string, role: string | null) => api.put<any>(`/projects/${projectId}/members/${userId}`, { role }),
+};
+
 export const projectsApi = {
   list: () => api.get<any[]>('/projects'),
   get: (id: string) => api.get<any>(`/projects/${id}`),

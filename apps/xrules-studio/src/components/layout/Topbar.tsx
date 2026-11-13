@@ -6,6 +6,7 @@ import { Search, Plus, Sun, Moon, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useTheme, useAuth, useProject } from '@/lib/store';
 import { api } from '@/lib/api';
+import { TenantSwitcher } from './TenantSwitcher';
 
 interface Crumb { label: string; href?: string; mono?: boolean }
 
@@ -60,6 +61,10 @@ function useBreadcrumbs(pathname: string): Crumb[] {
     const looksLikeId = /^[a-z0-9]{20,}$/i.test(projectId) && !projectId.includes('-');
     out.push({ label: looksLikeId ? projectId.slice(0, 8) + '…' : projectId, mono: looksLikeId });
   }
+  if (parts[0] === 'settings') {
+    out.push({ label: 'Settings', href: parts[1] ? '/settings' : undefined });
+    if (parts[1]) out.push({ label: ({ tenant: 'Tenant', 'api-keys': 'API Keys', webhooks: 'Webhooks' } as Record<string, string>)[parts[1]] || parts[1] });
+  }
   if (section) {
     const human: Record<string, string> = {
       rules: 'Rules', flows: 'Flows', models: 'Models', datasets: 'Datasets',
@@ -68,7 +73,7 @@ function useBreadcrumbs(pathname: string): Crumb[] {
       audit: 'Audit Log', tools: 'Tools', bench: 'Bench', drd: 'DRD',
       templates: 'Templates', integrations: 'Integrations', connections: 'Connections',
       'data-flows': 'Data Flows', 'data-sets': 'Data Sets', apis: 'REST APIs', triggers: 'Triggers', bulk: 'Bulk Runs',
-      approvals: 'Approvals', vocabulary: 'Vocabulary', tests: 'Test Suites', 'test-runs': 'Test Runs', monitor: 'Monitor',
+      approvals: 'Approvals', access: 'Members & Access', vocabulary: 'Vocabulary', tests: 'Test Suites', 'test-runs': 'Test Runs', monitor: 'Monitor',
     };
     const sectionLabel = human[section] || section;
     if (subId) {
@@ -118,7 +123,8 @@ export function Topbar() {
   const onProjectsList = pathname.endsWith('/projects');
 
   return (
-    <header className="h-[48px] shrink-0 bg-[#161616] text-[#c6c6c6] flex items-center px-5 gap-4">
+    <header className="h-[48px] shrink-0 bg-[#161616] text-[#c6c6c6] flex items-center pl-2 pr-5 gap-4">
+      <TenantSwitcher />
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1.5 text-sm min-w-0">
         {crumbs.map((c, i) => (

@@ -9,12 +9,11 @@ export default function SettingsPage() {
   const cards = [
     { href: `/settings/api-keys`,  icon: KeyRound, title: 'API Keys',  desc: 'Create, scope, and revoke keys for the public Execute API' },
     { href: `/settings/webhooks`,  icon: Webhook,  title: 'Webhooks',  desc: 'Subscribe to execute.success / execute.error events' },
-    { href: `/settings/members`,   icon: Users,    title: 'Members',   desc: 'Workspace members and RBAC roles' },
-    { href: `/settings/general`,   icon: SettingsIcon, title: 'General', desc: 'Workspace name, slug, and defaults' },
+    { href: `/settings/tenant`,    icon: Users,    title: 'Tenant',    desc: 'Tenant details, members and roles' },
   ];
   return (
     <PageContent>
-      <PageHeader title="Settings" description="Workspace configuration" />
+      <PageHeader title="Settings" description="Tenant configuration" />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {cards.map((c) => {
           const Icon = c.icon;

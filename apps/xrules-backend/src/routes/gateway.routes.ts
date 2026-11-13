@@ -1,4 +1,5 @@
-// Public API gateway: /api/{basePath}/v{version}{operation.path}
+// Public API gateway: /api/{tenant}/{basePath}/v{version}{operation.path}
+// (legacy /api/{basePath}/v{n}/… still resolves when exactly one tenant publishes that base path)
 // key → spec permission → rate limit → schema → idempotency → run published operation flow.
 import { Router, type Request, type Response } from 'express';
 import Ajv from 'ajv';
@@ -12,21 +13,25 @@ const ajv = new Ajv({ allErrors: true, strict: false });
 const validators = new Map<string, any>();
 
 // ---- spec routing table (refreshed every 30 s or on demand)
-type Route = { specId: string; projectId: string; opId: string; flowId: string; method: string; re: RegExp; keys: string[]; requestSchema: any };
+type Route = { workspaceId: string; specId: string; projectId: string; opId: string; flowId: string; method: string; re: RegExp; keys: string[]; requestSchema: any };
 let table = new Map<string, Route[]>(); let loadedAt = 0;
 export function invalidateRoutes() { loadedAt = 0; }
 async function routes() {
   if (Date.now() - loadedAt < 30_000) return table;
-  const specs = await prisma.apiSpec.findMany({ where: { status: 'PUBLISHED' }, include: { operations: true } });
-  const t = new Map<string, Route[]>();
+  const specs = await prisma.apiSpec.findMany({ where: { status: 'PUBLISHED' }, include: { operations: true, project: { select: { workspace: { select: { slug: true } } } } } });
+  const t = new Map<string, Route[]>(); const legacyCount = new Map<string, number>();
   for (const s of specs) {
-    const k = `${s.basePath}/v${s.version}`;
-    t.set(k, s.operations.map(o => {
+    const k = `${s.project.workspace.slug}/${s.basePath}/v${s.version}`;
+    const legacy = `*/${s.basePath}/v${s.version}`;
+    legacyCount.set(legacy, (legacyCount.get(legacy) ?? 0) + 1);
+    const ops = s.operations.map(o => {
       const keys: string[] = [];
       const re = new RegExp('^' + o.path.replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\{(\w+)\}|:(\w+)/g, (_m, a, b) => { keys.push(a || b); return '([^/]+)'; }) + '/?$');
-      return { specId: s.id, projectId: s.projectId, opId: o.id, flowId: o.flowId, method: o.method, re, keys, requestSchema: o.requestSchema };
-    }));
+      return { workspaceId: s.workspaceId, specId: s.id, projectId: s.projectId, opId: o.id, flowId: o.flowId, method: o.method, re, keys, requestSchema: o.requestSchema };
+    });
+    t.set(k, ops); t.set(legacy, ops);
   }
+  for (const [k, n] of legacyCount) if (n > 1) t.delete(k);   // ambiguous without a tenant
   table = t; loadedAt = Date.now();
   return t;
 }
@@ -47,12 +52,13 @@ setInterval(() => { const cut = Date.now() - 86_400_000; for (const [k, v] of id
 
 const err = (res: Response, status: number, code: string, message: string, extra: any = {}) => res.status(status).json({ error: { code, message, ...extra } });
 
-r.all('/:base/:ver/*', async (req: Request, res: Response, next) => {
+const handler = async (req: Request, res: Response, next: any) => {
   if (!/^v\d+$/.test(req.params.ver)) return next();
+  const tableKey = `${req.params.tenant ?? '*'}/${req.params.base}/${req.params.ver}`;
   const requestId = (req.headers['x-request-id'] as string) || newRequestId();
   res.setHeader('X-Request-Id', requestId);
   try {
-    const list = (await routes()).get(`${req.params.base}/${req.params.ver}`);
+    const list = (await routes()).get(tableKey);
     if (!list) return next();
     let path = '/' + (req.params as any)[0];
     // POST …/batch → run the POST operation for each item in { items: [...] } (max 1,000)
@@ -67,6 +73,7 @@ r.all('/:base/:ver/*', async (req: Request, res: Response, next) => {
     if (!raw) return err(res, 401, 'UNAUTHORIZED', 'X-API-Key header is required');
     const key: any = await validateApiKey(raw);
     if (!key) return err(res, 401, 'INVALID_API_KEY', 'Invalid, expired or disabled API key');
+    if (key.workspaceId !== route.workspaceId) return err(res, 403, 'FORBIDDEN', 'This key belongs to another tenant');
     if (!(key.specIds || []).includes(route.specId)) return err(res, 403, 'FORBIDDEN', 'This key may not call this API');
     const rl = allow(key.keyId, key.rateLimitPerMin || 600);
     res.setHeader('X-RateLimit-Remaining', String(rl.left));
@@ -110,6 +117,8 @@ r.all('/:base/:ver/*', async (req: Request, res: Response, next) => {
   } catch (e: any) {
     err(res, 500, 'INTERNAL_ERROR', e?.message || 'Gateway error', { requestId });
   }
-});
+};
+r.all('/:tenant/:base/:ver/*', handler);
+r.all('/:base/:ver/*', handler);
 
 export default r;

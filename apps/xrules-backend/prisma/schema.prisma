@@ -24,6 +24,7 @@ model User {
   emailVerified DateTime?
 
   workspaces   WorkspaceMember[]
+  projectRoles ProjectMember[]
   createdRules Rule[]
   ruleVersions RuleVersion[]     @relation("rule_version_author")
   models       Model[]           @relation("model_author")
@@ -101,6 +102,10 @@ model Project {
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
+  // WORKSPACE: every tenant member sees it (role from tenant role) · PRIVATE: only project members + tenant owners/admins
+  visibility String          @default("WORKSPACE")
+  members    ProjectMember[]
+
   rules         Rule[]
   flows         Flow[]
   models        Model[]
@@ -128,6 +133,26 @@ model Project {
 
 // Hierarchical folder organization (max 5 levels enforced in service layer).
 // Both rules and flows live inside folders; root folder = parentId NULL.
+enum ProjectRole {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+model ProjectMember {
+  id        String      @id @default(cuid())
+  projectId String
+  userId    String
+  role      ProjectRole @default(EDITOR)
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@map("project_members")
+}
+
 model Folder {
   id        String  @id @default(cuid())
   name      String
@@ -903,8 +928,9 @@ model ApiSpec {
   id          String         @id @default(cuid())
   name        String
   slug        String
-  // public path: /api/{basePath}/v{version}{operation.path}
+  // public path: /api/{tenant}/{basePath}/v{version}{operation.path}
   basePath    String
+  workspaceId String
   version     Int            @default(1)
   description String?
   status      RuleStatus     @default(DRAFT)
@@ -917,7 +943,7 @@ model ApiSpec {
   updatedAt   DateTime       @updatedAt
 
   @@unique([projectId, slug])
-  @@unique([basePath, version])
+  @@unique([workspaceId, basePath, version])
   @@map("api_specs")
 }
 

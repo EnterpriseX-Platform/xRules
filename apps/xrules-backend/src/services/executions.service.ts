@@ -1,3 +1,4 @@
+import { visibleProjectIds, type TenantCtx } from '../middleware/tenant.js';
 import { prisma } from '../config/database.js';
 import { NotFoundError, ForbiddenError } from '../utils/errors.js';
 import type { AuthUser } from '../middleware/auth.js';
@@ -6,10 +7,15 @@ import { parsePagination } from '../utils/pagination.js';
 export async function listExecutions(
   query: { rule_id?: string; status?: string; page?: string; limit?: string },
   user: AuthUser,
+  tenant?: TenantCtx,
 ) {
   const { page, limit, skip } = parsePagination(query);
 
   const where: any = {};
+  if (tenant) {
+    const ids = await visibleProjectIds(user.userId, tenant);
+    where.OR = [{ rule: { projectId: { in: ids } } }, { flow: { projectId: { in: ids } } }];
+  }
 
   if (query.rule_id) {
     const rule = await prisma.rule.findUnique({

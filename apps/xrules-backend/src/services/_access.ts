@@ -2,6 +2,7 @@
 import { prisma } from '../config/database.js';
 import { ForbiddenError, NotFoundError } from '../utils/errors.js';
 import type { AuthUser } from '../middleware/auth.js';
+import { projectRoleFor } from '../middleware/tenant.js';
 
 export type Permission = 'read' | 'write' | 'admin';
 
@@ -18,6 +19,7 @@ function rolesFor(perm: Permission): string[] {
 }
 
 export async function assertWorkspaceAccess(workspaceId: string, user: AuthUser, perm: Permission = 'read') {
+  if (!workspaceId) throw new ForbiddenError('Tenant is required');
   const m = await prisma.workspaceMember.findFirst({
     where: { workspaceId, userId: user.userId },
   });
@@ -27,12 +29,17 @@ export async function assertWorkspaceAccess(workspaceId: string, user: AuthUser,
 }
 
 export async function assertProjectAccess(idOrSlug: string, user: AuthUser, perm: Permission = 'read') {
-  // Accept project id, slug, or alias-style identifier.
-  const project = await prisma.project.findFirst({
-    where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
+  // id, or slug inside a tenant the user belongs to (slugs are only unique per tenant)
+  const candidates = await prisma.project.findMany({
+    where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }], workspace: { members: { some: { userId: user.userId } } } },
   });
+  const project = candidates.find(p => p.id === idOrSlug) ?? candidates[0];
   if (!project) throw new NotFoundError('Project');
-  await assertWorkspaceAccess(project.workspaceId, user, perm);
+  const m = await assertWorkspaceAccess(project.workspaceId, user, 'read');
+  const role = await projectRoleFor(user.userId, project, m.role as any);
+  if (!role) throw new NotFoundError('Project');
+  const need = perm === 'admin' ? 3 : perm === 'write' ? 2 : 1;
+  if (({ VIEWER: 1, EDITOR: 2, ADMIN: 3 } as const)[role] < need) throw new ForbiddenError('Insufficient permissions');
   return project;
 }
 
