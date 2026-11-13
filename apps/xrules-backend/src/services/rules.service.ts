@@ -324,6 +324,8 @@ export async function publishRule(id: string, user: AuthUser) {
   }
 
   await checkMembership(rule.project.workspaceId, user.userId, ['OWNER', 'ADMIN', 'MEMBER']);
+  const { assertPublishable } = await import('./governance.service.js');
+  await assertPublishable(rule.projectId, 'rule', rule.id, user);
 
   // Snapshot current state to RuleVersion before publishing
   await prisma.ruleVersion.create({

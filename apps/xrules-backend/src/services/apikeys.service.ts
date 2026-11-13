@@ -33,6 +33,10 @@ export async function listApiKeys(workspaceSlug: string, user: AuthUser) {
     name: k.name,
     prefix: k.prefix,
     scopes: k.scopes,
+    specIds: k.specIds,
+    rateLimitPerMin: k.rateLimitPerMin,
+    active: k.active,
+    systemName: k.systemName,
     expiresAt: k.expiresAt?.toISOString() || null,
     lastUsedAt: k.lastUsedAt?.toISOString() || null,
     createdBy: k.createdBy,
@@ -41,7 +45,7 @@ export async function listApiKeys(workspaceSlug: string, user: AuthUser) {
 }
 
 export async function createApiKey(
-  data: { name: string; scopes?: string[]; expiresInDays?: number; workspaceSlug?: string },
+  data: { name: string; scopes?: string[]; expiresInDays?: number; workspaceSlug?: string; specIds?: string[]; rateLimitPerMin?: number; systemName?: string },
   user: AuthUser,
 ) {
   if (!data.name) throw new ValidationError('Name is required');
@@ -72,6 +76,9 @@ export async function createApiKey(
       prefix,
       scopes: data.scopes || ['execute'],
       expiresAt,
+      specIds: data.specIds || [],
+      rateLimitPerMin: data.rateLimitPerMin || 600,
+      systemName: data.systemName,
       workspaceId: workspace.id,
       createdById: user.userId,
     },
@@ -84,9 +91,25 @@ export async function createApiKey(
     key: rawKey,
     prefix: apiKey.prefix,
     scopes: apiKey.scopes,
+    specIds: apiKey.specIds,
+    rateLimitPerMin: apiKey.rateLimitPerMin,
+    systemName: apiKey.systemName,
     expiresAt: apiKey.expiresAt?.toISOString() || null,
     createdAt: apiKey.createdAt.toISOString(),
   };
+}
+
+/** Change which APIs a key may call, its limit, expiry, or switch it on/off. */
+export async function updateApiKey(id: string, data: { specIds?: string[]; rateLimitPerMin?: number; active?: boolean; systemName?: string; expiresAt?: string | null; name?: string }, user: AuthUser) {
+  const apiKey = await prisma.apiKey.findUnique({ where: { id } });
+  if (!apiKey) throw new NotFoundError('API Key');
+  const membership = await prisma.workspaceMember.findFirst({ where: { workspaceId: apiKey.workspaceId, userId: user.userId } });
+  if (!membership || !['OWNER', 'ADMIN'].includes(membership.role)) throw new ForbiddenError('Only OWNER/ADMIN can change API keys');
+  const u: any = {};
+  for (const k of ['specIds', 'rateLimitPerMin', 'active', 'systemName', 'name'] as const) if ((data as any)[k] !== undefined) u[k] = (data as any)[k];
+  if (data.expiresAt !== undefined) u.expiresAt = data.expiresAt ? new Date(data.expiresAt) : null;
+  const k = await prisma.apiKey.update({ where: { id }, data: u });
+  return { id: k.id, name: k.name, prefix: k.prefix, specIds: k.specIds, rateLimitPerMin: k.rateLimitPerMin, active: k.active, systemName: k.systemName, expiresAt: k.expiresAt?.toISOString() || null, lastUsedAt: k.lastUsedAt?.toISOString() || null };
 }
 
 export async function revokeApiKey(id: string, user: AuthUser) {
@@ -119,6 +142,7 @@ export async function validateApiKey(rawKey: string) {
   });
 
   if (!apiKey) return null;
+  if (apiKey.active === false) return null;
 
   // Check expiration
   if (apiKey.expiresAt && apiKey.expiresAt < new Date()) return null;
@@ -134,5 +158,8 @@ export async function validateApiKey(rawKey: string) {
     workspaceId: apiKey.workspace.id,
     workspaceSlug: apiKey.workspace.slug,
     scopes: apiKey.scopes,
+    specIds: apiKey.specIds,
+    rateLimitPerMin: apiKey.rateLimitPerMin,
+    prefix: apiKey.prefix,
   };
 }

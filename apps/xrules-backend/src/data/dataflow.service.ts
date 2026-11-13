@@ -160,6 +160,7 @@ let timer: NodeJS.Timeout | null = null;
 const running = new Set<string>();
 
 export function startScheduler() {
+  return; // replaced by platform/triggers.ts (queue + leader lock)
   if (timer || process.env.XRULES_SCHEDULER === 'off') return;
   const tick = async () => {
     const now = new Date();

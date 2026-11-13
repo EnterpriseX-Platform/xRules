@@ -11,7 +11,7 @@ import { Dropdown } from '@/components/pipeline/Dropdown';
 const TYPES = [
   { value: 'oracle', label: 'Oracle', fields: [['host', 'Host'], ['port', 'Port'], ['serviceName', 'Service name'], ['user', 'User'], ['password', 'Password', 1]] },
   { value: 'postgres', label: 'PostgreSQL', fields: [['host', 'Host'], ['port', 'Port'], ['database', 'Database'], ['user', 'User'], ['password', 'Password', 1]] },
-  { value: 'http', label: 'REST API', fields: [['baseUrl', 'Base URL'], ['token', 'Bearer token', 1], ['healthPath', 'Path สำหรับทดสอบ']] },
+  { value: 'http', label: 'REST API', fields: [['baseUrl', 'Base URL'], ['token', 'Bearer token', 1], ['healthPath', 'Health check path']] },
   { value: 'mysql', label: 'MySQL', fields: [['host', 'Host'], ['port', 'Port'], ['database', 'Database'], ['user', 'User'], ['password', 'Password', 1]] },
   { value: 's3', label: 'S3 / MinIO', fields: [['endpoint', 'Endpoint'], ['bucket', 'Bucket'], ['accessKey', 'Access key'], ['secretKey', 'Secret key', 1]] },
 ] as const;
@@ -27,21 +27,21 @@ export default function ConnectionsPage() {
 
   return (
     <div className="px-8 py-6">
-      <PageHead title="Connections" sub="ค่าลับเข้ารหัส · ค่าแยก UAT / PROD · ใช้อ่านข้อมูลอย่างเดียว" actions={<Btn onClick={() => setOpen(true)}>New Connection</Btn>} />
-      <Table head={['Connection', 'ชนิด', 'ผลทดสอบล่าสุด', 'อ่านอย่างเดียว', '']}
-        empty={!rows.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">ยังไม่มี Connection</div> : null}>
+      <PageHead title="Connections" sub="Encrypted secrets · separate UAT / PROD settings · read-only access" actions={<Btn onClick={() => setOpen(true)}>New Connection</Btn>} />
+      <Table head={['Connection', 'Type', 'Last test', 'Read-only', '']}
+        empty={!rows.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">No connections yet</div> : null}>
         {rows.map((c: any) => {
           const t = c.meta?.lastTest;
           return (
             <tr key={c.id}>
               <Td><div className="font-semibold">{c.name}</div><div className="font-mono text-[12px] text-[#525252]">{c.slug}</div></Td>
               <Td><Tag tone="blue">{c.type}</Tag></Td>
-              <Td>{t ? <span className="flex items-center gap-2">{t.ok ? <Tag tone="green">เชื่อมต่อได้ · {t.ms} ms</Tag> : <Tag tone="red">เชื่อมต่อไม่ได้</Tag>}<span className="text-[12px] text-[#525252]">{t.env} · {fmtTime(t.at)}</span></span> : '—'}
+              <Td>{t ? <span className="flex items-center gap-2">{t.ok ? <Tag tone="green">Connected · {t.ms} ms</Tag> : <Tag tone="red">Unreachable</Tag>}<span className="text-[12px] text-[#525252]">{t.env} · {fmtTime(t.at)}</span></span> : '—'}
                 {t && !t.ok && <div className="text-[12px] text-[#a2191f]">{t.error}</div>}</Td>
-              <Td>{t?.readOnly ? (t.readOnly.verified ? <Tag tone="green">ยืนยันแล้ว</Tag> : <span title={t.readOnly.problems.join('\n')}><Tag tone="red">เขียนได้ {t.readOnly.problems.length} จุด</Tag></span>) : '—'}</Td>
+              <Td>{t?.readOnly ? (t.readOnly.verified ? <Tag tone="green">Verified</Tag> : <span title={t.readOnly.problems.join('\n')}><Tag tone="red">{t.readOnly.problems.length} write permissions</Tag></span>) : '—'}</Td>
               <Td><div className="flex gap-1">
-                <button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8] disabled:opacity-40" disabled={test.isPending} onClick={() => test.mutate(c.id)}>{test.isPending && test.variables === c.id ? 'กำลังทดสอบ' : 'Test connection'}</button>
-                <button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={() => remove.mutate(c.id)}>ลบ</button>
+                <button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8] disabled:opacity-40" disabled={test.isPending} onClick={() => test.mutate(c.id)}>{test.isPending && test.variables === c.id ? 'Testing' : 'Test connection'}</button>
+                <button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={() => remove.mutate(c.id)}>Delete</button>
               </div></Td>
             </tr>
           );
@@ -65,12 +65,12 @@ function NewConnection({ projectId, onClose }: { projectId: string; onClose: () 
     mutationFn: async () => {
       const envs: any = {};
       for (const e of ENVS) if (Object.values(vals[e]).some(Boolean)) envs[e] = { ...vals[e], ...(vals[e].port ? { port: Number(vals[e].port) } : {}) };
-      if (!Object.keys(envs).length) throw new Error('กรอกค่าอย่างน้อย 1 environment');
+      if (!Object.keys(envs).length) throw new Error('Fill in at least one environment');
       const c = await api.post<any>('/connections', { name, projectId, type, config: { envs, allowedObjects: allowed.split(',').map(s => s.trim()).filter(Boolean) } });
       const r = await api.post<any>(`/data/connections/${c.id}/test?env=${Object.keys(envs)[0]}`);
       if (r.ok && r.readOnly && !r.readOnly.verified) {
         await api.del(`/connections/${c.id}`);
-        throw new Error(`บัญชีนี้เขียนข้อมูลได้ (${r.readOnly.problems.slice(0, 3).join(', ')}) ใช้บัญชีที่อ่านได้อย่างเดียว`);
+        throw new Error(`This account can write data (${r.readOnly.problems.slice(0, 3).join(', ')}) use a read-only account`);
       }
       return r;
     },
@@ -82,12 +82,12 @@ function NewConnection({ projectId, onClose }: { projectId: string; onClose: () 
       <div className="bg-white w-full max-w-[640px]" onClick={e => e.stopPropagation()}>
         <div className="px-4 pt-4 pb-2 flex items-start justify-between">
           <div><div className="text-[12px] text-[#525252]">Connections</div><div className="text-[20px]">New Connection</div></div>
-          <button className="h-10 w-10 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={onClose} aria-label="ปิด"><X className="h-5 w-5" /></button>
+          <button className="h-10 w-10 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={onClose} aria-label="Close"><X className="h-5 w-5" /></button>
         </div>
         <div className="px-4 py-3 space-y-4 max-h-[65vh] overflow-y-auto">
           <div className="grid grid-cols-2 gap-4">
-            <div><label htmlFor="cn-name" className="block text-[12px] text-[#525252] mb-1.5">ชื่อ</label><input id="cn-name" className="input w-full" value={name} onChange={e => setName(e.target.value)} placeholder="oracle-neb-ro" /></div>
-            <div><div className="text-[12px] text-[#525252] mb-1.5">ชนิด</div><Dropdown value={type} onChange={setType} options={TYPES.map(x => ({ value: x.value, label: x.label }))} /></div>
+            <div><label htmlFor="cn-name" className="block text-[12px] text-[#525252] mb-1.5">Name</label><input id="cn-name" className="input w-full" value={name} onChange={e => setName(e.target.value)} placeholder="oracle-neb-ro" /></div>
+            <div><div className="text-[12px] text-[#525252] mb-1.5">Type</div><Dropdown value={type} onChange={setType} options={TYPES.map(x => ({ value: x.value, label: x.label }))} /></div>
           </div>
           <div className="flex border-b border-[#e0e0e0]">{ENVS.map(e => <button key={e} onClick={() => setEnv(e)} className={`h-10 px-4 text-[14px] ${env === e ? 'border-b-2 border-[#0f62fe] font-semibold' : 'text-[#525252]'}`}>{e}</button>)}</div>
           <div className="grid grid-cols-2 gap-4">
@@ -96,13 +96,13 @@ function NewConnection({ projectId, onClose }: { projectId: string; onClose: () 
                 <input id={`cn-${k}`} type={secret ? 'password' : 'text'} className="input w-full font-mono" value={vals[env][k] || ''} onChange={e => setVals(v => ({ ...v, [env]: { ...v[env], [k]: e.target.value } }))} /></div>
             ))}
           </div>
-          {type !== 'http' && type !== 's3' && <div><label htmlFor="cn-allow" className="block text-[12px] text-[#525252] mb-1.5">ตาราง / view ที่อ่านได้ (คั่นด้วย ,)</label>
+          {type !== 'http' && type !== 's3' && <div><label htmlFor="cn-allow" className="block text-[12px] text-[#525252] mb-1.5">Readable tables / views (comma separated)</label>
             <input id="cn-allow" className="input w-full font-mono" value={allowed} onChange={e => setAllowed(e.target.value)} placeholder="SCBDB.DAS_STANDARD_PRICE_V, APP.BUDGET_REQUEST_V" /></div>}
           {err && <div className="bg-[#fff1f1] border-l-[3px] border-[#da1e28] px-4 py-3 text-[14px]">{err}</div>}
         </div>
         <div className="grid grid-cols-2 h-16 mt-2">
-          <button className="bg-[#393939] text-white text-[14px] text-left pl-4 hover:bg-[#474747]" onClick={onClose}>ยกเลิก</button>
-          <button className="bg-[#0f62fe] text-white text-[14px] text-left pl-4 hover:bg-[#0353e9] disabled:bg-[#c6c6c6]" disabled={!name || save.isPending} onClick={() => { setErr(null); save.mutate(); }}>{save.isPending ? 'กำลังทดสอบการเชื่อมต่อ' : 'ทดสอบและบันทึก'}</button>
+          <button className="bg-[#393939] text-white text-[14px] text-left pl-4 hover:bg-[#474747]" onClick={onClose}>Cancel</button>
+          <button className="bg-[#0f62fe] text-white text-[14px] text-left pl-4 hover:bg-[#0353e9] disabled:bg-[#c6c6c6]" disabled={!name || save.isPending} onClick={() => { setErr(null); save.mutate(); }}>{save.isPending ? 'Testing connection' : 'Test and save'}</button>
         </div>
       </div>
     </div>

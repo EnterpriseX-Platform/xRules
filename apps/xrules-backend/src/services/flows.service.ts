@@ -89,6 +89,8 @@ export async function updateFlow(id: string, data: any, user: AuthUser) {
   }
   if (data.status) update.status = data.status.toUpperCase();
   const updated = await prisma.flow.update({ where: { id }, data: update });
+  const { invalidateArtifacts } = await import('../platform/runner.js');
+  invalidateArtifacts();
   return format(updated);
 }
 
@@ -103,6 +105,10 @@ export async function publishFlow(id: string, message: string | undefined, user:
   const flow = await prisma.flow.findUnique({ where: { id } });
   if (!flow) throw new NotFoundError('Flow');
   await assertProjectAccess(flow.projectId, user, 'write');
+  if (flow.kind === 'DECISION' || flow.kind === 'TRIGGER') {
+    const { assertPublishable } = await import('./governance.service.js');
+    await assertPublishable(flow.projectId, 'decision_flow', flow.id, user);
+  }
   const nextVersion = flow.version + 1;
   const [, updated] = await prisma.$transaction([
     prisma.flowVersion.create({
@@ -121,5 +127,7 @@ export async function publishFlow(id: string, message: string | undefined, user:
       data: { status: 'PUBLISHED', version: nextVersion },
     }),
   ]);
+  const { invalidateArtifacts } = await import('../platform/runner.js');
+  invalidateArtifacts();
   return format(updated);
 }

@@ -19,6 +19,10 @@ router.post('/', authMiddleware, async (req: Request, res: Response, next: NextF
   } catch (err) { next(err); }
 });
 
+router.put('/:id', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  try { res.json({ success: true, data: await apikeysService.updateApiKey(req.params.id, req.body, req.user!) }); } catch (err) { next(err); }
+});
+
 router.delete('/:id', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
     await apikeysService.revokeApiKey(req.params.id, req.user!);

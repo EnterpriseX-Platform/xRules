@@ -1,0 +1,11 @@
+{
+  "name": "xrules-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCP server for xRules: lets Claude (Cowork, Desktop, Code) draft rules, tests and simulations through the xRules API",
+  "type": "module",
+  "bin": { "xrules-mcp": "dist/index.js" },
+  "scripts": { "build": "tsc", "start": "node dist/index.js" },
+  "dependencies": { "@modelcontextprotocol/sdk": "^1.12.0", "zod": "^3.22.4" },
+  "devDependencies": { "@types/node": "^20.11.0", "typescript": "^5.3.3" }
+}

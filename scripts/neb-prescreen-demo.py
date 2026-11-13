@@ -44,7 +44,7 @@ print('connection test', t)
 # ---- data flows
 def data_flow(name, sql, mapping, dataset, key, checks=None, unique=None, cron='0 23 * * *'):
     graph = {'nodes': [
-        {'id': 't', 'type': 'trigger', 'data': {'label': 'ทุกคืน'}},
+        {'id': 't', 'type': 'trigger', 'data': {'label': 'Nightly'}},
         {'id': 's', 'type': 'source', 'data': {'connection': 'neb-src-ro', 'sql': sql}},
         {'id': 'm', 'type': 'map', 'data': {'fields': mapping}},
         {'id': 'q', 'type': 'quality', 'data': {'checks': checks or [], 'unique': unique or key, 'minRowRatio': 0.9}},
@@ -73,11 +73,11 @@ data_flow('Budget item codes', 'SELECT item_code, budget_type FROM neb_src.budge
 
 # ---- rules (script rules returning findings)
 RULES = {
- 'tor-4-4-1-1-required': """const f=[];for(const it of input.items||[]){for(const k of ['itemCode','qty','unitPrice','amount','budgetType']){if(it[k]===undefined||it[k]===null||it[k]==='')f.push({lineId:it.lineId,field:k,message:`รายการ ${it.lineId}: ยังไม่ได้กรอก ${k}`})}}return {findings:f};""",
- 'tor-4-4-1-3-standard-price': """const f=[];for(const it of input.items||[]){const sp=it.ref&&it.ref.standardPrice;if(sp&&it.unitPrice>sp.unitPrice)f.push({lineId:it.lineId,field:'unitPrice',severity:'WARNING',message:`ราคาต่อหน่วย ${it.unitPrice.toLocaleString()} บาท สูงกว่าราคามาตรฐาน ${sp.unitPrice.toLocaleString()} บาท`,ref:{standardPrice:sp.unitPrice}})}return {findings:f};""",
- 'tor-4-4-1-4-unit-price': """const f=[];for(const it of input.items||[]){if(Math.abs(it.qty*it.unitPrice-it.amount)>0.009)f.push({lineId:it.lineId,field:'amount',message:`จำนวน ${it.qty} × ราคาต่อหน่วย ${it.unitPrice} ไม่เท่ากับจำนวนเงิน ${it.amount}`})}return {findings:f};""",
- 'tor-4-4-1-5-budget-type': """const f=[];for(const it of input.items||[]){const bc=it.ref&&it.ref.budgetCode;if(!bc)f.push({lineId:it.lineId,field:'itemCode',message:`ไม่พบรหัสรายการ ${it.itemCode} ในทะเบียนงบรายจ่าย`});else if(bc.budgetType!==it.budgetType)f.push({lineId:it.lineId,field:'budgetType',message:`รหัส ${it.itemCode} ต้องเป็นงบ${bc.budgetType} ไม่ใช่${it.budgetType}`})}return {findings:f};""",
- 'tor-4-4-1-6-duplicate': """const f=[];for(const it of input.items||[]){const p=it.ref&&it.ref.prior;if(p)f.push({lineId:it.lineId,field:'itemCode',severity:'WARNING',message:`ซ้ำกับคำขอ ${p.requestNo} ปี ${p.fiscalYear} (หน่วยรับงบ พื้นที่ และรายการเดียวกัน)`})}return {findings:f};""",
+ 'tor-4-4-1-1-required': """const f=[];for(const it of input.items||[]){for(const k of ['itemCode','qty','unitPrice','amount','budgetType']){if(it[k]===undefined||it[k]===null||it[k]==='')f.push({lineId:it.lineId,field:k,message:`Line ${it.lineId}: ${k} is required`})}}return {findings:f};""",
+ 'tor-4-4-1-3-standard-price': """const f=[];for(const it of input.items||[]){const sp=it.ref&&it.ref.standardPrice;if(sp&&it.unitPrice>sp.unitPrice)f.push({lineId:it.lineId,field:'unitPrice',severity:'WARNING',message:`Unit price ${it.unitPrice.toLocaleString()} THB is above the standard price ${sp.unitPrice.toLocaleString()} THB`,ref:{standardPrice:sp.unitPrice}})}return {findings:f};""",
+ 'tor-4-4-1-4-unit-price': """const f=[];for(const it of input.items||[]){if(Math.abs(it.qty*it.unitPrice-it.amount)>0.009)f.push({lineId:it.lineId,field:'amount',message:`Quantity ${it.qty} × unit price ${it.unitPrice} does not equal amount ${it.amount}`})}return {findings:f};""",
+ 'tor-4-4-1-5-budget-type': """const f=[];for(const it of input.items||[]){const bc=it.ref&&it.ref.budgetCode;if(!bc)f.push({lineId:it.lineId,field:'itemCode',message:`Item code ${it.itemCode} is not in the expenditure register`});else if(bc.budgetType!==it.budgetType)f.push({lineId:it.lineId,field:'budgetType',message:`Item ${it.itemCode} must be budget type ${bc.budgetType}, not ${it.budgetType}`})}return {findings:f};""",
+ 'tor-4-4-1-6-duplicate': """const f=[];for(const it of input.items||[]){const p=it.ref&&it.ref.prior;if(p)f.push({lineId:it.lineId,field:'itemCode',severity:'WARNING',message:`Duplicates request ${p.requestNo} of FY${p.fiscalYear} (same agency, area and item)`})}return {findings:f};""",
 }
 existing = call('GET', f'/rules?project_id={PID}&limit=100')
 existing = existing.get('data', existing.get('items', existing)) if isinstance(existing, dict) else existing
@@ -92,11 +92,11 @@ print('rules', len(RULES))
 # ---- file template
 tpls = call('GET', f'/data/file-templates?project_id={PID}')
 if not any(x['code'] == 'BUDREQ-01' for x in tpls):
-    call('POST', '/data/file-templates', {'projectId': PID, 'code': 'BUDREQ-01', 'name': 'แบบคำขอครุภัณฑ์', 'spec': {
+    call('POST', '/data/file-templates', {'projectId': PID, 'code': 'BUDREQ-01', 'name': 'Equipment request form', 'spec': {
         'extensions': ['.xlsx'], 'maxBytes': 5 * 1024 * 1024,
-        'sheets': [{'name': 'รายละเอียด', 'headerRow': 1, 'columns': [
-            {'name': 'รายการ', 'type': 'string', 'required': True}, {'name': 'จำนวน', 'type': 'number', 'required': True},
-            {'name': 'ราคาต่อหน่วย', 'type': 'number', 'required': True}, {'name': 'จำนวนเงิน', 'type': 'number', 'required': True}]}]}})
+        'sheets': [{'name': 'Details', 'headerRow': 1, 'columns': [
+            {'name': 'Item', 'type': 'string', 'required': True}, {'name': 'Quantity', 'type': 'number', 'required': True},
+            {'name': 'Unit price', 'type': 'number', 'required': True}, {'name': 'Amount', 'type': 'number', 'required': True}]}]}})
 
 # ---- decision flow
 rc = lambda id_, slug, code, sev='ERROR': {'id': id_, 'type': 'ruleCall', 'data': {'ruleSlug': slug, 'ruleCode': code, 'severity': sev, 'outputAs': id_}}
@@ -120,20 +120,34 @@ else:
     df = call('POST', '/flows', {'name': 'neb prescreen', 'projectId': PID, 'kind': 'DECISION', 'graph': dgraph})
 call('POST', f"/flows/{df['id']}/publish", {'message': 'demo'})
 
-# ---- sample Excel missing the "จำนวนเงิน" column
+# ---- sample Excel missing the "Amount" column
 try:
     from openpyxl import Workbook
-    wb = Workbook(); ws = wb.active; ws.title = 'รายละเอียด'
-    ws.append(['รายการ', 'จำนวน', 'ราคาต่อหน่วย']); ws.append(['เครื่องคอมพิวเตอร์ All In One', 4, 28500])
+    wb = Workbook(); ws = wb.active; ws.title = 'Details'
+    ws.append(['Item', 'Quantity', 'Unit price']); ws.append(['All-in-one computer', 4, 28500])
     bio = io.BytesIO(); wb.save(bio); xlsx_b64 = base64.b64encode(bio.getvalue()).decode()
 except ImportError:
     xlsx_b64 = None
 
-key = call('POST', '/api-keys', {'name': 'bpn-demo', 'scopes': ['execute']})
+# ---- REST API: POST /prescreen → decision flow, GET /standard-price/{itemCode} → Data Set lookup
+specs = call('GET', f'/platform/specs?project_id={PID}')
+spec = next((x for x in specs if x['basePath'] == 'neb-prescreen'), None) or call('POST', '/platform/specs', {'projectId': PID, 'name': 'NEB Pre-screening API', 'basePath': 'neb-prescreen', 'version': 1, 'description': 'TOR 4.4 pre-screening'})
+ops = {(o['method'], o['path']): o for o in (call('GET', f"/platform/specs/{spec['id']}")['operations'] or [])}
+op1 = ops.get(('POST', '/prescreen')) or call('POST', f"/platform/specs/{spec['id']}/operations", {'method': 'POST', 'path': '/prescreen', 'summary': 'Check a budget request (TOR 4.4)',
+    'requestSchema': {'type': 'object', 'required': ['context', 'items'], 'properties': {'context': {'type': 'object'}, 'items': {'type': 'array'}}}})
+op2 = ops.get(('GET', '/standard-price/{itemCode}')) or call('POST', f"/platform/specs/{spec['id']}/operations", {'method': 'GET', 'path': '/standard-price/{itemCode}', 'summary': 'DAS standard price'})
+call('PUT', f"/flows/{op1['flowId']}", {'graph': {'nodes': [{'id': 'in', 'type': 'apiInput', 'data': {}}, {'id': 'd', 'type': 'callDecisionFlow', 'data': {'flow': df['slug'], 'inputMap': '{{input.body}}', 'outputAs': 'decision'}}, {'id': 'out', 'type': 'apiResponse', 'data': {'status': 200, 'body': '{{decision}}'}}],
+    'edges': [{'source': 'in', 'target': 'd'}, {'source': 'd', 'target': 'out'}]}})
+call('PUT', f"/flows/{op2['flowId']}", {'graph': {'nodes': [{'id': 'in', 'type': 'apiInput', 'data': {}}, {'id': 'l', 'type': 'lookup', 'data': {'dataset': 'das-standard-price', 'key': ['{{input.params.itemCode}}', '{{input.query.fiscalYear}}'], 'outputAs': 'price'}}, {'id': 'out', 'type': 'apiResponse', 'data': {'status': 200, 'body': {'itemCode': '{{input.params.itemCode}}', 'price': '{{price}}'}}}],
+    'edges': [{'source': 'in', 'target': 'l'}, {'source': 'l', 'target': 'out'}]}})
+call('POST', f"/platform/specs/{spec['id']}/publish", {})
+print('api', spec['url'] if 'url' in spec else '/api/neb-prescreen/v1')
+
+key = call('POST', '/api-keys', {'name': 'bpn-demo', 'scopes': ['execute'], 'specIds': [spec['id']], 'systemName': 'BPN'})
 api_key = key.get('key') or key.get('plainKey') or key.get('apiKey')
 req = {'context': {'action': 'SUBMIT', 'fiscalYear': 2571, 'agencyCode': '03007', 'areaCode': '10'},
-       'items': [{'lineId': 'L-001', 'budgetType': 'ครุภัณฑ์', 'itemCode': 'DAS-1203-0045', 'qty': 4, 'unitPrice': 28500, 'amount': 114000},
-                 {'lineId': 'L-002', 'budgetType': 'ครุภัณฑ์', 'itemCode': 'DAS-1203-0050', 'qty': 2, 'unitPrice': 7500, 'amount': 15000}],
-       'files': ([{'fileId': 'F-77', 'name': 'คำขอ_ครุภัณฑ์.xlsx', 'templateCode': 'BUDREQ-01', 'contentBase64': xlsx_b64}] if xlsx_b64 else [])}
-out = call('POST', f"/api/v1/flows/{df['slug']}/execute", {'input': req}, headers={'X-API-Key': api_key})
+       'items': [{'lineId': 'L-001', 'budgetType': 'equipment', 'itemCode': 'DAS-1203-0045', 'qty': 4, 'unitPrice': 28500, 'amount': 114000},
+                 {'lineId': 'L-002', 'budgetType': 'equipment', 'itemCode': 'DAS-1203-0050', 'qty': 2, 'unitPrice': 7500, 'amount': 15000}],
+       'files': ([{'fileId': 'F-77', 'name': 'equipment_request.xlsx', 'templateCode': 'BUDREQ-01', 'contentBase64': xlsx_b64}] if xlsx_b64 else [])}
+out = call('POST', '/api/neb-prescreen/v1/prescreen', req, headers={'X-API-Key': api_key})
 print(json.dumps(out, ensure_ascii=False, indent=1))

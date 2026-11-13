@@ -79,9 +79,9 @@ export function AssistantPanel() {
       {/* Floating toggle */}
       <button
         className={cn(
-          'fixed bottom-5 right-5 z-40 h-12 w-12 rounded-full shadow-lg border transition-all',
+          'fixed bottom-5 right-5 z-40 h-12 w-12 border transition-colors',
           'flex items-center justify-center',
-          open ? 'bg-text text-bg border-text' : 'bg-accent text-white border-accent hover:scale-105',
+          open ? 'bg-[#161616] text-white border-[#161616]' : 'bg-[#0f62fe] text-white border-[#0f62fe] hover:bg-[#0353e9]',
         )}
         onClick={() => setOpen(v => !v)}
         title={open ? 'Close assistant (⌘;)' : 'Ask Assistant (⌘;)'}
@@ -90,7 +90,7 @@ export function AssistantPanel() {
       </button>
 
       {open && (
-        <div className="fixed bottom-20 right-5 z-40 w-[380px] max-h-[70vh] card flex flex-col shadow-xl">
+        <div className="fixed bottom-20 right-5 z-40 w-[380px] max-h-[70vh] card flex flex-col border !border-[#e0e0e0] shadow-[0_2px_6px_rgba(0,0,0,.2)]">
           <div className="px-3 py-2 border-b border-border flex items-center gap-2">
             <Sparkles className="h-3.5 w-3.5 text-accent" />
             <span className="label-section">XRules Assistant</span>

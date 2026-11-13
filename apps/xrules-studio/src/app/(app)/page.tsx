@@ -33,19 +33,14 @@ export default function DashboardPage() {
           { label: 'Projects',    value: stats.projects },
           { label: 'Rules',       value: stats.rules },
           { label: 'Flows',       value: stats.flows },
+          { label: 'Models',      value: stats.models },
           { label: 'Executions',  value: stats.executions },
         ]}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <KpiCard label="Projects" value={stats.projects}   icon={FolderKanban} tone="info" />
-        <KpiCard label="Rules"    value={stats.rules}      icon={FileText}     tone="accent" />
-        <KpiCard label="Flows"    value={stats.flows}      icon={Workflow}     tone="mint" />
-        <KpiCard label="Models"   value={stats.models}     icon={Brain}        tone="warn" />
-      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 card p-6">
+        <div className="lg:col-span-2 card p-5">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-[15px] font-semibold tracking-tight">Recent executions</h2>
             <span className="text-[11px] text-subtle tabular-nums">{Number(stats.executions).toLocaleString()} total</span>
@@ -53,7 +48,7 @@ export default function DashboardPage() {
           <RecentTable rows={data?.recentExecutions || []} loading={isLoading} />
         </div>
 
-        <div className="card p-6">
+        <div className="card p-5">
           <h2 className="text-[15px] font-semibold tracking-tight mb-5">Recent projects</h2>
           <ProjectList rows={data?.recentProjects || []} loading={isLoading} />
         </div>
@@ -99,10 +94,10 @@ function RecentTable({ rows, loading }: { rows: any[]; loading: boolean }) {
         {rows.slice(0, 5).map((r, i) => (
           <tr key={r.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
             <td className="py-3 pr-4 row-index">{String(i + 1).padStart(2, '0')}</td>
-            <td className="py-3 pr-4 truncate max-w-[200px] font-medium">{r.rule?.name || '—'}</td>
+            <td className="py-3 pr-4 truncate max-w-[260px] font-medium">{r.ruleName || r.rule?.name || r.flow?.name || '—'}</td>
             <td className="py-3 pr-4">
-              <span className={`pill ${r.status === 'SUCCESS' ? 'pill-ok' : r.status === 'FAILED' ? 'pill-danger' : 'pill-warn'}`}>
-                <span className={`dot ${r.status === 'SUCCESS' ? 'bg-ok' : r.status === 'FAILED' ? 'bg-danger' : 'bg-warn'}`} />
+              <span className={`pill ${String(r.status).toUpperCase() === 'SUCCESS' ? 'pill-ok' : String(r.status).toUpperCase() === 'FAILED' ? 'pill-danger' : 'pill-warn'}`}>
+                <span className={`dot ${String(r.status).toUpperCase() === 'SUCCESS' ? 'bg-ok' : String(r.status).toUpperCase() === 'FAILED' ? 'bg-danger' : 'bg-warn'}`} />
                 {r.status.toLowerCase()}
               </span>
             </td>

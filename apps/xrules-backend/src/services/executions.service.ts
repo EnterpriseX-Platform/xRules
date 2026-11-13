@@ -42,7 +42,7 @@ export async function listExecutions(
       orderBy: { createdAt: 'desc' },
       skip,
       take: limit,
-      include: { rule: { select: { id: true, name: true, type: true } } },
+      include: { rule: { select: { id: true, name: true, type: true } }, flow: { select: { name: true } } },
     }),
     prisma.execution.count({ where }),
   ]);

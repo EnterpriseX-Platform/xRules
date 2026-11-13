@@ -1,0 +1,1 @@
+export const BULK_STATUS: Record<string, [any, string]> = { QUEUED: ['gray', 'Queued'], RUNNING: ['blue', 'Running'], PAUSED: ['orange', 'Paused'], COMPLETED: ['green', 'Completed'], FAILED: ['red', 'Failed'], CANCELLED: ['gray', 'Cancelled'] };

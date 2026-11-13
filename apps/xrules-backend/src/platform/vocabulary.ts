@@ -1,0 +1,163 @@
+// Business-language rules. A small, strict English grammar so every sentence maps to exactly one
+// executable rule and every rule can be read back as the same sentence. Terms (from the project's
+// Vocabulary) may be written in any language.
+//
+//   IF <condition> (AND|OR <condition>)* THEN (WARN|FAIL) "<message>" [LEVEL ERROR|WARNING] [CODE <code>]
+//   <condition> = <term> <operator> <value|term>  |  <term> (IS EMPTY|IS NOT EMPTY)
+//   operators: IS, IS NOT, GREATER THAN, LESS THAN, AT MOST, AT LEAST, IN, NOT IN
+//
+// A term whose path starts with "item." makes the rule run once per line in input.items and report lineId.
+import { prisma } from '../config/database.js';
+import { NotFoundError, ValidationError } from '../utils/errors.js';
+import { assertProjectAccess } from '../services/_access.js';
+import type { AuthUser } from '../middleware/auth.js';
+
+export interface Term { term: string; path: string; type: string; values: string[] }
+type Operand = { kind: 'term'; term: string; path: string } | { kind: 'value'; value: any } | { kind: 'list'; values: any[] };
+export interface Cond { left: { term: string; path: string }; op: string; right?: Operand }
+export interface Ast { conds: Cond[]; joins: ('AND' | 'OR')[]; action: { kind: 'warn' | 'fail'; message: string; severity: 'ERROR' | 'WARNING'; code?: string }; perItem: boolean }
+export interface ParseError { at: number; message: string; suggestions?: string[] }
+
+const OPS: Record<string, string> = { 'IS NOT EMPTY': 'notempty', 'IS EMPTY': 'empty', 'GREATER THAN': '>', 'LESS THAN': '<', 'AT LEAST': '>=', 'AT MOST': '<=', 'IS NOT': '!=', 'NOT IN': 'nin', 'IS': '==', 'IN': 'in' };
+const OP_WORDS = Object.keys(OPS).sort((a, b) => b.length - a.length);
+const OP_TEXT: Record<string, string> = Object.fromEntries(Object.entries(OPS).map(([k, v]) => [v, k]));
+
+export function parse(sentence: string, terms: Term[]): { ast?: Ast; errors: ParseError[] } {
+  const errors: ParseError[] = [];
+  const src = sentence.replace(/\s+/g, ' ').trim();
+  const m = src.match(/^IF\s+(.+?)\s+THEN\s+(.+)$/i);
+  if (!m) return { errors: [{ at: 0, message: 'A rule must start with IF and contain THEN', suggestions: ['IF … THEN WARN "…"'] }] };
+  const condText = m[1]; const actText = m[2];
+  const byLen = [...terms].sort((a, b) => b.term.length - a.term.length);
+  const parts = condText.split(/\s+(AND|OR)\s+/i);
+  const conds: Cond[] = []; const joins: any[] = [];
+  let at = src.indexOf(condText);
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 1) { joins.push(parts[i].toUpperCase()); at += parts[i].length + 2; continue; }
+    const p = parts[i].trim();
+    const left = byLen.find(t => p.toLowerCase().startsWith(t.term.toLowerCase()) && (p.length === t.term.length || p[t.term.length] === ' '));
+    if (!left) { errors.push({ at, message: `Unknown term "${p.split(' ')[0]}"`, suggestions: closest(p.split(' ')[0], terms) }); at += p.length + 1; continue; }
+    const rest = p.slice(left.term.length).trim();
+    const opWord = OP_WORDS.find(w => rest.toUpperCase() === w || rest.toUpperCase().startsWith(w + ' '));
+    if (!opWord) { errors.push({ at: at + left.term.length, message: `"${left.term}" must be followed by an operator`, suggestions: OP_WORDS }); at += p.length + 1; continue; }
+    const op = OPS[opWord]; const rhs = rest.slice(opWord.length).trim();
+    let right: Operand | undefined;
+    if (op === 'empty' || op === 'notempty') { if (rhs) errors.push({ at, message: `"${opWord}" takes no value` }); }
+    else if (!rhs) errors.push({ at, message: `"${opWord}" needs a value` });
+    else if (op === 'in' || op === 'nin') right = { kind: 'list', values: rhs.split(/\s*,\s*/).map(lit) };
+    else { const t = byLen.find(t => rhs.toLowerCase() === t.term.toLowerCase()); right = t ? { kind: 'term', term: t.term, path: t.path } : { kind: 'value', value: lit(rhs) }; }
+    if (left.type === 'enum' && right?.kind === 'value' && left.values.length && !left.values.includes(String(right.value))) errors.push({ at, message: `"${right.value}" is not a value of ${left.term}`, suggestions: left.values });
+    conds.push({ left: { term: left.term, path: left.path }, op, right });
+    at += p.length + 1;
+  }
+  const am = actText.match(/^(WARN|FAIL)\s+"([^"]+)"(?:\s+LEVEL\s+(ERROR|WARNING))?(?:\s+CODE\s+(\S+))?\s*$/i);
+  if (!am) errors.push({ at: src.indexOf(actText), message: 'After THEN write WARN "message" or FAIL "message", optionally followed by LEVEL and CODE', suggestions: ['THEN WARN "…" LEVEL WARNING CODE TOR-…', 'THEN FAIL "…" LEVEL ERROR CODE TOR-…'] });
+  if (errors.length || !am) return { errors };
+  const warn = am[1].toUpperCase() === 'WARN';
+  const perItem = conds.some(c => c.left.path.startsWith('item.') || (c.right?.kind === 'term' && c.right.path.startsWith('item.')));
+  return { ast: { conds, joins, perItem, action: { kind: warn ? 'warn' : 'fail', message: am[2], severity: ((am[3] || '').toUpperCase() as any) || (warn ? 'WARNING' : 'ERROR'), code: am[4] } }, errors: [] };
+}
+
+function lit(s: string): any {
+  const t = s.trim().replace(/^"(.*)"$/, '$1');
+  if (/^-?[\d,]+(\.\d+)?$/.test(t)) return Number(t.replace(/,/g, ''));
+  if (/^true$/i.test(t)) return true; if (/^false$/i.test(t)) return false;
+  return t;
+}
+function closest(word: string, terms: Term[]) {
+  const d = (a: string, b: string) => { const m = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]); for (let j = 1; j <= b.length; j++) m[0][j] = j;
+    for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) m[i][j] = Math.min(m[i - 1][j] + 1, m[i][j - 1] + 1, m[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return m[a.length][b.length]; };
+  return terms.map(t => ({ t: t.term, s: d(word, t.term) })).sort((a, b) => a.s - b.s).slice(0, 3).map(x => x.t);
+}
+
+/** Read the AST back as the canonical sentence. */
+export function verbalize(ast: Ast): string {
+  const val = (o?: Operand) => !o ? '' : o.kind === 'term' ? o.term : o.kind === 'list' ? o.values.map(v => typeof v === 'string' ? `"${v}"` : v).join(', ') : typeof o.value === 'string' ? `"${o.value}"` : Number(o.value).toLocaleString('en-US');
+  const conds = ast.conds.map((c, i) => `${i ? ` ${ast.joins[i - 1]} ` : ''}${c.left.term} ${OP_TEXT[c.op]}${c.right ? ' ' + val(c.right) : ''}`).join('');
+  return `IF ${conds} THEN ${ast.action.kind === 'warn' ? 'WARN' : 'FAIL'} "${ast.action.message}" LEVEL ${ast.action.severity}${ast.action.code ? ` CODE ${ast.action.code}` : ''}`;
+}
+
+/** Compile to the source of a SCRIPT rule that returns { findings }. Paths: item.* per line, other paths from input. */
+export function compile(ast: Ast): string {
+  const ref = (path: string) => path.startsWith('item.') ? `get(item, ${JSON.stringify(path.slice(5))})` : `get(input, ${JSON.stringify(path)})`;
+  const opnd = (o?: Operand) => !o ? 'undefined' : o.kind === 'term' ? ref(o.path) : JSON.stringify(o.kind === 'list' ? o.values : o.value);
+  const c = (x: Cond) => {
+    const l = ref(x.left.path), r = opnd(x.right);
+    switch (x.op) {
+      case '==': return `(${l} == ${r})`; case '!=': return `(${l} != ${r})`;
+      case '>': return `(Number(${l}) > Number(${r}))`; case '<': return `(Number(${l}) < Number(${r}))`;
+      case '>=': return `(Number(${l}) >= Number(${r}))`; case '<=': return `(Number(${l}) <= Number(${r}))`;
+      case 'in': return `(${r}.includes(${l}))`; case 'nin': return `(!${r}.includes(${l}))`;
+      case 'empty': return `(${l} === undefined || ${l} === null || ${l} === '')`;
+      case 'notempty': return `!(${l} === undefined || ${l} === null || ${l} === '')`;
+    }
+    return 'false';
+  };
+  const expr = ast.conds.map((x, i) => (i ? (ast.joins[i - 1] === 'AND' ? ' && ' : ' || ') : '') + c(x)).join('');
+  const f = JSON.stringify({ ruleCode: ast.action.code, severity: ast.action.severity, message: ast.action.message });
+  return [
+    `// generated from a Vocabulary sentence — edit the sentence, not this code`,
+    `const get = (o, p) => p.split('.').reduce((a, k) => (a == null ? undefined : a[k]), o);`,
+    `const findings = [];`,
+    ast.perItem
+      ? `for (const item of (input.items || [])) { if (${expr}) findings.push({ ...${f}, lineId: item.lineId }); }`
+      : `const item = undefined; if (${expr}) findings.push(${f});`,
+    `return { findings, passed: !findings.some(x => x.severity === 'ERROR') };`,
+  ].join('\n');
+}
+
+// ---------------------------------------------------------------- persistence
+export async function terms(projectId: string): Promise<Term[]> {
+  return (await prisma.vocabularyTerm.findMany({ where: { projectId } })).map(t => ({ term: t.term, path: t.path, type: t.type, values: t.values }));
+}
+export async function listTerms(projectIdOrSlug: string, user: AuthUser) {
+  const p = await assertProjectAccess(projectIdOrSlug, user);
+  return prisma.vocabularyTerm.findMany({ where: { projectId: p.id }, orderBy: { term: 'asc' } });
+}
+export async function upsertTerm(data: { projectId: string; term: string; path: string; type?: string; values?: string[]; description?: string }, user: AuthUser) {
+  const p = await assertProjectAccess(data.projectId, user, 'write');
+  if (!data.term?.trim() || !data.path?.trim()) throw new ValidationError('term and path required');
+  if (/[\s]/.test(data.path)) throw new ValidationError('path must not contain spaces');
+  return prisma.vocabularyTerm.upsert({ where: { projectId_term: { projectId: p.id, term: data.term.trim() } },
+    create: { projectId: p.id, term: data.term.trim(), path: data.path.trim(), type: data.type || 'text', values: data.values || [], description: data.description },
+    update: { path: data.path.trim(), type: data.type || 'text', values: data.values || [], description: data.description } });
+}
+export async function deleteTerm(id: string, user: AuthUser) {
+  const t = await prisma.vocabularyTerm.findUnique({ where: { id } }); if (!t) throw new NotFoundError('Term');
+  await assertProjectAccess(t.projectId, user, 'write'); await prisma.vocabularyTerm.delete({ where: { id } });
+}
+/** Suggest paths that have no term yet, from the inputs of test cases and recent executions. */
+export async function suggest(projectIdOrSlug: string, user: AuthUser) {
+  const p = await assertProjectAccess(projectIdOrSlug, user);
+  const known = new Set((await terms(p.id)).map(t => t.path));
+  const samples = [
+    ...(await prisma.testCase.findMany({ where: { projectId: p.id }, take: 50, select: { input: true } })).map(x => x.input),
+    ...(await prisma.execution.findMany({ where: { flow: { projectId: p.id } }, take: 50, orderBy: { createdAt: 'desc' }, select: { input: true } })).map(x => x.input),
+  ];
+  const paths = new Map<string, any>();
+  const walk = (o: any, pre: string) => {
+    if (Array.isArray(o)) { if (pre === 'items' && o[0]) walk(o[0], 'item'); return; }
+    if (o && typeof o === 'object') { for (const [k, v] of Object.entries(o)) walk(v, pre ? `${pre}.${k}` : k); return; }
+    if (pre && !paths.has(pre)) paths.set(pre, o);
+  };
+  for (const s of samples) walk((s as any)?.body ?? s, '');
+  return [...paths.entries()].filter(([path]) => !known.has(path)).map(([path, example]) => ({ path, example, type: typeof example === 'number' ? 'number' : 'text' }));
+}
+
+export async function check(projectIdOrSlug: string, sentence: string, user: AuthUser) {
+  const p = await assertProjectAccess(projectIdOrSlug, user);
+  const r = parse(sentence, await terms(p.id));
+  return r.ast ? { ok: true, ast: r.ast, canonical: verbalize(r.ast), source: compile(r.ast), errors: [] } : { ok: false, errors: r.errors };
+}
+
+/** Save a sentence as a (draft) SCRIPT rule. Re-saving the same name updates the draft. */
+export async function saveRule(data: { projectId: string; name: string; sentence: string; description?: string }, user: AuthUser) {
+  const p = await assertProjectAccess(data.projectId, user, 'write');
+  const r = parse(data.sentence, await terms(p.id));
+  if (!r.ast) throw new ValidationError(r.errors.map(e => e.message).join(' · '));
+  const definition = { language: 'rule-sentence', sentence: verbalize(r.ast), ast: r.ast, source: compile(r.ast) };
+  const slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `rule-${Date.now()}`;
+  const existing = await prisma.rule.findFirst({ where: { projectId: p.id, slug } });
+  if (existing) return prisma.rule.update({ where: { id: existing.id }, data: { definition: definition as any, description: data.description, status: 'DRAFT' } });
+  return prisma.rule.create({ data: { projectId: p.id, name: data.name, slug, type: 'SCRIPT', definition: definition as any, description: data.description, createdById: user.userId } as any });
+}
