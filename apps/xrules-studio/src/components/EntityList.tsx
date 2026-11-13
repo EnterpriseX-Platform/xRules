@@ -24,8 +24,8 @@ export function EntityTable<T extends { id: string }>({
   hrefFor?: (row: T) => string | undefined;
 }) {
   return (
-    <div className="card overflow-hidden">
-      <table className="w-full">
+    <div className="card overflow-x-auto">
+      <table className="w-full min-w-[640px]">
         <thead className="bg-muted/30 border-b border-border">
           <tr className="text-left">
             <th className="py-3 px-4 label-section w-12">#</th>

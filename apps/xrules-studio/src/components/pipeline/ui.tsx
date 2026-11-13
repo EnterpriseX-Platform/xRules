@@ -2,12 +2,12 @@
 // Small Carbon g10 building blocks for the Data Layer pages.
 export function PageHead({ title, sub, actions }: { title: string; sub?: React.ReactNode; actions?: React.ReactNode }) {
   return (
-    <div className="flex items-end justify-between gap-4 mb-6">
-      <div>
+    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 mb-6">
+      <div className="flex-1 min-w-[min(100%,360px)]">
         <h1 className="text-[28px] leading-9 font-normal text-[#161616]">{title}</h1>
         {sub && <div className="text-[14px] text-[#525252] mt-1">{sub}</div>}
       </div>
-      {actions && <div className="flex gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
   );
 }

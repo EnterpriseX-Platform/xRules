@@ -122,7 +122,7 @@ export default function RulesPage() {
         }
       />
 
-      <div className="grid grid-cols-[220px_1fr] gap-3">
+      <div className="grid grid-cols-1 xl:grid-cols-[220px_1fr] gap-3">
         {/* Folder tree */}
         <div className="card p-2">
           <div className="flex items-center justify-between px-2 py-1">
@@ -178,8 +178,8 @@ export default function RulesPage() {
             </div>
           </div>
 
-          <div className="card overflow-hidden">
-        <table className="w-full">
+          <div className="card overflow-x-auto">
+        <table className="w-full min-w-[720px]">
           <thead className="bg-muted/30 border-b border-border">
             <tr className="text-left">
               <th className="py-3 px-4 label-section w-12">#</th>
