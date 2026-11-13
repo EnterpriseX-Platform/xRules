@@ -9,7 +9,7 @@ COPY apps/xrules-studio/package.json apps/xrules-studio/
 RUN npm ci --workspace apps/xrules-studio --include-workspace-root --ignore-scripts
 COPY apps/xrules-studio ./apps/xrules-studio
 WORKDIR /app/apps/xrules-studio
-RUN npm run build
+RUN mkdir -p public && npm run build
 
 FROM node:20-alpine
 RUN apk add --no-cache tini tzdata && addgroup -S app && adduser -S app -G app
