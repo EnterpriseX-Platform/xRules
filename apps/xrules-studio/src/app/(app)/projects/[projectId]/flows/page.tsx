@@ -18,11 +18,11 @@ const KIND_META: Record<Exclude<Kind, 'ALL'>, {
   icon: any;
 }> = {
   DECISION: {
-    title: 'Rule Flows',
+    title: 'Decision Flows',
     description: 'Synchronous decision orchestration — chain rules together, branch on outputs, return a composed result.',
-    emptyText: 'No rule flows yet',
-    emptyBody: 'A rule flow takes input, calls one or more rules in sequence (with branching, mapping, and transforms), and returns the composed output. Sync, fast, no jobs.',
-    cta: 'New rule flow',
+    emptyText: 'No decision flows yet',
+    emptyBody: 'A decision flow takes input, calls one or more rules in sequence (with branching, mapping, and transforms), and returns the composed output. Sync, fast, no jobs.',
+    cta: 'New decision flow',
     icon: Workflow,
   },
   INTEGRATION: {
@@ -65,7 +65,7 @@ export default function FlowsPage() {
     <PageContent>
       <PageHeader
         title={meta?.title || 'Flows'}
-        description={meta?.description || 'Orchestration — both sync (rule flows) and async (integration flows).'}
+        description={meta?.description || 'Orchestration — both sync (decision flows) and async (integration flows).'}
         stats={[{ label: 'Published', value: stats.published }, { label: 'Draft', value: stats.draft }, { label: 'Total', value: stats.total }]}
         actions={
           <button className="btn-primary" onClick={() => setShowCreate(true)}>
@@ -80,7 +80,7 @@ export default function FlowsPage() {
         <div className="flex items-center gap-2 mb-5">
           <span className="label-section mr-2">Kind</span>
           <KindChip current="ALL"         active                     >All</KindChip>
-          <KindChip current="DECISION"    onClick={() => router.push(`?kind=DECISION`)}    icon={Workflow}>Rule Flows</KindChip>
+          <KindChip current="DECISION"    onClick={() => router.push(`?kind=DECISION`)}    icon={Workflow}>Decision Flows</KindChip>
           <KindChip current="INTEGRATION" onClick={() => router.push(`?kind=INTEGRATION`)} icon={Zap}>Integration Flows</KindChip>
         </div>
       )}
@@ -122,7 +122,7 @@ export default function FlowsPage() {
             header: 'Kind',
             cell: (f: any) => {
               const isInt = String(f.kind || 'DECISION').toUpperCase() === 'INTEGRATION';
-              return <Pill tone={isInt ? 'warn' : 'info'}>{isInt ? 'integration' : 'rule flow'}</Pill>;
+              return <Pill tone={isInt ? 'warn' : 'info'}>{isInt ? 'integration' : 'decision'}</Pill>;
             },
           },
           { header: 'Status', cell: (f: any) => <StatusPill status={f.status} /> },

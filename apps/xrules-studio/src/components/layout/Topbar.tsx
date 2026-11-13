@@ -37,6 +37,17 @@ function useBreadcrumbs(pathname: string): Crumb[] {
     retry: false,
   });
 
+  // Flow / Data Set names for their detail pages
+  const isFlow = (section === 'flows' || section === 'data-flows') && !!subId;
+  const isSet = section === 'data-sets' && !!subId;
+  const { data: entity } = useQuery({
+    queryKey: ['crumb', section, subId],
+    queryFn: () => api.get<any>(isFlow ? `/flows/${subId}` : `/data/datasets/${subId}`),
+    enabled: isFlow || isSet,
+    staleTime: 60_000,
+    retry: false,
+  });
+
   // Build crumbs
   const out: Crumb[] = [{ label: 'Home', href: `/`, mono: false }];
   if (parts[0] === 'projects' && !projectId) {
@@ -55,6 +66,7 @@ function useBreadcrumbs(pathname: string): Crumb[] {
       environments: 'Environments', executions: 'Executions', jobs: 'Jobs',
       audit: 'Audit Log', tools: 'Tools', bench: 'Bench', drd: 'DRD',
       templates: 'Templates', integrations: 'Integrations', connections: 'Connections',
+      'data-flows': 'Data Flows', 'data-sets': 'Data Sets',
     };
     const sectionLabel = human[section] || section;
     if (subId) {
@@ -68,6 +80,8 @@ function useBreadcrumbs(pathname: string): Crumb[] {
   const isIntegrationsSub = section === 'integrations';
   if (rule) {
     out.push({ label: rule.name });
+  } else if (entity && (isFlow || isSet)) {
+    out.push({ label: entity.name || entity.slug });
   } else if (subId && !isIntegrationsSub) {
     const looksLikeId = /^[a-z0-9]{20,}$/i.test(subId) && !subId.includes('-');
     out.push({ label: looksLikeId ? subId.slice(0, 8) + '…' : subId, mono: looksLikeId });
@@ -96,21 +110,21 @@ export function Topbar() {
   const onProjectsList = pathname.endsWith('/projects');
 
   return (
-    <header className="h-[56px] shrink-0 border-b border-border/40 bg-bg/70 backdrop-blur-md flex items-center px-5 gap-4">
+    <header className="h-[48px] shrink-0 bg-[#161616] text-[#c6c6c6] flex items-center px-5 gap-4">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1.5 text-sm min-w-0">
         {crumbs.map((c, i) => (
           <span key={i} className="flex items-center gap-1.5 min-w-0">
-            {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-subtle/40 flex-shrink-0" />}
+            {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-[#6f6f6f] flex-shrink-0" />}
             {c.href ? (
               <Link
                 href={c.href}
-                className="text-subtle hover:text-text transition-colors truncate"
+                className="text-[#c6c6c6] hover:text-white transition-colors truncate"
               >
                 {c.label}
               </Link>
             ) : (
-              <span className="text-text font-medium truncate">
+              <span className="text-white font-medium truncate">
                 {c.label}
               </span>
             )}
@@ -120,12 +134,12 @@ export function Topbar() {
 
       {/* Search palette */}
       <button
-        className="ml-auto relative w-72 max-w-full hidden lg:flex items-center input pl-9 pr-14 text-left h-9 hover:bg-muted/60"
+        className="ml-auto relative w-72 max-w-full hidden lg:flex items-center pl-9 pr-14 text-left h-8 bg-[#393939] hover:bg-[#474747]"
         onClick={() => window.dispatchEvent(new CustomEvent('xrules:open-palette'))}
       >
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-subtle/70" />
-        <span className="text-subtle text-[13px]">Search…</span>
-        <span className="kbd absolute right-2 top-1/2 -translate-y-1/2">⌘K</span>
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#c6c6c6]" />
+        <span className="text-[#c6c6c6] text-[13px]">Search…</span>
+        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-[#a8a8a8]">⌘K</span>
       </button>
 
       {/* Context-aware primary action */}

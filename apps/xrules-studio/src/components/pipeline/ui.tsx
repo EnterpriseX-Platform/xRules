@@ -32,3 +32,16 @@ export function Btn({ kind = 'primary', children, ...p }: any) {
   return <button {...p} className={`h-10 pl-4 pr-8 text-[14px] disabled:opacity-40 flex items-center gap-2 ${c} ${p.className || ''}`}>{children}</button>;
 }
 export const fmtTime = (s?: string | null) => s ? new Date(s).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+
+/** "0 23 * * *" → "ทุกวัน 23:00" for the common shapes; anything else stays as cron. */
+export function cronText(cron?: string | null): string {
+  if (!cron) return 'รันเอง';
+  const f = cron.trim().split(/\s+/);
+  if (f.length !== 5 || !/^\d+$/.test(f[0]) || !/^\d+$/.test(f[1])) return cron;
+  const t = `${f[1].padStart(2, '0')}:${f[0].padStart(2, '0')}`;
+  const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+  if (f[2] === '*' && f[3] === '*' && f[4] === '*') return `ทุกวัน ${t}`;
+  if (f[2] === '*' && f[3] === '*' && /^[0-6]$/.test(f[4])) return `ทุกวัน${days[+f[4]]} ${t}`;
+  if (/^\d+$/.test(f[2]) && f[3] === '*' && f[4] === '*') return `ทุกวันที่ ${f[2]} ${t}`;
+  return cron;
+}

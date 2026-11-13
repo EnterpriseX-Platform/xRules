@@ -20,7 +20,6 @@ export default function DataSetDetailPage() {
   if (!ds) return <div className="px-8 py-6" />;
   return (
     <div className="px-8 py-6">
-      <div className="text-[12px] text-[#525252] mb-1"><Link href={`/projects/${projectId}/data-sets`} className="text-[#0f62fe] hover:underline">Data Sets</Link> / {ds.slug}</div>
       <PageHead title={ds.slug} sub={<>คีย์ <span className="font-mono">{ds.keyFields.join(' + ') || '—'}</span> · {ds.rowCount.toLocaleString()} แถว · เก็บย้อนหลัง {ds.retention} รอบ</>} />
       <div className="flex border-b border-[#e0e0e0] mb-4">
         {TABS.map(t => <button key={t} onClick={() => setTab(t)} className={`h-10 px-4 text-[14px] ${tab === t ? 'border-b-2 border-[#0f62fe] text-[#161616] font-semibold' : 'text-[#525252] hover:bg-[#e8e8e8]'}`}>{t}</button>)}

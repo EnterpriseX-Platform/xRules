@@ -36,7 +36,7 @@ export async function getDashboard(workspaceSlug: string, user: AuthUser) {
       where: { rule: { projectId: { in: projectIds } } },
       orderBy: { createdAt: 'desc' },
       take: 5,
-      include: { rule: { select: { id: true, name: true, type: true } } },
+      include: { rule: { select: { id: true, name: true, type: true } }, flow: { select: { name: true } } },
     }),
     prisma.project.findMany({
       where: { workspaceId: workspace.id },

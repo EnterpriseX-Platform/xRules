@@ -157,7 +157,6 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
     <div className="h-[calc(100vh-48px)] flex flex-col bg-[#f4f4f4]">
       {/* header */}
       <div className="bg-white border-b border-[#e0e0e0] px-6 pt-4 pb-3">
-        <div className="text-[12px] text-[#525252] mb-1"><Link href={backHref} className="text-[#0f62fe] hover:underline">{backLabel}</Link> / {flow.slug}</div>
         <div className="flex items-center gap-4">
           <h1 className="text-[22px] text-[#161616] font-semibold">{flow.name}</h1>
           {liveVersion > 0 && <span className="flex items-center gap-1.5 text-[14px] text-[#525252]"><span className="h-2.5 w-2.5 rounded-full bg-[#24a148]" />v{liveVersion} live</span>}

@@ -19,9 +19,14 @@ export default function ExecutionsPage() {
 
   return (
     <PageContent>
+      <PageHeader
+        title="Executions"
+        description="Live log of every rule and flow execution"
+        stats={[{ label: 'Recent', value: rows.length }]}
+      />
       {flowRuns.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-[20px] mb-3">Decision Flows</h2>
+          <h2 className="text-[20px] mb-3">ผลตรวจจาก Decision Flow</h2>
           <Table head={['Flow', 'ผล', 'เวลา', 'ใช้เวลา']}>
             {flowRuns.map((r: any) => (
               <tr key={r.id} className="hover:bg-[#e8e8e8]">
@@ -34,11 +39,6 @@ export default function ExecutionsPage() {
           </Table>
         </div>
       )}
-      <PageHeader
-        title="Executions"
-        description="Live log of every rule and flow execution"
-        stats={[{ label: 'Recent', value: rows.length }]}
-      />
       <EntityTable
         rows={rows}
         isLoading={isLoading}

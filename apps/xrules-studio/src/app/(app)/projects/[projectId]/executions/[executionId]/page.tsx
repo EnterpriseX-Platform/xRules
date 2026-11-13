@@ -15,7 +15,6 @@ export default function ExecutionDetailPage() {
   const s = out.summary || {};
   return (
     <div className="px-8 py-6">
-      <div className="text-[12px] text-[#525252] mb-1"><Link href={`/projects/${projectId}/executions`} className="text-[#0f62fe] hover:underline">Executions</Link> / {e.id}</div>
       <PageHead title={`${e.name}${e.input?.context?.action ? ` · ${e.input.context.action}` : ''}`}
         sub={<>{fmtTime(e.createdAt)} · {e.duration} ms{e.environment ? ` · ${e.environment}` : ''}</>}
         actions={<div className="flex gap-2 items-center">{s.error ? <Tag tone="red">ERROR {s.error}</Tag> : <Tag tone="green">ผ่าน</Tag>}{s.warning ? <Tag tone="orange">WARNING {s.warning}</Tag> : null}{s.skipped ? <Tag>SKIPPED {s.skipped}</Tag> : null}</div>} />

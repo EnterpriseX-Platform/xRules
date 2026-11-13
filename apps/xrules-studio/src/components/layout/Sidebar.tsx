@@ -183,11 +183,26 @@ function NavSection({ id, label, items, pathname }: {
   );
 }
 
+// Pick the single nav item that best matches the current URL: longest path prefix wins,
+// and items sharing a path (Decision / Integration Flows) are told apart by their ?kind=.
+let ALL_ITEMS: NavItem[] = [];
+function bestHref(pathname: string): string | null {
+  const kind = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('kind') : null;
+  let best: NavItem | null = null; let bestScore = -1;
+  for (const it of ALL_ITEMS) {
+    const [path, qs] = it.href.split('?');
+    if (!(pathname === path || pathname.startsWith(path + '/'))) continue;
+    const itKind = qs ? new URLSearchParams(qs).get('kind') : null;
+    if (itKind && kind && itKind.toLowerCase() !== kind.toLowerCase()) continue;
+    const score = path.length * 2 + (itKind && kind ? 1 : 0);
+    if (score > bestScore) { best = it; bestScore = score; }
+  }
+  return best?.href ?? null;
+}
+
 function NavRow({ item, pathname }: { item: NavItem; pathname: string }) {
-  // Treat path as active when the route matches or is under it,
-  // ignoring query-string differences (so /flows?kind=INTEGRATION matches /flows).
-  const cleanHref = item.href.split('?')[0];
-  const active = pathname === cleanHref || pathname.startsWith(cleanHref + '/');
+  if (!ALL_ITEMS.includes(item) && !ALL_ITEMS.some(i => i.href === item.href)) ALL_ITEMS.push(item);
+  const active = bestHref(pathname) === item.href;
   const Icon = item.icon;
   return (
     <Link href={item.href} className={cn('nav-row', active && 'nav-row-active')}>
