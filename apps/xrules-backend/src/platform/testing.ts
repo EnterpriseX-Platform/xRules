@@ -14,11 +14,11 @@ const read = (o: any, path = '') => path.replace(/^\$\.?/, '').split('.').filter
 function check(exp: Expectation, r: { status: number; body: any; ms: number }): { ok: boolean; message: string } {
   const findings: any[] = r.body?.findings || [];
   switch (exp.kind) {
-    case 'status': return { ok: r.status === Number(exp.value), message: `status ${r.status} (คาด ${exp.value})` };
-    case 'equals': { const v = read(r.body, exp.path); return { ok: JSON.stringify(v) === JSON.stringify(exp.value), message: `${exp.path} = ${JSON.stringify(v)} (คาด ${JSON.stringify(exp.value)})` }; }
-    case 'has_finding': { const hit = findings.some(f => f.ruleCode === exp.code && (!exp.severity || f.severity === exp.severity)); return { ok: hit, message: hit ? `มี ${exp.code}` : `ไม่มี ${exp.code}${exp.severity ? ` ระดับ ${exp.severity}` : ''}` }; }
-    case 'no_finding': { const hit = findings.some(f => f.ruleCode === exp.code); return { ok: !hit, message: hit ? `ไม่ควรมี ${exp.code}` : `ไม่มี ${exp.code}` }; }
-    case 'max_ms': return { ok: r.ms <= Number(exp.value), message: `${r.ms} ms (ไม่เกิน ${exp.value})` };
+    case 'status': return { ok: r.status === Number(exp.value), message: `status ${r.status} (expected ${exp.value})` };
+    case 'equals': { const v = read(r.body, exp.path); return { ok: JSON.stringify(v) === JSON.stringify(exp.value), message: `${exp.path} = ${JSON.stringify(v)} (expected ${JSON.stringify(exp.value)})` }; }
+    case 'has_finding': { const hit = findings.some(f => f.ruleCode === exp.code && (!exp.severity || f.severity === exp.severity)); return { ok: hit, message: hit ? `has ${exp.code}` : `missing ${exp.code}${exp.severity ? ` at ${exp.severity}` : ''}` }; }
+    case 'no_finding': { const hit = findings.some(f => f.ruleCode === exp.code); return { ok: !hit, message: hit ? `should not have ${exp.code}` : `no ${exp.code}` }; }
+    case 'max_ms': return { ok: r.ms <= Number(exp.value), message: `${r.ms} ms (max ${exp.value})` };
   }
   return { ok: false, message: `unknown expectation ${(exp as any).kind}` };
 }
@@ -72,7 +72,7 @@ export async function runForTarget(targetType: string, targetId: string) {
 export async function assertTestsPass(targetType: string, targetId: string) {
   if (process.env.XRULES_TEST_GATE === 'off') return;
   const r = await runForTarget(targetType, targetId);
-  if (r.passed < r.total) throw new AppError('TESTS_FAILED', `ชุดทดสอบไม่ผ่าน ${r.total - r.passed} จาก ${r.total} กรณี`, 409);
+  if (r.passed < r.total) throw new AppError('TESTS_FAILED', `Tests failed: ${r.total - r.passed} of ${r.total} cases`, 409);
   return r;
 }
 

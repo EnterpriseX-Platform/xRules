@@ -37,7 +37,7 @@ server.tool('add_term', 'Add or update a business term (term → data path)', { 
 server.tool('check_rule_sentence', 'Check a Thai rule sentence; returns errors with suggestions, or the canonical sentence and generated code', { project: z.string().optional(), sentence: z.string() },
   async ({ project, sentence }) => text(await api('POST', '/platform/vocabulary/check', { projectId: proj(project), sentence })));
 server.tool('save_rule_draft', 'Save a Thai rule sentence as a DRAFT rule (never published)', { project: z.string().optional(), name: z.string(), sentence: z.string(), source: z.string().optional().describe('the clause of the source document') },
-  async (a) => text(await api('POST', '/platform/vocabulary/rules', { projectId: proj(a.project), name: a.name, sentence: a.sentence, description: a.source ? `ที่มา: ${a.source}` : undefined })));
+  async (a) => text(await api('POST', '/platform/vocabulary/rules', { projectId: proj(a.project), name: a.name, sentence: a.sentence, description: a.source ? `Source: ${a.source}` : undefined })));
 server.tool('add_test_case', 'Add a test case to a decision flow / rule / API operation', {
   project: z.string().optional(), name: z.string(), targetType: z.enum(['rule', 'decision_flow', 'operation']), target: z.string(), input: z.any(),
   expectations: z.array(z.object({ kind: z.enum(['status', 'equals', 'has_finding', 'no_finding', 'max_ms']), path: z.string().optional(), value: z.any().optional(), code: z.string().optional(), severity: z.string().optional() })),

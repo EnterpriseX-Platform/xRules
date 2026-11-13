@@ -91,7 +91,7 @@ r.get('/suites', authMiddleware, h(async req => {
 }));
 r.post('/suites', authMiddleware, h(async req => {
   const p = await assertProjectAccess(req.body.projectId, req.user, 'write');
-  const slug = String(req.body.name).toLowerCase().replace(/[^a-z0-9ก-๙]+/g, '-') || `suite-${Date.now()}`;
+  const slug = String(req.body.name).toLowerCase().replace(/[^a-z0-9]+/g, '-') || `suite-${Date.now()}`;
   return prisma.testSuite.create({ data: { projectId: p.id, name: req.body.name, slug, description: req.body.description } });
 }, 201));
 r.post('/suites/:id/run', authMiddleware, h(async req => (await import('../platform/testing.js')).runSuite(req.params.id, req.user)));

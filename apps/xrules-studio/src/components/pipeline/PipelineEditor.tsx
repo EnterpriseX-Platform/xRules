@@ -135,16 +135,16 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
   const buildAi = useMutation({
     mutationFn: async () => {
       const kinds = STEPS.filter(s => s.flows.includes(kind)).map(s => s.kind).join(', ');
-      const content = `แก้ ${kind} flow ต่อไปนี้ตามคำขอ แล้วตอบกลับเป็น JSON ของกราฟทั้งหมดเท่านั้น รูปแบบ {"nodes":[{"id","type","data"}],"edges":[{"source","target"}]} ใช้ type ได้เฉพาะ: ${kinds}\n\nกราฟปัจจุบัน:\n${JSON.stringify(graphToSave())}\n\nคำขอ: ${aiText}`;
+      const content = `Change the following ${kind} flow as requested and reply with the whole graph as JSON only, shaped {"nodes":[{"id","type","data"}],"edges":[{"source","target"}]} allowed types: ${kinds}\n\nCurrent graph:\n${JSON.stringify(graphToSave())}\n\nRequest: ${aiText}`;
       const r = await api.post<any>('/assistant/chat', { projectId: flow.projectId, messages: [{ role: 'user', content }] });
       const m = String(r?.reply || '').match(/\{[\s\S]*\}/);
-      if (!m) throw new Error('AI ไม่ได้ส่งกราฟกลับมา');
+      if (!m) throw new Error('The AI did not return a graph');
       const g = JSON.parse(m[0]);
-      if (!Array.isArray(g.nodes) || !Array.isArray(g.edges)) throw new Error('กราฟที่ได้ไม่ครบ');
+      if (!Array.isArray(g.nodes) || !Array.isArray(g.edges)) throw new Error('The returned graph is incomplete');
       return g;
     },
-    onSuccess: g => { const keep = new Map(nodes.map(n => [n.id, n.position])); const ns = tidy(g.nodes.map((n: any) => ({ ...n, position: keep.get(n.id) || { x: 0, y: 0 } })), g.edges); commit(ns, styleEdges(g.edges)); setAiText(''); setAiMsg('AI ร่างให้แล้ว ตรวจก่อนกด Publish'); },
-    onError: (e: any) => setAiMsg(e?.message || 'สร้างไม่สำเร็จ'),
+    onSuccess: g => { const keep = new Map(nodes.map(n => [n.id, n.position])); const ns = tidy(g.nodes.map((n: any) => ({ ...n, position: keep.get(n.id) || { x: 0, y: 0 } })), g.edges); commit(ns, styleEdges(g.edges)); setAiText(''); setAiMsg('AI drafted the change; review it before publishing'); },
+    onError: (e: any) => setAiMsg(e?.message || 'Could not build the change'),
   });
 
   const selected = useMemo(() => nodes.find(n => n.id === selectedId) || null, [nodes, selectedId]);
@@ -152,7 +152,7 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
 
   const published = flow.status === 'published';
   const liveVersion = published ? flow.version : Math.max(flow.version - 1, 0);
-  const state = dirty ? { dot: '#f1c21b', text: 'มีการแก้ที่ยังไม่บันทึก' } : published ? { dot: '#24a148', text: 'Published' } : { dot: '#24a148', text: 'Ready to publish' };
+  const state = dirty ? { dot: '#f1c21b', text: 'Unsaved changes' } : published ? { dot: '#24a148', text: 'Published' } : { dot: '#24a148', text: 'Ready to publish' };
   const groups = Array.from(new Set(STEPS.filter(s => s.flows.includes(kind) && !s.locked).map(s => s.group)));
 
   return (
@@ -163,10 +163,10 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
           <h1 className="text-[22px] text-[#161616] font-semibold">{flow.name}</h1>
           {liveVersion > 0 && <span className="flex items-center gap-1.5 text-[14px] text-[#525252]"><span className="h-2.5 w-2.5 rounded-full bg-[#24a148]" />v{liveVersion} live</span>}
           <div className="ml-auto flex items-center gap-1">
-            <button className="h-9 w-9 flex items-center justify-center hover:bg-[#e8e8e8] disabled:opacity-30" onClick={undo} disabled={!past.current.length || locked} aria-label="ย้อนกลับ"><Undo2 className="h-4 w-4" /></button>
-            <button className="h-9 w-9 flex items-center justify-center hover:bg-[#e8e8e8] disabled:opacity-30" onClick={redo} disabled={!future.current.length || locked} aria-label="ทำซ้ำ"><Redo2 className="h-4 w-4" /></button>
+            <button className="h-9 w-9 flex items-center justify-center hover:bg-[#e8e8e8] disabled:opacity-30" onClick={undo} disabled={!past.current.length || locked} aria-label="Undo"><Undo2 className="h-4 w-4" /></button>
+            <button className="h-9 w-9 flex items-center justify-center hover:bg-[#e8e8e8] disabled:opacity-30" onClick={redo} disabled={!future.current.length || locked} aria-label="Redo"><Redo2 className="h-4 w-4" /></button>
             <span className="h-6 w-px bg-[#e0e0e0] mx-2" />
-            <button className={`h-9 w-9 flex items-center justify-center hover:bg-[#e8e8e8] ${locked ? 'bg-[#e0e0e0]' : ''}`} onClick={() => setLocked(l => !l)} aria-label={locked ? 'ปลดล็อก' : 'ล็อกไม่ให้แก้'}>{locked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}</button>
+            <button className={`h-9 w-9 flex items-center justify-center hover:bg-[#e8e8e8] ${locked ? 'bg-[#e0e0e0]' : ''}`} onClick={() => setLocked(l => !l)} aria-label={locked ? 'Unlock' : 'Lock editing'}>{locked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}</button>
             <span className="flex items-center gap-2 text-[14px] text-[#161616] ml-4"><span className="h-2.5 w-2.5 rounded-full" style={{ background: state.dot }} />{state.text}</span>
             <button className="ml-4 h-9 px-3 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8] disabled:text-[#c6c6c6]" disabled={!dirty} onClick={() => load(flow)}>Discard</button>
           </div>
@@ -176,12 +176,12 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
           <button className="h-10 pl-4 pr-8 text-[14px] bg-[#0f62fe] text-white hover:bg-[#0353e9] disabled:bg-[#c6c6c6]" disabled={publish.isPending || locked || (!dirty && published)} onClick={() => publish.mutate()}>Publish v{published && !dirty ? flow.version : flow.version + (published ? 1 : 0)}</button>
           {kind === 'data' && <>
             <span className="w-4" />
-            <button className="h-10 pl-3 pr-6 text-[14px] text-[#0f62fe] border border-[#0f62fe] hover:bg-[#0f62fe] hover:text-white flex items-center gap-2" onClick={() => doPreview.mutate()} disabled={doPreview.isPending}><Eye className="h-4 w-4" /> ลองกับ 100 แถว</button>
-            <button className="h-10 pl-3 pr-6 text-[14px] text-[#0f62fe] border border-[#0f62fe] hover:bg-[#0f62fe] hover:text-white flex items-center gap-2" onClick={() => runNow.mutate()} disabled={runNow.isPending || !published}><Play className="h-4 w-4" /> รันตอนนี้</button>
+            <button className="h-10 pl-3 pr-6 text-[14px] text-[#0f62fe] border border-[#0f62fe] hover:bg-[#0f62fe] hover:text-white flex items-center gap-2" onClick={() => doPreview.mutate()} disabled={doPreview.isPending}><Eye className="h-4 w-4" /> Preview 100 rows</button>
+            <button className="h-10 pl-3 pr-6 text-[14px] text-[#0f62fe] border border-[#0f62fe] hover:bg-[#0f62fe] hover:text-white flex items-center gap-2" onClick={() => runNow.mutate()} disabled={runNow.isPending || !published}><Play className="h-4 w-4" /> Run now</button>
           </>}
           {kind === 'trigger' && <>
             <span className="w-4" />
-            <button className="h-10 pl-3 pr-6 text-[14px] text-[#0f62fe] border border-[#0f62fe] hover:bg-[#0f62fe] hover:text-white flex items-center gap-2" onClick={() => runTrigger.mutate()} disabled={runTrigger.isPending || !published}><Play className="h-4 w-4" /> รันตอนนี้</button>
+            <button className="h-10 pl-3 pr-6 text-[14px] text-[#0f62fe] border border-[#0f62fe] hover:bg-[#0f62fe] hover:text-white flex items-center gap-2" onClick={() => runTrigger.mutate()} disabled={runTrigger.isPending || !published}><Play className="h-4 w-4" /> Run now</button>
           </>}
           {(save.error || publish.error) && <span className="text-[13px] text-[#da1e28] ml-3">{String((save.error as any)?.message || (publish.error as any)?.message)}</span>}
         </div>
@@ -227,10 +227,10 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
           </div>
 
           <div className="absolute bottom-4 left-4 h-11 bg-white border border-[#e0e0e0] flex items-center">
-            <button className="h-11 w-11 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={() => rf.zoomOut()} aria-label="ซูมออก"><Minus className="h-4 w-4" /></button>
+            <button className="h-11 w-11 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={() => rf.zoomOut()} aria-label="Zoom out"><Minus className="h-4 w-4" /></button>
             <span className="w-14 text-center text-[14px] tabular-nums">{Math.round(zoom * 100)}%</span>
-            <button className="h-11 w-11 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={() => rf.zoomIn()} aria-label="ซูมเข้า"><Plus className="h-4 w-4" /></button>
-            <button className="h-11 w-11 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={() => rf.fitView({ padding: 0.3, maxZoom: 1 })} aria-label="พอดีจอ"><Maximize2 className="h-4 w-4" /></button>
+            <button className="h-11 w-11 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={() => rf.zoomIn()} aria-label="Zoom in"><Plus className="h-4 w-4" /></button>
+            <button className="h-11 w-11 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={() => rf.fitView({ padding: 0.3, maxZoom: 1 })} aria-label="Fit to screen"><Maximize2 className="h-4 w-4" /></button>
           </div>
 
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[min(560px,calc(100%-260px))] bg-white border border-[#e0e0e0] p-3">
@@ -261,13 +261,13 @@ function PreviewDrawer({ result, onClose }: { result: any; onClose: () => void }
   return (
     <div className="h-[300px] bg-white border-t border-[#e0e0e0] flex flex-col">
       <div className="h-12 px-6 flex items-center gap-4 border-b border-[#e0e0e0]">
-        <span className={`px-2 rounded-full text-[12px] ${ok ? 'bg-[#a7f0ba] text-[#0e6027]' : 'bg-[#ffd7d9] text-[#a2191f]'}`}>{ok ? (result.mode === 'run' ? 'รันสำเร็จ' : 'ผ่าน') : 'ไม่ผ่าน'}</span>
+        <span className={`px-2 rounded-full text-[12px] ${ok ? 'bg-[#a7f0ba] text-[#0e6027]' : 'bg-[#ffd7d9] text-[#a2191f]'}`}>{ok ? (result.mode === 'run' ? 'Run succeeded' : 'Passed') : 'Failed'}</span>
         <span className="text-[14px] text-[#161616]">
-          {result.mode === 'run' ? (result.rowCount !== undefined ? `บันทึก ${result.rowCount} แถว` : 'รันแล้ว') : `${result.rowCount ?? rows.length} แถวผ่าน · ตัดทิ้ง ${result.rejectedCount ?? 0} แถว`}
+          {result.mode === 'run' ? (result.rowCount !== undefined ? `Saved ${result.rowCount} rows` : 'Run finished') : `${result.rowCount ?? rows.length} rows passed · ${result.rejectedCount ?? 0} rejected`}
           {result.error && <span className="text-[#a2191f]"> · {result.error}</span>}
         </span>
         {result.trace && <span className="text-[12px] text-[#525252] font-mono">{result.trace.map((t: any) => `${t.kind} ${t.rowsOut}`).join(' → ')}</span>}
-        <button className="ml-auto h-8 w-8 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={onClose} aria-label="ปิด"><X className="h-4 w-4" /></button>
+        <button className="ml-auto h-8 w-8 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={onClose} aria-label="Close"><X className="h-4 w-4" /></button>
       </div>
       <div className="flex-1 overflow-auto">
         {rows.length > 0 && (
@@ -279,7 +279,7 @@ function PreviewDrawer({ result, onClose }: { result: any; onClose: () => void }
         {result.traceSteps && <div className="px-6 py-3"><TraceView steps={result.traceSteps} /></div>}
         {(result.rejected || []).length > 0 && (
           <div className="px-6 py-3 text-[13px]">
-            <div className="text-[#525252] mb-1">แถวที่ถูกตัดทิ้ง</div>
+            <div className="text-[#525252] mb-1">Rejected rows</div>
             {result.rejected.slice(0, 20).map((x: any, i: number) => <div key={i} className="font-mono text-[12px]"><span className="text-[#a2191f]">{x.check}</span> · {JSON.stringify(x.row)}</div>)}
           </div>
         )}

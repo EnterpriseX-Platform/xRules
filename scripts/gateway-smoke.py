@@ -17,7 +17,7 @@ spec = next(x for x in call('GET', f'/platform/specs?project_id={PID}')[1]['data
 key = call('POST', '/api-keys', {'name': 'smoke', 'specIds': [spec['id']], 'rateLimitPerMin': 50, 'systemName': 'smoke'})[1]['data']['key']
 K = {'X-API-Key': key}
 body = {'context': {'fiscalYear': 2571, 'agencyCode': '03007', 'areaCode': '10'},
-        'items': [{'lineId': 'L-001', 'budgetType': 'ครุภัณฑ์', 'itemCode': 'DAS-1203-0045', 'qty': 4, 'unitPrice': 28500, 'amount': 114000}]}
+        'items': [{'lineId': 'L-001', 'budgetType': 'equipment', 'itemCode': 'DAS-1203-0045', 'qty': 4, 'unitPrice': 28500, 'amount': 114000}]}
 fails = 0
 def check(name, cond, got):
     global fails

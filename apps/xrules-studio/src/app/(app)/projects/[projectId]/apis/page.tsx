@@ -17,26 +17,26 @@ export default function ApisPage() {
   const create = useMutation({ mutationFn: () => api.post<any>('/platform/specs', { projectId, name: f.name, basePath: f.basePath || undefined, version: Number(f.version) || 1, description: f.description }), onSuccess: s => router.push(`/projects/${projectId}/apis/${s.id}`) });
   return (
     <div className="px-8 py-6">
-      <PageHead title="REST APIs" sub={`${specs.length} API · เรียกได้ที่ /api/{base path}/v{เวอร์ชัน}/…`} actions={<Btn onClick={() => setOpen(o => !o)}>New API</Btn>} />
+      <PageHead title="REST APIs" sub={`${specs.length} API · served at /api/{base path}/v{version}/…`} actions={<Btn onClick={() => setOpen(o => !o)}>New API</Btn>} />
       {open && (
-        <Panel title="API ใหม่" className="mb-4">
+        <Panel title="New API" className="mb-4">
           <div className="grid grid-cols-4 gap-4">
-            <Input id="sp-name" label="ชื่อ" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} placeholder="NEB Pre-screening API" />
+            <Input id="sp-name" label="Name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} placeholder="NEB Pre-screening API" />
             <Input id="sp-base" label="Base path" mono value={f.basePath} onChange={(v: string) => setF({ ...f, basePath: v })} placeholder="neb-prescreen" />
-            <Input id="sp-ver" label="เวอร์ชันใหญ่" mono value={f.version} onChange={(v: string) => setF({ ...f, version: v })} />
-            <Input id="sp-desc" label="คำอธิบาย" value={f.description} onChange={(v: string) => setF({ ...f, description: v })} />
+            <Input id="sp-ver" label="Major version" mono value={f.version} onChange={(v: string) => setF({ ...f, version: v })} />
+            <Input id="sp-desc" label="Summary" value={f.description} onChange={(v: string) => setF({ ...f, description: v })} />
           </div>
           {create.error && <div className="mt-3"><Notice kind="error">{String((create.error as any).message)}</Notice></div>}
-          <div className="mt-4 flex gap-2"><Btn onClick={() => create.mutate()} disabled={!f.name || create.isPending}>สร้าง</Btn><Btn kind="ghost" onClick={() => setOpen(false)}>ยกเลิก</Btn></div>
+          <div className="mt-4 flex gap-2"><Btn onClick={() => create.mutate()} disabled={!f.name || create.isPending}>Create</Btn><Btn kind="ghost" onClick={() => setOpen(false)}>Cancel</Btn></div>
         </Panel>
       )}
-      <Table head={['API', 'Path', 'Operation', 'สถานะ', 'เรียกวันนี้']} empty={!specs.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">ยังไม่มี API</div> : null}>
+      <Table head={['API', 'Path', 'Operations', 'Status', 'Calls today']} empty={!specs.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">No APIs yet</div> : null}>
         {specs.map((s: any) => (
           <tr key={s.id} className="hover:bg-[#e8e8e8] cursor-pointer" onClick={() => router.push(`/projects/${projectId}/apis/${s.id}`)}>
             <Td><div className="font-semibold">{s.name}</div><div className="text-[12px] text-[#525252]">{s.description}</div></Td>
             <Td mono>{s.url}</Td>
             <Td>{(s.operations || []).map((o: any) => <span key={o.id} className="mr-2 font-mono text-[12px]"><b>{o.method}</b> {o.path}</span>)}</Td>
-            <Td>{s.status === 'published' ? <Tag tone="green">ใช้งาน · rev {s.revision - 1}</Tag> : <Tag>ร่าง</Tag>}{s.reviewState === 'PENDING' && <span className="ml-1"><Tag tone="orange">รอตรวจ</Tag></span>}</Td>
+            <Td>{s.status === 'published' ? <Tag tone="green">Live · rev {s.revision - 1}</Tag> : <Tag>Draft</Tag>}{s.reviewState === 'PENDING' && <span className="ml-1"><Tag tone="orange">In review</Tag></span>}</Td>
             <Td mono>{(callsBySpec[`${s.basePath}/v${s.version}`] || 0).toLocaleString()}</Td>
           </tr>
         ))}

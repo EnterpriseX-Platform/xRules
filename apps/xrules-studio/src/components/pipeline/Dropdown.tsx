@@ -5,7 +5,7 @@ import { ChevronDown, Check } from 'lucide-react';
 
 export interface Option { value: string; label: string; hint?: string }
 
-export function Dropdown({ id, value, options, onChange, placeholder = 'เลือก' }: {
+export function Dropdown({ id, value, options, onChange, placeholder = 'Select' }: {
   id?: string; value?: string; options: Option[]; onChange: (v: string) => void; placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -24,7 +24,7 @@ export function Dropdown({ id, value, options, onChange, placeholder = 'เล�
       </button>
       {open && (
         <div className="absolute z-40 left-0 right-0 bg-white border border-[#e0e0e0] max-h-64 overflow-y-auto shadow-[0_2px_6px_rgba(0,0,0,.2)]">
-          {options.length === 0 && <div className="px-3 py-2 text-[13px] text-[#6f6f6f]">ไม่มีรายการ</div>}
+          {options.length === 0 && <div className="px-3 py-2 text-[13px] text-[#6f6f6f]">Nothing here</div>}
           {options.map(o => (
             <button key={o.value} type="button" onClick={() => { onChange(o.value); setOpen(false); }}
               className="w-full px-3 h-10 flex items-center justify-between text-left text-[14px] hover:bg-[#e8e8e8]">

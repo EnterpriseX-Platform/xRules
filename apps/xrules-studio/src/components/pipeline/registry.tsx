@@ -38,10 +38,10 @@ export const STEPS: StepMeta[] = [
   { kind: 'apiResponse', label: 'API RESPONSE', title: 'API Response',  icon: ArrowUpFromLine, tile: '#e0e0e0', ink: '#161616', group: 'Input / Output', flows: ['api'], sub: d => `status ${d?.status ?? 200}` },
   // ---- Trigger
   { kind: 'trigger',     label: 'TRIGGER',      title: 'Trigger',       icon: Clock,     tile: '#161616', ink: '#ffffff', locked: true, group: 'Start', flows: ['trigger'],
-    sub: d => d?.type === 'webhook' ? 'Webhook' : d?.type === 'manual' ? 'กดรันเอง' : d?.cron ? `ตามรอบ ${d.cron}` : 'ตามรอบ' },
+    sub: d => d?.type === 'webhook' ? 'Webhook' : d?.type === 'manual' ? 'Manual' : d?.cron ? `Schedule ${d.cron}` : 'Schedule' },
   // ---- shared by API / Trigger / Decision
-  { kind: 'callDecisionFlow', label: 'DECISION', title: 'เรียก Decision Flow', icon: Workflow, tile: '#d0e2ff', ink: '#0043ce', group: 'Decision', flows: ['api', 'trigger'], sub: d => d?.flow },
-  { kind: 'lookup',      label: 'LOOKUP',       title: 'ค้น Data Set',  icon: Search,    tile: '#a7f0ba', ink: '#0e6027', group: 'Decision', flows: ['api', 'trigger'], sub: d => d?.dataset },
+  { kind: 'callDecisionFlow', label: 'DECISION', title: 'Call decision flow', icon: Workflow, tile: '#d0e2ff', ink: '#0043ce', group: 'Decision', flows: ['api', 'trigger'], sub: d => d?.flow },
+  { kind: 'lookup',      label: 'LOOKUP',       title: 'Look up Data Set',  icon: Search,    tile: '#a7f0ba', ink: '#0e6027', group: 'Decision', flows: ['api', 'trigger'], sub: d => d?.dataset },
   // ---- Decision / Integration Flow
   { kind: 'input',     label: 'TRIGGER',    title: 'API call',      icon: LogIn,       tile: '#161616', ink: '#ffffff', locked: true, group: 'Start', flows: ['decision', 'integration'], sub: () => 'REST · API key' },
   { kind: 'enrich',    label: 'ENRICH',     title: 'Enrichment',    icon: Search,      tile: '#a7f0ba', ink: '#0e6027', group: 'Data',  flows: ['decision', 'integration'], sub: d => d?.dataset },

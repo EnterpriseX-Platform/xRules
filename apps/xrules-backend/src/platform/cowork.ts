@@ -1,4 +1,4 @@
-// Rule Cowork: turn Thai text / documents into DRAFT vocabulary terms, rule sentences and test
+// Rule Cowork: turn text / documents into DRAFT vocabulary terms, rule sentences and test
 // cases. Nothing is published; the user applies the drafts, then tests and review take over.
 import { prisma } from '../config/database.js';
 import { ForbiddenError, ValidationError } from '../utils/errors.js';
@@ -10,21 +10,21 @@ import { audit } from '../services/governance.service.js';
 
 const MODEL = process.env.XRULES_COWORK_MODEL || 'claude-sonnet-5-5';
 
-const GRAMMAR = `ไวยากรณ์ประโยคกฎ (ต้องตรงทุกตัวอักษร):
-ถ้า <เงื่อนไข> (และ|หรือ <เงื่อนไข>)* แล้ว (เตือน|ไม่ผ่าน) "<ข้อความ>" ระดับ (ERROR|WARNING) รหัส <รหัสข้อ>
-<เงื่อนไข> = <คำ> <ตัวเทียบ> <ค่า หรือ คำ> | <คำ> ว่าง | <คำ> ไม่ว่าง
-ตัวเทียบ: เป็น, ไม่เป็น, มากกว่า, น้อยกว่า, ไม่เกิน, ไม่น้อยกว่า, อยู่ใน, ไม่อยู่ใน
-ค่าข้อความใส่ "…" ค่าตัวเลขไม่ต้องใส่ · ใช้ได้เฉพาะคำในรายการคำศัพท์ ถ้าต้องใช้คำใหม่ให้เสนอใน newTerms`;
+const GRAMMAR = `Rule sentence grammar (must match exactly):
+IF <condition> (AND|OR <condition>)* THEN (WARN|FAIL) "<message>" LEVEL (ERROR|WARNING) CODE <clause code>
+<condition> = <term> <operator> <value or term> | <term> IS EMPTY | <term> IS NOT EMPTY
+operators: IS, IS NOT, GREATER THAN, LESS THAN, AT MOST, AT LEAST, IN, NOT IN
+Quote text values with "…"; numbers without quotes. Use only terms from the vocabulary; propose new terms in newTerms.`;
 
 async function llm(system: string, user: string): Promise<string> {
   const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) throw new ForbiddenError('ยังไม่ได้ตั้ง ANTHROPIC_API_KEY ให้ Rule Cowork');
+  if (!key) throw new ForbiddenError('ANTHROPIC_API_KEY is not set for Rule Cowork');
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST', signal: AbortSignal.timeout(120_000),
     headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({ model: MODEL, max_tokens: 8000, system, messages: [{ role: 'user', content: user }] }),
   });
-  if (!r.ok) throw new Error(`AI ตอบผิดพลาด HTTP ${r.status}`);
+  if (!r.ok) throw new Error(`AI request failed: HTTP ${r.status}`);
   const j: any = await r.json();
   return (j.content || []).map((c: any) => c.text || '').join('');
 }
@@ -39,19 +39,19 @@ export interface Draft {
 /** Ask the AI for drafts, then validate every sentence with the real parser. */
 export async function draft(data: { projectId: string; text: string; flow?: string }, user: AuthUser): Promise<Draft> {
   const p = await assertProjectAccess(data.projectId, user, 'write');
-  if (!data.text?.trim()) throw new ValidationError('ใส่ข้อความหรือเอกสารก่อน');
+  if (!data.text?.trim()) throw new ValidationError('Enter some text or a document first');
   const vocab = await loadTerms(p.id);
-  const system = `คุณช่วยคนธุรกิจของสำนักงบประมาณเขียนกฎตรวจสอบเป็นภาษาไทยที่มีโครงสร้าง
+  const system = `You help business users of a budget office write validation rules as structured sentences.
 ${GRAMMAR}
-ถ้าเงื่อนไขกำกวม (เช่น "ซ้ำ" นับจากอะไร) ให้ใส่คำถามใน questions และไม่เดา
-ตอบเป็น JSON อย่างเดียว: {"questions":[],"newTerms":[{"term","path","type","values"}],"rules":[{"name","sentence","source"}],"tests":[{"name","input","expectations":[{"kind":"has_finding|no_finding|equals","code","severity","path","value"}]}]}
-- source คือข้อความต้นฉบับที่กฎนั้นมาจาก (ยกมาสั้น ๆ)
-- path ของข้อมูลรายการให้ขึ้นต้นด้วย item. ข้อมูลระดับคำขอใช้ context.
-- input ของ tests อยู่ในรูป {"context":{…},"items":[{…}]}`;
-  const userMsg = `คำศัพท์ที่มี:\n${vocab.map(t => `- ${t.term} = ${t.path} (${t.type}${t.values.length ? `: ${t.values.join(', ')}` : ''})`).join('\n') || '(ยังไม่มี)'}\n\nข้อความ / เอกสาร:\n${data.text.slice(0, 60_000)}`;
+If a condition is ambiguous (for example what "duplicate" is measured against), add a question to questions instead of guessing.
+Reply with JSON only: {"questions":[],"newTerms":[{"term","path","type","values"}],"rules":[{"name","sentence","source"}],"tests":[{"name","input","expectations":[{"kind":"has_finding|no_finding|equals","code","severity","path","value"}]}]}
+- source is a short quote of the original text the rule comes from
+- paths of line-item data start with item.; request-level data uses context.
+- test input has the shape {"context":{…},"items":[{…}]}`;
+  const userMsg = `Vocabulary:\n${vocab.map(t => `- ${t.term} = ${t.path} (${t.type}${t.values.length ? `: ${t.values.join(', ')}` : ''})`).join('\n') || '(none yet)'}\n\nText / document:\n${data.text.slice(0, 60_000)}`;
   const raw = await llm(system, userMsg);
   const m = raw.match(/\{[\s\S]*\}/);
-  if (!m) throw new Error('AI ไม่ได้ตอบเป็น JSON');
+  if (!m) throw new Error('The AI did not reply with JSON');
   const d: Draft = JSON.parse(m[0]);
   d.questions ||= []; d.newTerms ||= []; d.rules ||= []; d.tests ||= [];
   const all: Term[] = [...vocab, ...d.newTerms.map(t => ({ term: t.term, path: t.path, type: t.type || 'text', values: t.values || [] }))];
@@ -69,7 +69,7 @@ export async function apply(data: { projectId: string; flow?: string; newTerms?:
   const out = { terms: 0, rules: [] as string[], tests: 0, errors: [] as string[] };
   for (const t of data.newTerms || []) { await upsertTerm({ projectId: p.id, ...t }, user); out.terms++; }
   for (const r of data.rules || []) {
-    try { const rule = await saveRule({ projectId: p.id, name: r.name, sentence: r.sentence, description: r.source ? `ที่มา: ${r.source}` : undefined }, user); out.rules.push(rule.slug); }
+    try { const rule = await saveRule({ projectId: p.id, name: r.name, sentence: r.sentence, description: r.source ? `Source: ${r.source}` : undefined }, user); out.rules.push(rule.slug); }
     catch (e: any) { out.errors.push(`${r.name}: ${e.message}`); }
   }
   if (data.flow) {

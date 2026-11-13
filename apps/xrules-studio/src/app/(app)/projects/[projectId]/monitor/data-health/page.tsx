@@ -10,18 +10,18 @@ export default function DataHealthPage() {
   if (!h) return <div className="px-8 py-6" />;
   return (
     <div className="px-8 py-6">
-      <PageHead title="Data Health" sub="อายุข้อมูลอ้างอิง ผลการดึงรอบล่าสุด และการเชื่อมต่อ" />
-      <Table head={['Data Set', 'แถว', 'รอบที่ใช้อยู่', 'อายุ', 'รอบล่าสุด', 'ตัดทิ้ง']}>
+      <PageHead title="Data Health" sub="Reference data age, latest sync results and connections" />
+      <Table head={['Data Set', 'Rows', 'Active snapshot', 'Age', 'Latest run', 'Rejected']}>
         {h.datasets.map((d: any) => <tr key={d.id}><Td mono>{d.slug}</Td><Td mono>{d.rows.toLocaleString()}</Td><Td>{fmtTime(d.activeAt)}</Td>
-          <Td>{d.ageHours == null ? '—' : d.ageHours > 36 ? <Tag tone="orange">{d.ageHours} ชม.</Tag> : `${d.ageHours} ชม.`}</Td>
-          <Td>{d.lastStatus ? <span className="flex items-center gap-2">{d.lastStatus === 'REJECTED' ? <Tag tone="red">ไม่ผ่านตรวจ</Tag> : <Tag tone="green">ผ่าน</Tag>}{d.stale && <Tag tone="orange">stale</Tag>}<span className="text-[12px] text-[#525252]">{fmtTime(d.lastAt)}</span></span> : '—'}</Td>
+          <Td>{d.ageHours == null ? '—' : d.ageHours > 36 ? <Tag tone="orange">{d.ageHours} h</Tag> : `${d.ageHours} h`}</Td>
+          <Td>{d.lastStatus ? <span className="flex items-center gap-2">{d.lastStatus === 'REJECTED' ? <Tag tone="red">Rejected</Tag> : <Tag tone="green">Passed</Tag>}{d.stale && <Tag tone="orange">stale</Tag>}<span className="text-[12px] text-[#525252]">{fmtTime(d.lastAt)}</span></span> : '—'}</Td>
           <Td mono>{d.rejectedRows}</Td></tr>)}
       </Table>
       <h2 className="text-[20px] mt-8 mb-3">Connections</h2>
-      <Table head={['Connection', 'ชนิด', 'ทดสอบล่าสุด', 'อ่านอย่างเดียว']}>
+      <Table head={['Connection', 'Type', 'Last test', 'Read-only']}>
         {h.connections.map((c: any) => <tr key={c.id}><Td mono>{c.slug}</Td><Td>{c.type}</Td>
-          <Td>{c.lastTest ? (c.lastTest.ok ? <Tag tone="green">ต่อได้ · {c.lastTest.ms} ms</Tag> : <Tag tone="red">ต่อไม่ได้</Tag>) : '—'}{c.lastTest && <span className="text-[12px] text-[#525252] ml-2">{fmtTime(c.lastTest.at)}</span>}</Td>
-          <Td>{c.lastTest?.readOnly ? (c.lastTest.readOnly.verified ? <Tag tone="green">ยืนยันแล้ว</Tag> : <Tag tone="red">เขียนได้</Tag>) : '—'}</Td></tr>)}
+          <Td>{c.lastTest ? (c.lastTest.ok ? <Tag tone="green">Reachable · {c.lastTest.ms} ms</Tag> : <Tag tone="red">Unreachable</Tag>) : '—'}{c.lastTest && <span className="text-[12px] text-[#525252] ml-2">{fmtTime(c.lastTest.at)}</span>}</Td>
+          <Td>{c.lastTest?.readOnly ? (c.lastTest.readOnly.verified ? <Tag tone="green">Verified</Tag> : <Tag tone="red">Can write</Tag>) : '—'}</Td></tr>)}
       </Table>
     </div>
   );

@@ -19,12 +19,12 @@ fails = 0
 def check(name, cond, got=None):
     global fails; print(('PASS ' if cond else 'FAIL ') + name, '' if cond else got); fails += 0 if cond else 1
 ctx = {'fiscalYear': 2571, 'agencyCode': '03007', 'areaCode': '10'}
-def item(i, price): return {'context': ctx, 'items': [{'lineId': f'L-{i}', 'budgetType': 'ครุภัณฑ์', 'itemCode': 'DAS-1203-0045', 'qty': 1, 'unitPrice': price, 'amount': price}]}
+def item(i, price): return {'context': ctx, 'items': [{'lineId': f'L-{i}', 'budgetType': 'equipment', 'itemCode': 'DAS-1203-0045', 'qty': 1, 'unitPrice': price, 'amount': price}]}
 st, o = call('POST', '/api/neb-prescreen/v1/prescreen/batch', {'items': [item(1, 20000), item(2, 30000)]}, {'X-API-Key': key})
 check('batch returns 2 results', st == 200 and o['count'] == 2 and len(o['results'][1]['findings']) >= 1, (st, o))
 # bulk: 300 rows, half over the standard price; one row broken (no items) → error
 rows = [{'line': f'L-{i}', 'price': 20000 if i % 2 else 30000} for i in range(300)]
-mapping = {'context': ctx, 'items': [{'lineId': '{{line}}', 'budgetType': 'ครุภัณฑ์', 'itemCode': 'DAS-1203-0045', 'qty': 1, 'unitPrice': '{{price}}', 'amount': '{{price}}'}]}
+mapping = {'context': ctx, 'items': [{'lineId': '{{line}}', 'budgetType': 'equipment', 'itemCode': 'DAS-1203-0045', 'qty': 1, 'unitPrice': '{{price}}', 'amount': '{{price}}'}]}
 st, run = call('POST', '/platform/bulk', {'projectId': PID, 'name': 'smoke', 'targetType': 'decision_flow', 'target': 'neb-prescreen', 'source': {'kind': 'rows', 'rows': rows}, 'mapping': mapping, 'concurrency': 8})
 check('bulk created', st == 201 and run['data']['total'] == 300, (st, run))
 rid = run['data']['id']

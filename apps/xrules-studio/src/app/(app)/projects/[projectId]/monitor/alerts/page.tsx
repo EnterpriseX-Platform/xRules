@@ -16,21 +16,21 @@ export default function AlertsPage() {
   if (!data) return <div className="px-8 py-6" />;
   return (
     <div className="px-8 py-6">
-      <PageHead title="Alerts" sub="ตรวจทุกนาที · แจ้งผ่าน Webhook (ต่อเข้า Teams / LINE ได้)" actions={<Btn kind="tertiary" onClick={() => evalNow.mutate()}>ตรวจตอนนี้</Btn>} />
-      <Panel title="ส่งการแจ้งเตือนไปที่" className="mb-4">
+      <PageHead title="Alerts" sub="Checked every minute · delivered by webhook (works with Teams / LINE)" actions={<Btn kind="tertiary" onClick={() => evalNow.mutate()}>Evaluate now</Btn>} />
+      <Panel title="Send alerts to" className="mb-4">
         <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
-          <Input id="al-hook" label="Webhook URL (ใช้กับทุกเงื่อนไข)" mono value={hook} onChange={setHook} placeholder="https://…" />
-          <Btn onClick={() => data.rules.forEach((r: any) => upd.mutate({ id: r.id, body: { channels: hook ? [{ kind: 'webhook', url: hook }] : [] } }))}>บันทึก</Btn>
+          <Input id="al-hook" label="Webhook URL (applies to every condition)" mono value={hook} onChange={setHook} placeholder="https://…" />
+          <Btn onClick={() => data.rules.forEach((r: any) => upd.mutate({ id: r.id, body: { channels: hook ? [{ kind: 'webhook', url: hook }] : [] } }))}>Save</Btn>
         </div>
       </Panel>
-      <Table head={['เงื่อนไข', 'เกณฑ์', 'ช่วงเวลา', 'ส่งไป', 'เปิดใช้']}>
-        {data.rules.map((r: any) => <tr key={r.id}><Td>{r.name}</Td><Td mono>{r.threshold}</Td><Td mono>{r.windowMin} นาที</Td><Td className="text-[12px]">{(r.channels || []).map((c: any) => c.url).join(', ') || '—'}</Td>
+      <Table head={['Condition', 'Threshold', 'Window', 'Send to', 'Enabled']}>
+        {data.rules.map((r: any) => <tr key={r.id}><Td>{r.name}</Td><Td mono>{r.threshold}</Td><Td mono>{r.windowMin} min</Td><Td className="text-[12px]">{(r.channels || []).map((c: any) => c.url).join(', ') || '—'}</Td>
           <Td><input type="checkbox" checked={r.enabled} onChange={e => upd.mutate({ id: r.id, body: { enabled: e.target.checked } })} /></Td></tr>)}
       </Table>
-      <h2 className="text-[20px] mt-8 mb-3">ประวัติการแจ้งเตือน</h2>
-      <Table head={['เงื่อนไข', 'สถานะ', 'รายละเอียด', 'เริ่ม', 'หาย', '']} empty={!data.events.length ? <div className="px-4 py-6 text-[14px] text-[#525252]">ยังไม่เคยแจ้งเตือน</div> : null}>
-        {data.events.map((e: any) => <tr key={e.id}><Td>{e.rule.name}</Td><Td>{e.status === 'FIRING' ? <Tag tone="red">เปิดอยู่</Tag> : <Tag tone="green">หายแล้ว</Tag>}</Td><Td className="!whitespace-normal text-[13px]">{e.message}</Td><Td>{fmtTime(e.startedAt)}</Td><Td>{fmtTime(e.resolvedAt)}</Td>
-          <Td>{e.status === 'FIRING' && !e.ackBy ? <button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => ack.mutate(e.id)}>รับทราบ</button> : e.ackBy ? <span className="text-[12px] text-[#525252]">รับทราบโดย {e.ackBy}</span> : null}</Td></tr>)}
+      <h2 className="text-[20px] mt-8 mb-3">Alert history</h2>
+      <Table head={['Condition', 'Status', 'Details', 'Started', 'Resolved', '']} empty={!data.events.length ? <div className="px-4 py-6 text-[14px] text-[#525252]">No alerts yet</div> : null}>
+        {data.events.map((e: any) => <tr key={e.id}><Td>{e.rule.name}</Td><Td>{e.status === 'FIRING' ? <Tag tone="red">Firing</Tag> : <Tag tone="green">Resolved</Tag>}</Td><Td className="!whitespace-normal text-[13px]">{e.message}</Td><Td>{fmtTime(e.startedAt)}</Td><Td>{fmtTime(e.resolvedAt)}</Td>
+          <Td>{e.status === 'FIRING' && !e.ackBy ? <button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => ack.mutate(e.id)}>Acknowledge</button> : e.ackBy ? <span className="text-[12px] text-[#525252]">Acknowledged by {e.ackBy}</span> : null}</Td></tr>)}
       </Table>
     </div>
   );

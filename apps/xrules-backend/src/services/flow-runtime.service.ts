@@ -85,7 +85,7 @@ async function runEnrich(data: any, ctx: any, opts: FlowOptions) {
   } catch (e: any) {
     for (const rc of data.ruleCodes || []) {
       dc.skipRules.add(rc);
-      dc.findings.push({ ruleCode: rc, severity: 'SKIPPED', message: `ยังไม่ได้ตรวจ: ดึงข้อมูล ${data.dataset} ไม่ได้ (${e.message})` });
+      dc.findings.push({ ruleCode: rc, severity: 'SKIPPED', message: `Not checked: could not read ${data.dataset} (${e.message})` });
     }
   }
 }
@@ -97,7 +97,7 @@ async function runFileCheck(data: any, ctx: any, opts: FlowOptions) {
   for (const f of files) {
     if (!f?.templateCode) continue;
     const tpl = opts.projectId ? await prisma.fileTemplate.findUnique({ where: { projectId_code: { projectId: opts.projectId, code: String(f.templateCode) } } }) : null;
-    if (!tpl) { dc.findings.push({ ruleCode, severity: 'SKIPPED', fileId: f.fileId, message: `ไม่พบแบบฟอร์ม ${f.templateCode} จึงยังไม่ได้ตรวจไฟล์` }); continue; }
+    if (!tpl) { dc.findings.push({ ruleCode, severity: 'SKIPPED', fileId: f.fileId, message: `Template ${f.templateCode} not found, file not checked` }); continue; }
     dc.lineage[`template:${tpl.code}`] = `v${tpl.version}`;
     dc.findings.push(...await checkFile(f, tpl.code, tpl.spec as unknown as TemplateSpec, ruleCode));
   }
@@ -110,7 +110,7 @@ function collectRuleFindings(data: any, out: any, ctx: any) {
   const list: any[] = Array.isArray(out?.findings) ? out.findings
     : Array.isArray(out) ? out.filter((o: any) => o && (o.pass === false || o.valid === false))
     : (out && (out.pass === false || out.valid === false)) ? [out] : [];
-  for (const f of list) dc.findings.push({ ruleCode: f.ruleCode || data.ruleCode, severity: (f.severity || sev).toUpperCase(), message: f.message || `ไม่ผ่านกฎ ${data.ruleCode}`, lineId: f.lineId, field: f.field, fileId: f.fileId, ref: f.ref });
+  for (const f of list) dc.findings.push({ ruleCode: f.ruleCode || data.ruleCode, severity: (f.severity || sev).toUpperCase(), message: f.message || `Failed rule ${data.ruleCode}`, lineId: f.lineId, field: f.field, fileId: f.fileId, ref: f.ref });
 }
 
 function findingsOutput(ctx: any) {
@@ -275,7 +275,7 @@ export async function runFlow(graph: FlowGraph, input: any, solve: SolveFn, opts
       case 'rulecall': {
         const slug = data.ruleSlug || data.rule || data.slug;
         if (!slug) throw new Error(`ruleCall node '${cur.id}' missing data.ruleSlug`);
-        if (shouldSkip(data, ctx)) { stepStatus = 'skipped'; stepNote = 'ข้อมูลอ้างอิงไม่พร้อม'; break; }
+        if (shouldSkip(data, ctx)) { stepStatus = 'skipped'; stepNote = 'reference data not available'; break; }
         const mappedInput = data.inputMap ? renderObject(data.inputMap, ctx) : ctx.input;
         const out = await solve(String(slug), mappedInput);
         const key = data.outputAs || slug.toString().replace(/-/g, '_');

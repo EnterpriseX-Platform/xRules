@@ -5,10 +5,10 @@ import { ChevronRight } from 'lucide-react';
 import { metaFor } from './registry';
 
 const TONE: Record<string, string> = { ok: 'bg-[#a7f0ba] text-[#0e6027]', skipped: 'bg-[#e0e0e0] text-[#161616]', error: 'bg-[#ffd7d9] text-[#a2191f]' };
-const WORD: Record<string, string> = { ok: 'ผ่าน', skipped: 'ข้าม', error: 'ผิดพลาด' };
+const WORD: Record<string, string> = { ok: 'OK', skipped: 'Skipped', error: 'Error' };
 
 export function TraceView({ steps, depth = 0 }: { steps: any[]; depth?: number }) {
-  if (!Array.isArray(steps) || !steps.length) return <div className="text-[13px] text-[#525252]">ไม่มีร่องรอยแบบเต็มของการเรียกนี้ (เก็บเฉพาะสรุป)</div>;
+  if (!Array.isArray(steps) || !steps.length) return <div className="text-[13px] text-[#525252]">No full trace for this call (summary only)</div>;
   return <div className={depth ? 'border-l border-[#e0e0e0] ml-3 pl-3' : ''}>{steps.map((s, i) => <Step key={i} s={s} depth={depth} />)}</div>;
 }
 

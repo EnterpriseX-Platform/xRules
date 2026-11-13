@@ -17,17 +17,17 @@ fails = 0
 def check(name, cond, got=None):
     global fails; print(('PASS ' if cond else 'FAIL ') + name, '' if cond else got); fails += 0 if cond else 1
 ctx = {'fiscalYear': 2571, 'agencyCode': '03007', 'areaCode': '10'}
-over = {'context': ctx, 'items': [{'lineId': 'L-1', 'budgetType': 'ครุภัณฑ์', 'itemCode': 'DAS-1203-0045', 'qty': 1, 'unitPrice': 30000, 'amount': 30000}]}
-ok = {'context': ctx, 'items': [{'lineId': 'L-1', 'budgetType': 'ครุภัณฑ์', 'itemCode': 'DAS-1203-0045', 'qty': 1, 'unitPrice': 20000, 'amount': 20000}]}
+over = {'context': ctx, 'items': [{'lineId': 'L-1', 'budgetType': 'equipment', 'itemCode': 'DAS-1203-0045', 'qty': 1, 'unitPrice': 30000, 'amount': 30000}]}
+ok = {'context': ctx, 'items': [{'lineId': 'L-1', 'budgetType': 'equipment', 'itemCode': 'DAS-1203-0045', 'qty': 1, 'unitPrice': 20000, 'amount': 20000}]}
 existing = {c['name'] for c in call('GET', f'/platform/tests?project_id={PID}&targetId={flow["id"]}')[1]['data']}
-cases = [('ราคาเกินมาตรฐาน → WARNING 4.4.1.3', over, [{'kind': 'has_finding', 'code': 'TOR-4.4.1.3', 'severity': 'WARNING'}, {'kind': 'max_ms', 'value': 3000}]),
-         ('คำขอปกติ → ผ่าน', ok, [{'kind': 'equals', 'path': '$.passed', 'value': True}, {'kind': 'no_finding', 'code': 'TOR-4.4.1.3'}])]
+cases = [('Price above standard → WARNING 4.4.1.3', over, [{'kind': 'has_finding', 'code': 'TOR-4.4.1.3', 'severity': 'WARNING'}, {'kind': 'max_ms', 'value': 3000}]),
+         ('Normal request → passes', ok, [{'kind': 'equals', 'path': '$.passed', 'value': True}, {'kind': 'no_finding', 'code': 'TOR-4.4.1.3'}])]
 for name, inp, exps in cases:
     if name not in existing: call('POST', '/platform/tests', {'projectId': PID, 'name': name, 'targetType': 'decision_flow', 'targetId': flow['id'], 'input': inp, 'expectations': exps})
 st, r = call('POST', f'/platform/tests/target/decision_flow/{flow["id"]}/run')
 check('decision flow cases pass', st == 200 and r['data']['passed'] == r['data']['total'] >= 2, r)
 # a failing case blocks publish
-st, bad = call('POST', '/platform/tests', {'projectId': PID, 'name': 'กรณีที่ตั้งใจให้ไม่ผ่าน ' + str(time.time()), 'targetType': 'decision_flow', 'targetId': flow['id'], 'input': ok, 'expectations': [{'kind': 'has_finding', 'code': 'TOR-9.9.9'}]})
+st, bad = call('POST', '/platform/tests', {'projectId': PID, 'name': 'Deliberately failing case ' + str(time.time()), 'targetType': 'decision_flow', 'targetId': flow['id'], 'input': ok, 'expectations': [{'kind': 'has_finding', 'code': 'TOR-9.9.9'}]})
 st, o = call('POST', f'/flows/{flow["id"]}/publish', {})
 check('publish blocked by failing test (409)', st == 409, (st, o))
 call('PUT', f'/platform/tests/{bad["data"]["id"]}', {'expectations': [{'kind': 'no_finding', 'code': 'TOR-9.9.9'}]})
@@ -52,7 +52,7 @@ s = call('GET', f'/platform/flows/{flow["id"]}/challenger')[1]['data']['summary'
 check('challenger recorded runs', s['total'] >= 3 and s['same'] == s['total'], s)
 call('PUT', f'/platform/flows/{flow["id"]}/challenger', {'off': True})
 # review: submit then self-approve is refused
-st, rv = call('POST', '/platform/reviews', {'targetType': 'decision_flow', 'targetId': flow['id'], 'note': 'ทดสอบ'})
+st, rv = call('POST', '/platform/reviews', {'targetType': 'decision_flow', 'targetId': flow['id'], 'note': 'smoke test'})
 check('review submitted', st == 201, rv)
 st, o = call('POST', f"/platform/reviews/{rv['data']['id']}/approve", {'note': 'ok'})
 check('self-approval refused (403)', st == 403, (st, o))

@@ -31,18 +31,18 @@ export function Btn({ kind = 'primary', children, ...p }: any) {
   const c = { primary: 'bg-[#0f62fe] text-white hover:bg-[#0353e9]', secondary: 'bg-[#393939] text-white hover:bg-[#474747]', tertiary: 'border border-[#0f62fe] text-[#0f62fe] hover:bg-[#0f62fe] hover:text-white', ghost: 'text-[#0f62fe] hover:bg-[#e8e8e8]' }[kind as string];
   return <button {...p} className={`h-10 pl-4 pr-8 text-[14px] disabled:opacity-40 flex items-center gap-2 ${c} ${p.className || ''}`}>{children}</button>;
 }
-export const fmtTime = (s?: string | null) => s ? new Date(s).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+export const fmtTime = (s?: string | null) => s ? new Date(s).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 
-/** "0 23 * * *" → "ทุกวัน 23:00" for the common shapes; anything else stays as cron. */
+/** "0 23 * * *" → "Daily 23:00" for the common shapes; anything else stays as cron. */
 export function cronText(cron?: string | null): string {
-  if (!cron) return 'รันเอง';
+  if (!cron) return 'Manual';
   const f = cron.trim().split(/\s+/);
   if (f.length !== 5 || !/^\d+$/.test(f[0]) || !/^\d+$/.test(f[1])) return cron;
   const t = `${f[1].padStart(2, '0')}:${f[0].padStart(2, '0')}`;
-  const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
-  if (f[2] === '*' && f[3] === '*' && f[4] === '*') return `ทุกวัน ${t}`;
-  if (f[2] === '*' && f[3] === '*' && /^[0-6]$/.test(f[4])) return `ทุกวัน${days[+f[4]]} ${t}`;
-  if (/^\d+$/.test(f[2]) && f[3] === '*' && f[4] === '*') return `ทุกวันที่ ${f[2]} ${t}`;
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  if (f[2] === '*' && f[3] === '*' && f[4] === '*') return `Daily ${t}`;
+  if (f[2] === '*' && f[3] === '*' && /^[0-6]$/.test(f[4])) return `Every ${days[+f[4]]} ${t}`;
+  if (/^\d+$/.test(f[2]) && f[3] === '*' && f[4] === '*') return `Monthly on day ${f[2]} ${t}`;
   return cron;
 }
 
@@ -81,7 +81,7 @@ export function Notice({ kind = 'info', children }: { kind?: 'info' | 'error' | 
   const c = { info: ['#edf5ff', '#0043ce'], error: ['#fff1f1', '#da1e28'], success: ['#defbe6', '#24a148'], warning: ['#fcf4d6', '#f1c21b'] }[kind];
   return <div className="px-4 py-3 text-[14px] border-l-[3px]" style={{ background: c[0], borderColor: c[1] }}>{children}</div>;
 }
-export function DropZone({ onFile, label = 'ลากไฟล์มาวาง หรือคลิกเพื่อเลือก', accept }: { onFile: (f: File) => void; label?: string; accept?: string }) {
+export function DropZone({ onFile, label = 'Drop a file here or click to choose', accept }: { onFile: (f: File) => void; label?: string; accept?: string }) {
   const id = `dz-${Math.random().toString(36).slice(2)}`;
   return (
     <label htmlFor={id} className="block border border-dashed border-[#8d8d8d] bg-[#f4f4f4] px-4 py-6 text-center text-[14px] text-[#525252] cursor-pointer hover:bg-[#e8e8e8]"

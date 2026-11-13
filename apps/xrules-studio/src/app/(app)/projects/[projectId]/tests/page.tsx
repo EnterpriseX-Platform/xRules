@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { PageHead, Table, Td, Tag, Btn, Input, TextArea, Panel, Notice, fmtTime } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 
-const ST: Record<string, [any, string]> = { PASS: ['green', 'ผ่าน'], FAIL: ['red', 'ไม่ผ่าน'], ERROR: ['red', 'ผิดพลาด'], PENDING: ['gray', 'ยังไม่รัน'] };
+const ST: Record<string, [any, string]> = { PASS: ['green', 'Passed'], FAIL: ['red', 'Failed'], ERROR: ['red', 'Error'], PENDING: ['gray', 'Not run'] };
 const TT: Record<string, string> = { rule: 'Rule', decision_flow: 'Decision Flow', operation: 'API operation' };
 
 export default function TestsPage() {
@@ -34,37 +34,37 @@ export default function TestsPage() {
   const passed = (cases as any[]).filter(c => c.lastStatus === 'PASS').length;
   return (
     <div className="px-8 py-6">
-      <PageHead title="Test Suites" sub={`${cases.length} กรณี · ผ่าน ${passed} · ทุกกรณีของสิ่งที่จะ publish ต้องผ่านก่อน`} actions={<>
-        {suite && <Btn kind="tertiary" onClick={() => runSuite.mutate()} disabled={runSuite.isPending}>รันทั้งชุด</Btn>}
+      <PageHead title="Test Suites" sub={`${cases.length} cases · ${passed} passed · all cases of an item must pass before it can be published`} actions={<>
+        {suite && <Btn kind="tertiary" onClick={() => runSuite.mutate()} disabled={runSuite.isPending}>Run suite</Btn>}
         <Btn onClick={() => setOpen(o => !o)}>New Test Case</Btn></>} />
       <div className="flex gap-2 items-end mb-4">
-        <div className="w-80"><div className="text-[12px] text-[#525252] mb-1.5">ชุดทดสอบ</div><Dropdown value={suite} onChange={setSuite} options={[{ value: '', label: 'ทุกกรณี' }, ...(suites as any[]).map(s => ({ value: s.id, label: s.name }))]} /></div>
-        <Input id="suite-new" className="w-64" label="ชุดใหม่" value={suiteName} onChange={setSuiteName} placeholder="TOR 4.4" />
-        <Btn kind="ghost" onClick={() => { newSuite.mutate(suiteName); setSuiteName(''); }} disabled={!suiteName.trim()}>สร้างชุด</Btn>
+        <div className="w-80"><div className="text-[12px] text-[#525252] mb-1.5">Test suite</div><Dropdown value={suite} onChange={setSuite} options={[{ value: '', label: 'All cases' }, ...(suites as any[]).map(s => ({ value: s.id, label: s.name }))]} /></div>
+        <Input id="suite-new" className="w-64" label="New suite" value={suiteName} onChange={setSuiteName} placeholder="TOR 4.4" />
+        <Btn kind="ghost" onClick={() => { newSuite.mutate(suiteName); setSuiteName(''); }} disabled={!suiteName.trim()}>Create suite</Btn>
       </div>
       {open && (
-        <Panel title="กรณีทดสอบใหม่" className="mb-4">
+        <Panel title="New test case" className="mb-4">
           <div className="grid grid-cols-3 gap-4">
-            <Input id="tc-name" label="ชื่อ" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} />
-            <div><div className="text-[12px] text-[#525252] mb-1.5">ทดสอบ</div><Dropdown value={f.targetType} onChange={v => setF({ ...f, targetType: v, targetId: '' })} options={Object.entries(TT).map(([value, label]) => ({ value, label }))} /></div>
-            <div><div className="text-[12px] text-[#525252] mb-1.5">เป้าหมาย</div><Dropdown value={f.targetId} onChange={v => setF({ ...f, targetId: v })} options={targetOpts} /></div>
+            <Input id="tc-name" label="Name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} />
+            <div><div className="text-[12px] text-[#525252] mb-1.5">Target type</div><Dropdown value={f.targetType} onChange={v => setF({ ...f, targetType: v, targetId: '' })} options={Object.entries(TT).map(([value, label]) => ({ value, label }))} /></div>
+            <div><div className="text-[12px] text-[#525252] mb-1.5">Target</div><Dropdown value={f.targetId} onChange={v => setF({ ...f, targetId: v })} options={targetOpts} /></div>
           </div>
           <div className="grid grid-cols-2 gap-4 mt-4">
-            <TextArea id="tc-in" label={f.targetType === 'operation' ? 'คำขอ ({ "params", "query", "body" })' : 'ข้อมูลเข้า (JSON)'} rows={10} value={f.input} onChange={(v: string) => setF({ ...f, input: v })} />
-            <TextArea id="tc-exp" label="ผลที่คาด: status · equals (path, value) · has_finding / no_finding (code, severity) · max_ms" rows={10} value={f.expectations} onChange={(v: string) => setF({ ...f, expectations: v })} />
+            <TextArea id="tc-in" label={f.targetType === 'operation' ? 'Request ({ "params", "query", "body" })' : 'Input (JSON)'} rows={10} value={f.input} onChange={(v: string) => setF({ ...f, input: v })} />
+            <TextArea id="tc-exp" label="Expectations: status · equals (path, value) · has_finding / no_finding (code, severity) · max_ms" rows={10} value={f.expectations} onChange={(v: string) => setF({ ...f, expectations: v })} />
           </div>
           {create.error && <div className="mt-3"><Notice kind="error">{String((create.error as any).message)}</Notice></div>}
-          <div className="mt-4"><Btn onClick={() => create.mutate()} disabled={!f.name || !f.targetId || create.isPending}>บันทึก</Btn></div>
+          <div className="mt-4"><Btn onClick={() => create.mutate()} disabled={!f.name || !f.targetId || create.isPending}>Save</Btn></div>
         </Panel>
       )}
-      <Table head={['กรณี', 'ทดสอบ', 'ผลล่าสุด', 'รายละเอียด', '']} empty={!cases.length ? <div className="px-4 py-6 text-[14px] text-[#525252]">ยังไม่มีกรณีทดสอบ</div> : null}>
+      <Table head={['Case', 'Target', 'Last result', 'Details', '']} empty={!cases.length ? <div className="px-4 py-6 text-[14px] text-[#525252]">No test cases yet</div> : null}>
         {(cases as any[]).map(c => (
           <tr key={c.id}>
             <Td><span className="font-semibold">{c.name}</span></Td>
             <Td>{TT[c.targetType]}: {names[c.targetId] || c.targetId?.slice(0, 8)}</Td>
             <Td><Tag tone={ST[c.lastStatus][0]}>{ST[c.lastStatus][1]}</Tag>{c.lastResult?.at && <span className="text-[12px] text-[#525252] ml-2">{fmtTime(c.lastResult.at)}</span>}</Td>
             <Td className="!whitespace-normal text-[12px]">{(c.lastResult?.checks || []).map((x: any, i: number) => <div key={i} className={x.ok ? '' : 'text-[#a2191f]'}>{x.ok ? '✓' : '✗'} {x.message}</div>)}</Td>
-            <Td><button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => run.mutate(c.id)}>รัน</button></Td>
+            <Td><button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => run.mutate(c.id)}>Run</button></Td>
           </tr>
         ))}
       </Table>

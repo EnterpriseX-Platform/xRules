@@ -89,12 +89,12 @@ export async function overview(projectIdOrSlug: string, user: AuthUser) {
 
 // ---------------------------------------------------------------- alerts
 export const DEFAULT_ALERTS = [
-  { name: 'อัตราผิดพลาดของ API เกิน 5%', metric: 'error_rate', threshold: 0.05, windowMin: 5 },
-  { name: 'เวลาตอบ p95 เกิน 3 วินาที', metric: 'p95_ms', threshold: 3000, windowMin: 5 },
-  { name: 'ข้อมูลเก่ากว่า 36 ชั่วโมง หรือดึงข้อมูลล้ม', metric: 'dataset_age_h', threshold: 36, windowMin: 60 },
-  { name: 'Connection ต่อไม่ได้', metric: 'connection_down', threshold: 1, windowMin: 5 },
-  { name: 'API key จะหมดอายุใน 14 วัน', metric: 'key_expiring', threshold: 14, windowMin: 1440 },
-  { name: 'ชุดทดสอบตอนกลางคืนไม่ผ่าน', metric: 'nightly_tests_failed', threshold: 1, windowMin: 1440 },
+  { name: 'API error rate above 5%', metric: 'error_rate', threshold: 0.05, windowMin: 5 },
+  { name: 'API p95 response time above 3 s', metric: 'p95_ms', threshold: 3000, windowMin: 5 },
+  { name: 'Reference data older than 36 h or sync failed', metric: 'dataset_age_h', threshold: 36, windowMin: 60 },
+  { name: 'Connection unreachable', metric: 'connection_down', threshold: 1, windowMin: 5 },
+  { name: 'API key expires within 14 days', metric: 'key_expiring', threshold: 14, windowMin: 1440 },
+  { name: 'Nightly tests failed', metric: 'nightly_tests_failed', threshold: 1, windowMin: 1440 },
 ];
 
 async function measure(rule: any): Promise<{ value: number; message: string }> {
@@ -102,8 +102,8 @@ async function measure(rule: any): Promise<{ value: number; message: string }> {
   if (rule.metric === 'error_rate' || rule.metric === 'p95_ms') {
     const r = await prisma.$queryRawUnsafe<any[]>(`SELECT count(*)::int AS n, count(*) FILTER (WHERE e.status <> 'SUCCESS')::int AS err, percentile_cont(0.95) WITHIN GROUP (ORDER BY e.duration) AS p95
       FROM executions e JOIN api_operations o ON o.id = e."operationId" JOIN api_specs s ON s.id = o."specId" WHERE s."projectId" = $1 AND e."createdAt" >= $2`, p, w);
-    const x = r[0]; if (!x.n) return { value: 0, message: 'ไม่มีการเรียก' };
-    return rule.metric === 'error_rate' ? { value: x.err / x.n, message: `ผิดพลาด ${x.err} จาก ${x.n} ครั้ง` } : { value: Number(x.p95), message: `p95 ${Math.round(Number(x.p95))} ms` };
+    const x = r[0]; if (!x.n) return { value: 0, message: 'No calls' };
+    return rule.metric === 'error_rate' ? { value: x.err / x.n, message: `${x.err} errors in ${x.n} calls` } : { value: Number(x.p95), message: `p95 ${Math.round(Number(x.p95))} ms` };
   }
   if (rule.metric === 'dataset_age_h') {
     const sets = await prisma.dataset.findMany({ where: { projectId: p, activeSnapshotId: { not: null } } });
@@ -115,20 +115,20 @@ async function measure(rule: any): Promise<{ value: number; message: string }> {
       const v = last?.status === 'REJECTED' ? Math.max(age, rule.threshold + 1) : age;
       if (v > worst) { worst = v; name = d.slug; }
     }
-    return { value: worst, message: `${name} อายุ ${Math.round(worst)} ชม.` };
+    return { value: worst, message: `${name} is ${Math.round(worst)} h old` };
   }
   if (rule.metric === 'connection_down') {
     const down = (await prisma.connection.findMany({ where: { projectId: p } })).filter(c => (c.meta as any)?.lastTest && !(c.meta as any).lastTest.ok);
-    return { value: down.length, message: down.map(c => c.slug).join(', ') || 'ต่อได้ทั้งหมด' };
+    return { value: down.length, message: down.map(c => c.slug).join(', ') || 'all reachable' };
   }
   if (rule.metric === 'key_expiring') {
     const proj = await prisma.project.findUnique({ where: { id: p } });
     const ks = await prisma.apiKey.findMany({ where: { workspaceId: proj!.workspaceId, active: true, expiresAt: { not: null, lte: new Date(Date.now() + rule.threshold * 86400_000) } } });
-    return { value: ks.length ? rule.threshold : 0, message: ks.map(k => `${k.name} หมด ${k.expiresAt!.toISOString().slice(0, 10)}`).join(', ') || 'ไม่มี' };
+    return { value: ks.length ? rule.threshold : 0, message: ks.map(k => `${k.name} expires ${k.expiresAt!.toISOString().slice(0, 10)}`).join(', ') || 'none' };
   }
   if (rule.metric === 'nightly_tests_failed') {
     const r = await prisma.testRun.findFirst({ where: { testSuite: { projectId: p } }, orderBy: { createdAt: 'desc' } });
-    return { value: r?.status === 'FAILED' ? 1 : 0, message: r ? `ล่าสุด ${r.passed}/${r.totalRows} ผ่าน` : 'ยังไม่เคยรัน' };
+    return { value: r?.status === 'FAILED' ? 1 : 0, message: r ? `last run ${r.passed}/${r.totalRows} passed` : 'never run' };
   }
   return { value: 0, message: 'unknown metric' };
 }

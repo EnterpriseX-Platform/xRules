@@ -21,34 +21,34 @@ export default function SimulationsPage() {
   const s = ch?.summary;
   return (
     <div className="px-8 py-6">
-      <PageHead title="Simulations" sub="ดูว่าร่างใหม่จะให้ผลต่างจากตัวที่ใช้อยู่อย่างไร ก่อนเปิดใช้จริง" />
+      <PageHead title="Simulations" sub="See how a draft would change results before it goes live" />
       <div className="w-96 mb-4"><div className="text-[12px] text-[#525252] mb-1.5">Decision Flow</div><Dropdown value={flow} onChange={setFlow} options={decision.map(f => ({ value: f.id, label: f.name, hint: `v${f.version}` }))} /></div>
       <div className="grid grid-cols-2 gap-4 items-start">
-        <Panel title="จำลองย้อนหลัง">
-          <div className="text-[14px] text-[#525252] mb-3">รันร่างและตัวที่ใช้อยู่กับคำขอจริงย้อนหลัง แล้วเทียบผลทีละรายการ</div>
-          <Input id="bt-lim" label="จำนวนคำขอล่าสุด" mono value={limit} onChange={setLimit} />
-          <div className="mt-4"><Btn onClick={() => backtest.mutate()} disabled={!flow || backtest.isPending}>เริ่มจำลอง</Btn></div>
+        <Panel title="Backtest">
+          <div className="text-[14px] text-[#525252] mb-3">Run the draft and the live version over past real requests and compare each result</div>
+          <Input id="bt-lim" label="Most recent requests" mono value={limit} onChange={setLimit} />
+          <div className="mt-4"><Btn onClick={() => backtest.mutate()} disabled={!flow || backtest.isPending}>Start backtest</Btn></div>
           {backtest.error && <div className="mt-3"><Notice kind="error">{String((backtest.error as any).message)}</Notice></div>}
         </Panel>
-        <Panel title="Champion / Challenger บนระบบจริง">
-          <div className="text-[14px] text-[#525252] mb-3">รันร่างคู่กับตัวจริงบนคำขอจริงบางส่วน ตอบผู้เรียกด้วยผลของตัวจริงเสมอ</div>
-          {ch?.challenger ? <Notice kind="info">กำลังเทียบ {Math.round(ch.challenger.sampleRate * 100)}% ของคำขอ{ch.challenger.until ? ` ถึง ${fmtTime(ch.challenger.until)}` : ''}</Notice> : null}
+        <Panel title="Champion / Challenger on live traffic">
+          <div className="text-[14px] text-[#525252] mb-3">Run the draft alongside the live version on a share of real requests; callers always get the live result</div>
+          {ch?.challenger ? <Notice kind="info">Comparing {Math.round(ch.challenger.sampleRate * 100)}% of requests{ch.challenger.until ? ` until ${fmtTime(ch.challenger.until)}` : ''}</Notice> : null}
           <div className="grid grid-cols-2 gap-4 mt-3">
-            <Input id="ch-rate" label="สัดส่วนคำขอ (%)" mono value={rate} onChange={setRate} />
-            <Input id="ch-until" label="สิ้นสุด (วันที่)" type="date" value={until} onChange={setUntil} />
+            <Input id="ch-rate" label="Share of requests (%)" mono value={rate} onChange={setRate} />
+            <Input id="ch-until" label="Ends on" type="date" value={until} onChange={setUntil} />
           </div>
           <div className="mt-4 flex gap-2">
-            <Btn onClick={() => setCh.mutate(false)} disabled={!flow}>{ch?.challenger ? 'ปรับ' : 'เริ่มเทียบ'}</Btn>
-            {ch?.challenger && <Btn kind="ghost" onClick={() => setCh.mutate(true)}>หยุด</Btn>}
+            <Btn onClick={() => setCh.mutate(false)} disabled={!flow}>{ch?.challenger ? 'Update' : 'Start comparing'}</Btn>
+            {ch?.challenger && <Btn kind="ghost" onClick={() => setCh.mutate(true)}>Stop</Btn>}
           </div>
-          {s && s.total > 0 && <div className="mt-4 text-[14px] tabular-nums">เทียบแล้ว {s.total.toLocaleString()} คำขอ · ผลตรงกัน <b>{pct(s.same, s.total)}%</b> · ต่างกัน <b>{s.different.toLocaleString()}</b></div>}
+          {s && s.total > 0 && <div className="mt-4 text-[14px] tabular-nums">Compared {s.total.toLocaleString()} requests · same result <b>{pct(s.same, s.total)}%</b> · different <b>{s.different.toLocaleString()}</b></div>}
         </Panel>
       </div>
-      <h2 className="text-[20px] mt-8 mb-3">ผลจำลองย้อนหลัง</h2>
-      <Table head={['รอบ', 'สถานะ', 'ความคืบหน้า', '']} empty={!pairs.length ? <div className="px-4 py-6 text-[14px] text-[#525252]">ยังไม่มี</div> : null}>
+      <h2 className="text-[20px] mt-8 mb-3">Backtest results</h2>
+      <Table head={['Run', 'Status', 'Progress', '']} empty={!pairs.length ? <div className="px-4 py-6 text-[14px] text-[#525252]">None yet</div> : null}>
         {pairs.map((r: any) => (
-          <tr key={r.id}><Td>{r.name}</Td><Td><Tag tone={r.status === 'COMPLETED' ? 'green' : 'blue'}>{r.status === 'COMPLETED' ? 'เสร็จ' : 'กำลังรัน'}</Tag></Td>
-            <Td mono>{r.processed}/{r.total}</Td><Td><Link className="text-[#0f62fe] hover:underline" href={`/projects/${projectId}/bulk/${r.id}`}>ดูผลต่าง</Link></Td></tr>
+          <tr key={r.id}><Td>{r.name}</Td><Td><Tag tone={r.status === 'COMPLETED' ? 'green' : 'blue'}>{r.status === 'COMPLETED' ? 'Completed' : 'Running'}</Tag></Td>
+            <Td mono>{r.processed}/{r.total}</Td><Td><Link className="text-[#0f62fe] hover:underline" href={`/projects/${projectId}/bulk/${r.id}`}>View differences</Link></Td></tr>
         ))}
       </Table>
     </div>

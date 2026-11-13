@@ -12,7 +12,7 @@ export async function assertPublishable(projectId: string, targetType: string, t
   await assertTestsPass(targetType, targetId);
   if (!reviewRequired()) return;
   const ok = await prisma.reviewRequest.findFirst({ where: { projectId, targetType, targetId, status: 'APPROVED' }, orderBy: { decidedAt: 'desc' } });
-  if (!ok) throw new ForbiddenError('ต้องผ่านการตรวจก่อน publish');
+  if (!ok) throw new ForbiddenError('An approved review is required before publishing');
 }
 
 async function setState(targetType: string, targetId: string, state: string) {
@@ -44,7 +44,7 @@ export async function decide(id: string, decision: 'APPROVED' | 'REJECTED', note
   if (!r) throw new NotFoundError('Review');
   await assertProjectAccess(r.projectId, user, 'admin');
   if (r.status !== 'PENDING') throw new ValidationError(`review is ${r.status.toLowerCase()}`);
-  if (r.submittedBy === (user.email || user.userId)) throw new ForbiddenError('อนุมัติงานที่ตัวเองส่งไม่ได้');
+  if (r.submittedBy === (user.email || user.userId)) throw new ForbiddenError('You cannot approve your own submission');
   const out = await prisma.reviewRequest.update({ where: { id }, data: { status: decision, reviewedBy: user.email || user.userId, decisionNote: note, decidedAt: new Date() } });
   await setState(r.targetType, r.targetId, decision);
   await audit(r.projectId, user, `review.${decision.toLowerCase()}`, r.targetType, r.targetId);

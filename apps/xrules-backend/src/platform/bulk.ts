@@ -169,7 +169,7 @@ export async function* resultsCsv(id: string, user: AuthUser) {
   await runFor(id, user);
   const first = await prisma.bulkRunRow.findFirst({ where: { runId: id }, orderBy: { idx: 'asc' } });
   const cols = Object.keys((first?.input as any) || {});
-  yield '﻿' + [...cols, 'ผล', 'ข้อผิดพลาด', 'findings'].map(csvCell).join(',') + '\n';
+  yield '﻿' + [...cols, 'result', 'error', 'findings'].map(csvCell).join(',') + '\n';
   let cursor: bigint | undefined;
   for (;;) {
     const page = await prisma.bulkRunRow.findMany({ where: { runId: id }, orderBy: { id: 'asc' }, take: 2000, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}) });
@@ -207,7 +207,7 @@ export async function backtest(data: { projectId: string; flow: string; since?: 
   const f = await prisma.flow.findFirst({ where: { projectId: p.id, OR: [{ id: data.flow }, { slug: data.flow }] } });
   if (!f) throw new NotFoundError('Flow');
   const src = { kind: 'executions', flowId: f.id, operationId: data.operationId, since: data.since, limit: data.limit || 2000 };
-  const live = await createBulkRun({ projectId: p.id, name: `จำลอง: ${f.slug} (ตัวจริง)`, targetType: 'decision_flow', target: f.id, source: src }, user);
-  const draft = await createBulkRun({ projectId: p.id, name: `จำลอง: ${f.slug} (ร่าง)`, targetType: 'decision_flow', target: f.id, source: { ...src, draft: true }, compareToId: live.id }, user);
+  const live = await createBulkRun({ projectId: p.id, name: `Backtest: ${f.slug} (live)`, targetType: 'decision_flow', target: f.id, source: src }, user);
+  const draft = await createBulkRun({ projectId: p.id, name: `Backtest: ${f.slug} (draft)`, targetType: 'decision_flow', target: f.id, source: { ...src, draft: true }, compareToId: live.id }, user);
   return { liveRunId: live.id, draftRunId: draft.id, compareUrl: `/platform/bulk/${draft.id}/compare/${live.id}` };
 }

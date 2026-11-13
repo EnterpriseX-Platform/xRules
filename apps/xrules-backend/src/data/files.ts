@@ -73,28 +73,28 @@ export async function checkFile(file: { fileId?: string; name?: string; url?: st
   const base = { ruleCode, fileId: file.fileId };
   const ext = (name.match(/\.[A-Za-z0-9]+$/)?.[0] || '').toLowerCase();
   if (spec.extensions?.length && !spec.extensions.map(e => e.toLowerCase()).includes(ext)) {
-    return [{ ...base, severity: 'ERROR', message: `ไฟล์ "${name}" ต้องเป็นนามสกุล ${spec.extensions.join(', ')} ตามแบบฟอร์ม ${templateCode}` }];
+    return [{ ...base, severity: 'ERROR', message: `File "${name}" must be ${spec.extensions.join(', ')} for template ${templateCode}` }];
   }
   let buf: Buffer;
   try { buf = await fetchFile(file); } catch (e: any) {
-    return [{ ...base, severity: 'SKIPPED', message: `เปิดไฟล์ "${name}" ไม่ได้ จึงยังไม่ได้ตรวจรูปแบบ (${e.message})` }];
+    return [{ ...base, severity: 'SKIPPED', message: `Could not open "${name}", format not checked (${e.message})` }];
   }
   if (spec.maxBytes && buf.length > spec.maxBytes) {
-    findings.push({ ...base, severity: 'ERROR', message: `ไฟล์ "${name}" ใหญ่เกิน ${Math.round(spec.maxBytes / 1024 / 1024)} MB` });
+    findings.push({ ...base, severity: 'ERROR', message: `File "${name}" is larger than ${Math.round(spec.maxBytes / 1024 / 1024)} MB` });
   }
   let wb: ExcelJS.Workbook;
   try { wb = await loadWorkbook(buf, name); } catch {
-    return [...findings, { ...base, severity: 'ERROR', message: `ไฟล์ "${name}" ไม่ใช่ไฟล์ Excel/CSV ที่อ่านได้` }];
+    return [...findings, { ...base, severity: 'ERROR', message: `File "${name}" is not a readable Excel/CSV file` }];
   }
   for (const sh of spec.sheets) {
     const ws = /\.csv$/i.test(name) ? wb.worksheets[0] : wb.getWorksheet(sh.name);
-    if (!ws) { findings.push({ ...base, severity: 'ERROR', field: `sheet:${sh.name}`, message: `ไม่พบชีต "${sh.name}" ตามแบบฟอร์ม ${templateCode}` }); continue; }
+    if (!ws) { findings.push({ ...base, severity: 'ERROR', field: `sheet:${sh.name}`, message: `Sheet "${sh.name}" required by template ${templateCode} is missing` }); continue; }
     const hr = sh.headerRow || 1;
     const headers = new Map<string, number>();
     ws.getRow(hr).eachCell({ includeEmpty: false }, (c, i) => headers.set(cellText(c.value), i));
     for (const col of sh.columns) {
       const idx = headers.get(col.name);
-      if (!idx) { findings.push({ ...base, severity: 'ERROR', field: `sheet:${sh.name}`, message: `ไม่พบคอลัมน์ "${col.name}" ในชีต "${sh.name}" ตามแบบฟอร์ม ${templateCode}` }); continue; }
+      if (!idx) { findings.push({ ...base, severity: 'ERROR', field: `sheet:${sh.name}`, message: `Column "${col.name}" is missing in sheet "${sh.name}" (template ${templateCode})` }); continue; }
       let emptyRows: number[] = [], badRows: number[] = [];
       for (let r = hr + 1; r <= ws.rowCount; r++) {
         const row = ws.getRow(r);
@@ -108,9 +108,9 @@ export async function checkFile(file: { fileId?: string; name?: string; url?: st
       }
       const cell = `${sh.name}!${colLetter(idx)}`;
       if (emptyRows.length) findings.push({ ...base, severity: 'ERROR', field: `sheet:${cell}`, ref: { rows: emptyRows.slice(0, 20) },
-        message: `คอลัมน์ "${col.name}" ว่าง ${emptyRows.length} แถว (แถว ${emptyRows.slice(0, 5).join(', ')}${emptyRows.length > 5 ? ' …' : ''})` });
+        message: `Column "${col.name}" is empty in ${emptyRows.length} rows (rows ${emptyRows.slice(0, 5).join(', ')}${emptyRows.length > 5 ? ' …' : ''})` });
       if (badRows.length) findings.push({ ...base, severity: 'ERROR', field: `sheet:${cell}`, ref: { rows: badRows.slice(0, 20) },
-        message: `คอลัมน์ "${col.name}" ต้องเป็น${col.type === 'number' ? 'ตัวเลข' : 'วันที่'} พบ ${badRows.length} แถวที่ไม่ใช่ (แถว ${badRows.slice(0, 5).join(', ')}${badRows.length > 5 ? ' …' : ''})` });
+        message: `Column "${col.name}" must be a ${col.type === 'number' ? 'number' : 'date'}; ${badRows.length} rows are not (rows ${badRows.slice(0, 5).join(', ')}${badRows.length > 5 ? ' …' : ''})` });
     }
   }
   return findings;

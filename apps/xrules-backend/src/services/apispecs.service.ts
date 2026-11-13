@@ -125,7 +125,7 @@ export async function publish(specId: string, user: AuthUser, message?: string) 
   return fmt(await prisma.apiSpec.update({ where: { id: specId }, data: { status: 'PUBLISHED', revision: s.revision + 1, reviewState: 'NONE' }, include: { operations: { include: { flow: true } } } }));
 }
 
-/** Try an operation against its draft flow — used by the Studio "ลองเรียก" panel. */
+/** Try an operation against its draft flow — used by the Studio "Try it" panel. */
 export async function tryOperation(opId: string, req: { params?: any; query?: any; body?: any; headers?: any }, user: AuthUser) {
   const op = await prisma.apiOperation.findUnique({ where: { id: opId }, include: { spec: true } });
   if (!op) throw new NotFoundError('Operation');

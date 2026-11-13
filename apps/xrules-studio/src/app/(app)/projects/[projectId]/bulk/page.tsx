@@ -5,8 +5,8 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { PageHead, Table, Td, Tag, Btn, Input, TextArea, Panel, Notice, DropZone, fileToBase64, fmtTime, pct } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
+import { BULK_STATUS as STATUS } from '@/components/pipeline/status';
 
-export const STATUS: Record<string, [any, string]> = { QUEUED: ['gray', 'รอคิว'], RUNNING: ['blue', 'กำลังรัน'], PAUSED: ['orange', 'พักไว้'], COMPLETED: ['green', 'เสร็จ'], FAILED: ['red', 'ล้ม'], CANCELLED: ['gray', 'ยกเลิก'] };
 
 export default function BulkPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -30,31 +30,31 @@ export default function BulkPage() {
   });
   return (
     <div className="px-8 py-6">
-      <PageHead title="Bulk Runs" sub="รันกฎหรือ Decision Flow กับข้อมูลทีละมาก · ผลเป็นไฟล์ · รันซ้ำเฉพาะแถวที่ผิด" actions={<Btn onClick={() => setOpen(o => !o)}>New Bulk Run</Btn>} />
+      <PageHead title="Bulk Runs" sub="Run a rule or decision flow over many rows · results as a file · retry only failed rows" actions={<Btn onClick={() => setOpen(o => !o)}>New Bulk Run</Btn>} />
       {open && (
-        <Panel title="Bulk Run ใหม่" className="mb-4">
+        <Panel title="New bulk run" className="mb-4">
           <div className="grid grid-cols-3 gap-4">
-            <Input id="b-name" label="ชื่อ" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} placeholder="ตรวจคำขอปี 2571 ทั้งหมด" />
-            <div><div className="text-[12px] text-[#525252] mb-1.5">รันกับ</div><Dropdown value={f.targetType} onChange={v => setF({ ...f, targetType: v, target: '' })} options={[{ value: 'decision_flow', label: 'Decision Flow' }, { value: 'rule', label: 'Rule' }]} /></div>
-            <div><div className="text-[12px] text-[#525252] mb-1.5">ตัวที่รัน (เวอร์ชันที่ publish ล่าสุด)</div><Dropdown value={f.target} onChange={v => setF({ ...f, target: v })} options={targets} /></div>
-            <div><div className="text-[12px] text-[#525252] mb-1.5">ข้อมูลเข้า</div><Dropdown value={f.sourceKind} onChange={v => setF({ ...f, sourceKind: v })} options={[{ value: 'file', label: 'ไฟล์ Excel / CSV' }, { value: 'dataset', label: 'Data Set' }, { value: 'rows', label: 'วาง JSON' }]} /></div>
-            {f.sourceKind === 'dataset' && <div><div className="text-[12px] text-[#525252] mb-1.5">Data Set</div><Dropdown value={f.dataset} onChange={v => setF({ ...f, dataset: v })} options={(sets as any[]).map(d => ({ value: d.slug, label: d.slug, hint: `${d.rowCount} แถว` }))} /></div>}
-            <Input id="b-conc" label="รันพร้อมกัน (แถว)" mono value={f.concurrency} onChange={(v: string) => setF({ ...f, concurrency: v })} />
+            <Input id="b-name" label="Name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} placeholder="Check all FY2571 requests" />
+            <div><div className="text-[12px] text-[#525252] mb-1.5">Run against</div><Dropdown value={f.targetType} onChange={v => setF({ ...f, targetType: v, target: '' })} options={[{ value: 'decision_flow', label: 'Decision Flow' }, { value: 'rule', label: 'Rule' }]} /></div>
+            <div><div className="text-[12px] text-[#525252] mb-1.5">Target (latest published version)</div><Dropdown value={f.target} onChange={v => setF({ ...f, target: v })} options={targets} /></div>
+            <div><div className="text-[12px] text-[#525252] mb-1.5">Input data</div><Dropdown value={f.sourceKind} onChange={v => setF({ ...f, sourceKind: v })} options={[{ value: 'file', label: 'Excel / CSV file' }, { value: 'dataset', label: 'Data Set' }, { value: 'rows', label: 'Paste JSON' }]} /></div>
+            {f.sourceKind === 'dataset' && <div><div className="text-[12px] text-[#525252] mb-1.5">Data Set</div><Dropdown value={f.dataset} onChange={v => setF({ ...f, dataset: v })} options={(sets as any[]).map(d => ({ value: d.slug, label: d.slug, hint: `${d.rowCount} rows` }))} /></div>}
+            <Input id="b-conc" label="Concurrency (rows)" mono value={f.concurrency} onChange={(v: string) => setF({ ...f, concurrency: v })} />
           </div>
           <div className="mt-4">
-            {f.sourceKind === 'file' && <DropZone accept=".xlsx,.csv" onFile={setFile} label={file ? `${file.name} (${Math.round(file.size / 1024)} KB) — ลากไฟล์อื่นมาแทนได้` : 'ลากไฟล์ Excel / CSV มาวาง หรือคลิกเพื่อเลือก'} />}
-            {f.sourceKind === 'rows' && <TextArea id="b-rows" label="แถวข้อมูล (JSON array)" rows={6} value={f.rowsJson} onChange={(v: string) => setF({ ...f, rowsJson: v })} />}
+            {f.sourceKind === 'file' && <DropZone accept=".xlsx,.csv" onFile={setFile} label={file ? `${file.name} (${Math.round(file.size / 1024)} KB) — drop another file to replace` : 'Drop an Excel / CSV file here or click to choose'} />}
+            {f.sourceKind === 'rows' && <TextArea id="b-rows" label="Rows (JSON array)" rows={6} value={f.rowsJson} onChange={(v: string) => setF({ ...f, rowsJson: v })} />}
           </div>
-          <div className="mt-4"><TextArea id="b-map" label="จับคู่คอลัมน์ → input (JSON ใช้ {{ชื่อคอลัมน์}} · เว้นว่างถ้าคอลัมน์ตรงกับ input แล้ว)" rows={5} value={f.mapping} onChange={(v: string) => setF({ ...f, mapping: v })} /></div>
+          <div className="mt-4"><TextArea id="b-map" label="Column → input mapping (JSON with {{column}} · leave empty if columns already match the input)" rows={5} value={f.mapping} onChange={(v: string) => setF({ ...f, mapping: v })} /></div>
           {create.error && <div className="mt-3"><Notice kind="error">{String((create.error as any).message)}</Notice></div>}
-          <div className="mt-4"><Btn onClick={() => create.mutate()} disabled={!f.target || create.isPending || (f.sourceKind === 'file' && !file)}>เริ่มรัน</Btn></div>
+          <div className="mt-4"><Btn onClick={() => create.mutate()} disabled={!f.target || create.isPending || (f.sourceKind === 'file' && !file)}>Start run</Btn></div>
         </Panel>
       )}
-      <Table head={['ชื่อ', 'รันกับ', 'สถานะ', 'ความคืบหน้า', 'ผ่าน / ไม่ผ่าน / ผิดพลาด', 'เริ่ม']} empty={!runs.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">ยังไม่มี Bulk Run</div> : null}>
+      <Table head={['Name', 'Target', 'Status', 'Progress', 'Passed / failed / errors', 'Started']} empty={!runs.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">No bulk runs yet</div> : null}>
         {runs.map((r: any) => (
           <tr key={r.id} className="hover:bg-[#e8e8e8] cursor-pointer" onClick={() => router.push(`/projects/${projectId}/bulk/${r.id}`)}>
             <Td><span className="font-semibold">{r.name || r.id.slice(0, 8)}</span></Td>
-            <Td>{r.targetType === 'rule' ? 'Rule' : 'Decision Flow'}{r.targetVersion ? ` v${r.targetVersion}` : ' (ร่าง)'}</Td>
+            <Td>{r.targetType === 'rule' ? 'Rule' : 'Decision Flow'}{r.targetVersion ? ` v${r.targetVersion}` : ' (draft)'}</Td>
             <Td><Tag tone={STATUS[r.status][0]}>{STATUS[r.status][1]}</Tag></Td>
             <Td><div className="w-40 h-2 bg-[#e0e0e0]"><div className="h-2 bg-[#0f62fe]" style={{ width: `${pct(r.processed, r.total)}%` }} /></div><div className="text-[12px] text-[#525252] mt-1 tabular-nums">{r.processed.toLocaleString()} / {r.total.toLocaleString()}</div></Td>
             <Td mono>{r.passed.toLocaleString()} / {r.failed.toLocaleString()} / {r.errored.toLocaleString()}</Td>
