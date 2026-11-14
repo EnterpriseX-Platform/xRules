@@ -52,6 +52,7 @@ test('Approvals: author submits, a second reviewer (switching tenant) approves',
   const reviewer = `e2e-reviewer-${s}@example.test`, pw = 'E2e-reviewer-1!';
   expect((await request.post('../xrules-api/auth/signup', { data: { email: reviewer, password: pw, name: 'E2E Reviewer', workspaceName: `Reviewer ${s}` } })).ok()).toBeTruthy();
   await page.goto('settings/tenant');
+  await expect(page.locator('main h1').first()).not.toHaveText('Tenant');   // wait for the tenant to load
   const tenantName = (await page.locator('main h1').first().innerText()).trim();
   await page.getByRole('button', { name: 'Members' }).click();
   await page.locator('#m-email').fill(reviewer);
