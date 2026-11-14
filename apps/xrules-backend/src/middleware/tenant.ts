@@ -140,7 +140,7 @@ export async function tenantGuard(req: Request, res: Response, next: NextFunctio
 
     // which project(s) does this request touch?
     const ids = new Set<string>();
-    const direct = (req.query.projectId || req.query.project_id || (req.body && typeof req.body === 'object' ? req.body.projectId : undefined)) as string | undefined;
+    const direct = (req.query.projectId || req.query.project_id || (req.body && typeof req.body === 'object' ? (req.body.projectId ?? req.body.project_id) : undefined)) as string | undefined;
     if (direct) ids.add(direct);
     const pp = PROJECT_PATH.exec(path);
     if (pp) ids.add(pp[1]);
@@ -148,7 +148,14 @@ export async function tenantGuard(req: Request, res: Response, next: NextFunctio
       for (const [re, hop] of list) {
         const m = re.exec(path);
         if (!m) continue;
-        const pid = await projectOfEntity(hop, decodeURIComponent(m[1]));
+        let key = decodeURIComponent(m[1]);
+        let pid = await projectOfEntity(hop, key);
+        if (pid === undefined && (hop === H.rule || hop === H.flow)) {
+          // Studio URLs carry slugs: resolve slug/alias inside this tenant and rewrite the path to the id
+          const d = (prisma as any)[hop.m];
+          const hit = await d.findFirst({ where: { OR: [{ slug: key }, { alias: key }], project: { workspaceId: tenant.id } }, select: { id: true, projectId: true } });
+          if (hit) { req.url = req.url.replace(`/${m[1]}`, `/${hit.id}`); pid = hit.projectId; key = hit.id; }
+        }
         if (pid === null) return deny(res, 404, 'NOT_FOUND', 'Not found');
         if (pid) ids.add(pid);
         break;
@@ -168,6 +175,12 @@ export async function tenantGuard(req: Request, res: Response, next: NextFunctio
       if (RANK[r] < RANK[need]) return deny(res, 403, 'FORBIDDEN', `Requires project role ${need} (you are ${r})`);
       role = role && RANK[role] < RANK[r] ? role : r;
       req.projectId = project.id;
+      if (id !== project.id) {                                  // a slug was sent: hand routes the real id
+        for (const k of ['projectId', 'project_id'] as const) {
+          if (req.query[k] === id) (req.query as any)[k] = project.id;
+          if (req.body && typeof req.body === 'object' && req.body[k] === id) req.body[k] = project.id;
+        }
+      }
     }
     if (role) req.projectRole = role;
     next();

@@ -97,7 +97,7 @@ export function NewRuleDialog({
     onSuccess: (rule: any) => {
       onCreated?.(rule);
       onClose();
-      router.push(`/${window.location.pathname.split('/')[1]}/projects/${projectId}/rules/${rule.slug || rule.id}`);
+      router.push(`/projects/${projectId}/rules/${rule.slug || rule.id}`);
     },
     onError: (e: any) => setError(e.message),
   });

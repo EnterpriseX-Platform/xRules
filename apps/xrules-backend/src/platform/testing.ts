@@ -77,7 +77,19 @@ export async function assertTestsPass(targetType: string, targetId: string) {
 }
 
 // ---- CRUD
+const KINDS: Record<string, string[]> = { status: ['value'], equals: ['path'], has_finding: ['code'], no_finding: ['code'], max_ms: ['value'] };
+/** Reject malformed expectations when saving, with a message that says what is expected. */
+function checkExpectations(list: any) {
+  if (!Array.isArray(list) || !list.length) throw new ValidationError('Add at least one expectation');
+  list.forEach((e: any, i: number) => {
+    const need = KINDS[e?.kind];
+    if (!need) throw new ValidationError(`Expectation ${i + 1}: "kind" must be one of ${Object.keys(KINDS).join(', ')}`);
+    for (const f of need) if (e[f] === undefined || e[f] === '') throw new ValidationError(`Expectation ${i + 1} (${e.kind}) needs "${f}"`);
+  });
+}
+
 export async function createCase(data: { projectId: string; name: string; targetType: string; targetId: string; input: any; expectations: Expectation[]; suiteIds?: string[] }, user: AuthUser) {
+  checkExpectations(data.expectations);
   const p = await assertProjectAccess(data.projectId, user, 'write');
   if (!['rule', 'decision_flow', 'operation'].includes(data.targetType)) throw new ValidationError('targetType must be rule, decision_flow or operation');
   let targetId = data.targetId;
@@ -92,6 +104,7 @@ export async function listCases(projectIdOrSlug: string, user: AuthUser, f: { ta
 export async function updateCase(id: string, data: any, user: AuthUser) {
   const c = await prisma.testCase.findUnique({ where: { id } }); if (!c?.projectId) throw new NotFoundError('Test case');
   await assertProjectAccess(c.projectId, user, 'write');
+  if (data.expectations !== undefined) checkExpectations(data.expectations);
   const u: any = {}; for (const k of ['name', 'input', 'expectations', 'suiteIds']) if (data[k] !== undefined) u[k] = data[k];
   return prisma.testCase.update({ where: { id }, data: u });
 }

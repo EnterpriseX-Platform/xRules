@@ -255,7 +255,7 @@ function SchemasTab({ rule }: { rule: any }) {
 }
 
 function TestTab({ rule }: { rule: any }) {
-  const sampleInput = useMemo(() => sampleFromSchema(rule.inputSchema), [rule.inputSchema]);
+  const sampleInput = useMemo(() => sampleFromSchema(rule.inputSchema) ?? {}, [rule.inputSchema]);
   const [input, setInput] = useState(() => JSON.stringify(sampleInput, null, 2));
   const [output, setOutput] = useState<any>(null);
   const [duration, setDuration] = useState<number | null>(null);
@@ -573,22 +573,43 @@ function VersionsTab({ ruleId }: { ruleId: string }) {
 }
 
 function SettingsTab({ rule }: { rule: any }) {
+  const qc = useQueryClient();
+  const [tags, setTags] = useState((rule.tags || []).join(', '));
+  const [confirm, setConfirm] = useState(false);
+  const refresh = () => { qc.invalidateQueries({ queryKey: ['rule'] }); qc.invalidateQueries({ queryKey: ['rules'] }); };
+  const saveTags = useMutation({ mutationFn: () => rulesApi.update(rule.id, { tags: tags.split(',').map((t: string) => t.trim()).filter(Boolean) }), onSuccess: refresh });
+  const setStatus = useMutation({ mutationFn: (status: string) => rulesApi.update(rule.id, { status }), onSuccess: () => { setConfirm(false); refresh(); } });
+  const archived = String(rule.status).toLowerCase() === 'archived';
+  const tagsDirty = tags !== (rule.tags || []).join(', ');
   return (
     <div className="card p-6 space-y-4">
       <div>
-        <label className="label-section block mb-1.5">Slug</label>
-        <input className="input w-full max-w-md font-mono" defaultValue={rule.slug} disabled />
+        <label htmlFor="rs-slug" className="label-section block mb-1.5">Slug</label>
+        <input id="rs-slug" className="input w-full max-w-md font-mono" defaultValue={rule.slug} disabled />
       </div>
       <div>
-        <label className="label-section block mb-1.5">Engine</label>
-        <input className="input w-full max-w-md font-mono" defaultValue={rule.engine} disabled />
+        <label htmlFor="rs-engine" className="label-section block mb-1.5">Engine</label>
+        <input id="rs-engine" className="input w-full max-w-md font-mono" defaultValue={rule.engine} disabled />
       </div>
       <div>
-        <label className="label-section block mb-1.5">Tags</label>
-        <input className="input w-full max-w-md" placeholder="e.g. pricing, kyc" defaultValue={(rule.tags || []).join(', ')} />
+        <label htmlFor="rs-tags" className="label-section block mb-1.5">Tags</label>
+        <div className="flex gap-2 max-w-xl">
+          <input id="rs-tags" className="input flex-1" placeholder="e.g. pricing, kyc" value={tags} onChange={e => setTags(e.target.value)} />
+          <button className="btn-primary disabled:opacity-40" disabled={!tagsDirty || saveTags.isPending} onClick={() => saveTags.mutate()}>Save tags</button>
+        </div>
       </div>
-      <div className="pt-4 border-t border-border">
-        <button className="btn-outline text-danger border-danger/30 hover:bg-danger/10">Archive rule</button>
+      <div className="pt-4 border-t border-border flex items-center gap-2">
+        {archived ? (
+          <><span className="text-sm text-subtle">This rule is archived.</span>
+            <button className="btn-outline" onClick={() => setStatus.mutate('draft')} disabled={setStatus.isPending}>Restore as draft</button></>
+        ) : confirm ? (
+          <><span className="text-sm">Archive {rule.name}? Flows that call it keep their pinned version.</span>
+            <button className="btn-outline text-danger border-danger/30 hover:bg-danger/10" onClick={() => setStatus.mutate('archived')} disabled={setStatus.isPending}>Archive</button>
+            <button className="btn-ghost" onClick={() => setConfirm(false)}>Cancel</button></>
+        ) : (
+          <button className="btn-outline text-danger border-danger/30 hover:bg-danger/10" onClick={() => setConfirm(true)}>Archive rule</button>
+        )}
+        {setStatus.error && <span className="pill pill-danger">{(setStatus.error as any).message}</span>}
       </div>
     </div>
   );

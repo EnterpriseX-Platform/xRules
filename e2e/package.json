@@ -1,0 +1,7 @@
+{
+  "name": "xrules-e2e",
+  "private": true,
+  "description": "Browser E2E for xRules Studio (real clicks). Runs against any deployment; UAT via scripts/uat-proxy.mjs.",
+  "scripts": { "test": "playwright test", "uat-proxy": "node uat-proxy.mjs" },
+  "devDependencies": { "@playwright/test": "1.65.1" }
+}

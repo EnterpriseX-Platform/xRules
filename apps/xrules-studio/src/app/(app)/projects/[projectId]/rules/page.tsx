@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -54,16 +55,17 @@ export default function RulesPage() {
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [folderId, setFolderId] = useState<string | null>(null);
+  const pathname = usePathname();
 
   // Open NewRuleDialog when URL has ?new=1 (from Topbar +New Rule shortcut).
   useEffect(() => {
     if (sp.get('new') === '1') {
       setShowCreate(true);
-      const url = new URL(window.location.href);
-      url.searchParams.delete('new');
-      router.replace(url.pathname + url.search);
+      const q = new URLSearchParams(sp.toString());
+      q.delete('new');
+      router.replace(`${pathname}${q.size ? `?${q}` : ''}`);  // pathname excludes the basePath
     }
-  }, [sp, router]);
+  }, [sp, router, pathname]);
 
   const { data: rules = [], isLoading } = useQuery({
     queryKey: ['rules', projectId, filter],

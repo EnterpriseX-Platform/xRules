@@ -58,8 +58,8 @@ export default function LoginPage() {
 
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="label-section block mb-1.5">Email</label>
-            <input
+            <label htmlFor="login-email" className="label-section block mb-1.5">Email</label>
+            <input id="login-email"
               type="email"
               required
               className="input w-full"
@@ -68,8 +68,8 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label className="label-section block mb-1.5">Password</label>
-            <input
+            <label htmlFor="login-password" className="label-section block mb-1.5">Password</label>
+            <input id="login-password"
               type="password"
               required
               className="input w-full"

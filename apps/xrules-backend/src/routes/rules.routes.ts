@@ -31,7 +31,9 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response, next: Nex
 
 router.post('/', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const result = await rulesService.createRule(req.body, req.user!);
+    // accept camelCase (Studio) and snake_case (public API) field names
+    const b = req.body ?? {};
+    const result = await rulesService.createRule({ ...b, project_id: b.project_id ?? b.projectId, folder_id: b.folder_id ?? b.folderId }, req.user!);
     res.status(201).json({ success: true, data: result });
   } catch (err) { next(err); }
 });

@@ -31,7 +31,7 @@ export function Pill({
 }
 
 export function StatusPill({ status }: { status: string }) {
-  const s = status.toLowerCase();
+  const s = String(status ?? '').toLowerCase();
   if (s === 'published' || s === 'active' || s === 'ok' || s === 'success' || s === 'pass') {
     return <Pill tone="ok" dot>{s}</Pill>;
   }

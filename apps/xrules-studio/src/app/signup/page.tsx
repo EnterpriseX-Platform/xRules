@@ -48,20 +48,20 @@ export default function SignupPage() {
 
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="label-section block mb-1.5">Your name</label>
-            <input required className="input w-full" value={name} onChange={(e) => setName(e.target.value)} />
+            <label htmlFor="signup-name" className="label-section block mb-1.5">Your name</label>
+            <input id="signup-name" required className="input w-full" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div>
-            <label className="label-section block mb-1.5">Tenant name</label>
-            <input required className="input w-full" value={workspaceName} onChange={(e) => setWorkspaceName(e.target.value)} />
+            <label htmlFor="signup-tenant" className="label-section block mb-1.5">Tenant name</label>
+            <input id="signup-tenant" required className="input w-full" value={workspaceName} onChange={(e) => setWorkspaceName(e.target.value)} />
           </div>
           <div>
-            <label className="label-section block mb-1.5">Email</label>
-            <input type="email" required className="input w-full" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <label htmlFor="signup-email" className="label-section block mb-1.5">Email</label>
+            <input id="signup-email" type="email" required className="input w-full" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div>
-            <label className="label-section block mb-1.5">Password</label>
-            <input type="password" required minLength={8} className="input w-full" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <label htmlFor="signup-password" className="label-section block mb-1.5">Password</label>
+            <input id="signup-password" type="password" required minLength={8} className="input w-full" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
 
           {error && <div className="pill pill-danger">{error}</div>}
