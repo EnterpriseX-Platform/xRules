@@ -109,9 +109,11 @@ test('Webhook: create one and see its secret', async ({ page }) => {
 
 test('Release: cut a release snapshot', async ({ page }) => {
   await page.goto(`${P}/releases`);
-  const before = await page.locator('main tbody tr').count();
+  const releases = page.locator('main tbody tr').filter({ hasText: /\d{4}-\d{2}-\d{2}/ });   // empty state is a row too
+  await page.waitForTimeout(1500);
+  const before = await releases.count();
   await page.getByRole('button', { name: 'New Release' }).click();
-  await expect(page.locator('main tbody tr')).toHaveCount(before + 1);
+  await expect(releases).toHaveCount(before + 1);
   await shot(page, '05-release');
 });
 
