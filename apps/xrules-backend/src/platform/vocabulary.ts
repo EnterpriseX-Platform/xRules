@@ -4,7 +4,7 @@
 //
 //   IF <condition> (AND|OR <condition>)* THEN (WARN|FAIL) "<message>" [LEVEL ERROR|WARNING] [CODE <code>]
 //   <condition> = <term> <operator> <value|term>  |  <term> (IS EMPTY|IS NOT EMPTY)
-//   operators: IS, IS NOT, GREATER THAN, LESS THAN, AT MOST, AT LEAST, IN, NOT IN
+//   operators: IS, IS NOT, GREATER THAN, LESS THAN, AT MOST, AT LEAST, IN, NOT IN (or > < >= <= = !=)
 //
 // A term whose path starts with "item." makes the rule run once per line in input.items and report lineId.
 import { prisma } from '../config/database.js';
@@ -37,7 +37,9 @@ export function parse(sentence: string, terms: Term[]): { ast?: Ast; errors: Par
     const p = parts[i].trim();
     const left = byLen.find(t => p.toLowerCase().startsWith(t.term.toLowerCase()) && (p.length === t.term.length || p[t.term.length] === ' '));
     if (!left) { errors.push({ at, message: `Unknown term "${p.split(' ')[0]}"`, suggestions: closest(p.split(' ')[0], terms) }); at += p.length + 1; continue; }
-    const rest = p.slice(left.term.length).trim();
+    // symbols are accepted as shorthand: > < >= <= = != (≥ ≤ ≠ too)
+    const SYM: Record<string, string> = { '>=': 'AT LEAST', '≥': 'AT LEAST', '<=': 'AT MOST', '≤': 'AT MOST', '!=': 'IS NOT', '≠': 'IS NOT', '==': 'IS', '=': 'IS', '>': 'GREATER THAN', '<': 'LESS THAN' };
+    const rest = p.slice(left.term.length).trim().replace(/^(>=|<=|!=|==|≥|≤|≠|=|>|<)\s*/, (m, sym) => `${SYM[sym]} `);
     const opWord = OP_WORDS.find(w => rest.toUpperCase() === w || rest.toUpperCase().startsWith(w + ' '));
     if (!opWord) { errors.push({ at: at + left.term.length, message: `"${left.term}" must be followed by an operator`, suggestions: OP_WORDS }); at += p.length + 1; continue; }
     const op = OPS[opWord]; const rhs = rest.slice(opWord.length).trim();

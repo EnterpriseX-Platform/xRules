@@ -10,6 +10,9 @@ import { startWorkers } from './platform/queue.js';
 import { startTriggerScheduler } from './platform/triggers.js';
 import './platform/bulk.js';
 
+// JSON has no BigInt: raw SQL counts (count(*)) come back as BigInt
+(BigInt.prototype as any).toJSON = function () { return Number(this); };
+
 const app = express();
 
 // Middleware
@@ -31,8 +34,8 @@ app.use(errorHandler);
 
 // Start server
 app.listen(env.port, () => {
-  startScheduler();
-  startWorkers();
+  // XRULES_BACKGROUND=off: serve the API only (no schedules, no queue workers) — for debug copies and read replicas
+  if (process.env.XRULES_BACKGROUND !== 'off') { startScheduler(); startWorkers(); }
   startTriggerScheduler();
   console.log(`[xrules-backend] Running on http://localhost:${env.port}`);
   console.log(`[xrules-backend] Engine Hub: ${env.engineHubUrl}`);

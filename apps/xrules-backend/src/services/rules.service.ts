@@ -1,3 +1,4 @@
+import { assertProjectAccess } from './_access.js';
 import { prisma } from '../config/database.js';
 import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errors.js';
 import { generateSlug } from '../utils/slug.js';
@@ -177,6 +178,12 @@ export async function getRule(idOrSlug: string, user: AuthUser) {
   return formatRule(rule);
 }
 
+// A new rule runs straight away: script/formula get a working starter instead of an empty body.
+const STARTER_DEFINITION: Record<string, object> = {
+  SCRIPT: { source: '// input is the request; return the decision\nreturn { approved: true, input };' },
+  FORMULA: { source: 'input.amount ?? 0' },
+};
+
 export async function createRule(
   data: {
     project_id: string;
@@ -194,12 +201,9 @@ export async function createRule(
     throw new ValidationError('Project ID and name are required');
   }
 
-  const project = await prisma.project.findUnique({ where: { id: data.project_id } });
-  if (!project) {
-    throw new NotFoundError('Project');
-  }
-
-  await checkMembership(project.workspaceId, user.userId, ['OWNER', 'ADMIN', 'MEMBER']);
+  // id or slug; checks tenant membership and project EDITOR role
+  const project = await assertProjectAccess(data.project_id, user, 'write');
+  data = { ...data, project_id: project.id };
 
   const baseSlug = generateSlug(data.name);
   let slug = baseSlug;
@@ -225,9 +229,10 @@ export async function createRule(
       name: data.name,
       slug, alias,
       description: data.description,
+      ...((data as any).folder_id ? { folderId: (data as any).folder_id } : {}),
       type: ruleType,
       engine: solver, solver,
-      definition: data.definition || {},
+      definition: data.definition || STARTER_DEFINITION[ruleType] || {},
       inputSchema: data.input_schema || {},
       outputSchema: data.output_schema || {},
       status: 'DRAFT',
@@ -283,11 +288,12 @@ export async function updateRule(
   if ((data as any).ruleVariables !== undefined) updateData.ruleVariables = (data as any).ruleVariables;
   if ((data as any).folderId !== undefined) updateData.folderId = (data as any).folderId;
   if ((data as any).tags !== undefined) updateData.tags = (data as any).tags;
-  if (data.status) {
-    updateData.status = data.status.toUpperCase();
-    if (data.status.toUpperCase() === 'PUBLISHED' && rule.status !== 'PUBLISHED') {
-      updateData.version = rule.version + 1;
-    }
+  if (data.status) updateData.status = data.status.toUpperCase();
+  // version = the definition currently in the rule. Editing a published rule starts the next version as a draft.
+  const changesLogic = ['definition', 'inputSchema', 'outputSchema', 'engine', 'ruleVariables', 'strategy'].some(k => k in updateData);
+  if (changesLogic && rule.status === 'PUBLISHED' && updateData.status !== 'PUBLISHED') {
+    updateData.version = rule.version + 1;
+    updateData.status = 'DRAFT';
   }
 
   const updated = await prisma.rule.update({
@@ -327,8 +333,9 @@ export async function publishRule(id: string, user: AuthUser) {
   const { assertPublishable } = await import('./governance.service.js');
   await assertPublishable(rule.projectId, 'rule', rule.id, user);
 
-  // Snapshot current state to RuleVersion before publishing
-  await prisma.ruleVersion.create({
+  // Snapshot this version (once) and mark it live; the version number does not move on publish
+  const already = await prisma.ruleVersion.findFirst({ where: { ruleId: rule.id, version: rule.version } });
+  if (!already) await prisma.ruleVersion.create({
     data: {
       version: rule.version,
       definition: (rule.definition || {}) as any,
@@ -343,7 +350,7 @@ export async function publishRule(id: string, user: AuthUser) {
 
   const updated = await prisma.rule.update({
     where: { id },
-    data: { status: 'PUBLISHED', version: rule.version + 1 },
+    data: { status: 'PUBLISHED' },
     include: { createdBy: true },
   });
 
