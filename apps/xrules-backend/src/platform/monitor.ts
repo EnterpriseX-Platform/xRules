@@ -11,15 +11,15 @@ const since = (h: number) => new Date(Date.now() - h * 3600_000);
 export async function traffic(projectIdOrSlug: string, user: AuthUser, hours = 24) {
   const p = await assertProjectAccess(projectIdOrSlug, user);
   const ops = await prisma.$queryRawUnsafe<any[]>(`
-    SELECT o.id, o.method, o.path, s.name AS spec, s."basePath", s.version,
+    SELECT o.id, o.method, o.path, s.name AS spec, s."basePath", s.version, w.slug AS tenant,
       count(e.id)::int AS calls,
       count(e.id) FILTER (WHERE e.status <> 'SUCCESS')::int AS errors,
       percentile_cont(0.5) WITHIN GROUP (ORDER BY e.duration) AS p50,
       percentile_cont(0.95) WITHIN GROUP (ORDER BY e.duration) AS p95,
       percentile_cont(0.99) WITHIN GROUP (ORDER BY e.duration) AS p99
-    FROM api_operations o JOIN api_specs s ON s.id = o."specId"
+    FROM api_operations o JOIN api_specs s ON s.id = o."specId" JOIN workspaces w ON w.id = s."workspaceId"
     LEFT JOIN executions e ON e."operationId" = o.id AND e."createdAt" >= $2 AND e."targetType" = 'operation'
-    WHERE s."projectId" = $1 GROUP BY o.id, s.id ORDER BY calls DESC`, p.id, since(hours));
+    WHERE s."projectId" = $1 GROUP BY o.id, s.id, w.slug ORDER BY calls DESC`, p.id, since(hours));
   const keys = await prisma.$queryRawUnsafe<any[]>(`
     SELECT k.id, k.name, k."systemName", k.prefix, count(e.id)::int AS calls, count(e.id) FILTER (WHERE e.status <> 'SUCCESS')::int AS errors
     FROM executions e JOIN api_keys k ON k.id = e."apiKeyId" JOIN api_operations o ON o.id = e."operationId" JOIN api_specs s ON s.id = o."specId"

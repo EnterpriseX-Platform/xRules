@@ -46,9 +46,19 @@ function clip(v: any): any {
   if (v === undefined) return undefined;
   try { const s = JSON.stringify(v); return s.length > MAX_TRACE_VALUE ? { __truncated: true, preview: s.slice(0, MAX_TRACE_VALUE) } : v; } catch { return String(v); }
 }
+/** Readable step name when the node has no label: rule code + slug, data set, sub-flow, etc. */
+function stepLabel(node: any): string | undefined {
+  const d = node?.data ?? {};
+  if (d.label) return d.label;
+  if (d.ruleSlug || d.ruleId) return [d.ruleCode, d.ruleSlug ?? d.ruleAlias].filter(Boolean).join(' · ') || undefined;
+  if (d.dataset) return `Look up ${d.dataset}`;
+  if (d.flowSlug) return d.flowSlug;
+  if (d.ruleCode) return d.ruleCode;
+  return undefined;
+}
 function pushTrace(opts: FlowOptions, node: any, kind: string, t0: number, status: TraceStep['status'], extra: Partial<TraceStep> = {}) {
   if (!opts.trace) return;
-  opts.trace.push({ seq: opts.trace.length + 1, nodeId: node.id, kind, label: node.data?.label, status, ms: Date.now() - t0, ...extra,
+  opts.trace.push({ seq: opts.trace.length + 1, nodeId: node.id, kind, label: stepLabel(node), status, ms: Date.now() - t0, ...extra,
     input: clip(extra.input), output: clip(extra.output) });
 }
 
