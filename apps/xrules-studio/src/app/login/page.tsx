@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Logo } from '@/components/ui/Logo';
@@ -10,8 +10,10 @@ import { useAuth } from '@/lib/store';
 export default function LoginPage() {
   const router = useRouter();
   const setAuth = useAuth((s) => s.setAuth);
-  const [email, setEmail] = useState('admin@example.com');
-  const [password, setPassword] = useState('admin123');
+  // pre-fill the last email used on this browser
+  useEffect(() => { try { const e = localStorage.getItem('xrules_last_email'); if (e) setEmail(e); } catch {} }, []);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -22,6 +24,7 @@ export default function LoginPage() {
     try {
       const res = await authApi.login(email, password);
       const tenant = res.user?.tenantId || 'default';
+      try { localStorage.setItem('xrules_last_email', email); } catch {}
       setAuth(
         res.access_token || res.token,
         res.user,
@@ -87,10 +90,6 @@ export default function LoginPage() {
         <div className="text-center text-sm text-subtle">
           No account?{' '}
           <Link href="/signup" className="text-accent hover:underline">Sign up</Link>
-        </div>
-
-        <div className="text-[10px] font-mono text-subtle/60 text-center pt-4 border-t border-border">
-          DEMO · admin@example.com / admin123
         </div>
       </div>
     </div>
