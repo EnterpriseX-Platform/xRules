@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Smoke test: batch API, Bulk Run (create, progress, CSV, retry, compare) and a webhook Trigger."""
-import json, sys, time, urllib.request, urllib.error
-B = 'http://localhost:4000'; T = None
+import json, sys, time, urllib.request, urllib.error, os
+B = sys.argv[sys.argv.index('--base') + 1] if '--base' in sys.argv else 'http://localhost:4000'; T = None
 def call(m, p, b=None, h=None, raw=False):
     hh = {'Content-Type': 'application/json', **(h or {})}
     if T and 'X-API-Key' not in hh and 'X-Hook-Token' not in hh: hh['Authorization'] = 'Bearer ' + T
@@ -10,7 +10,7 @@ def call(m, p, b=None, h=None, raw=False):
         with urllib.request.urlopen(rq, timeout=120) as r:
             d = r.read(); return r.status, (d.decode() if raw else json.loads(d or b'null'))
     except urllib.error.HTTPError as e: return e.code, json.loads(e.read() or b'null')
-T = call('POST', '/auth/login', {'email': 'admin@example.com', 'password': 'admin123'})[1]['data']['access_token']
+T = call('POST', '/auth/login', {'email': os.environ.get('XR_EMAIL', 'admin@example.com'), 'password': os.environ.get('XR_PASSWORD', 'admin123')})[1]['data']['access_token']
 projects = call('GET', '/projects')[1]['data']; projects = projects.get('items', projects) if isinstance(projects, dict) else projects
 PID = next(p['id'] for p in projects if p['slug'] == 'neb-pre-screening')
 spec = next(x for x in call('GET', f'/platform/specs?project_id={PID}')[1]['data'] if x['basePath'] == 'neb-prescreen')

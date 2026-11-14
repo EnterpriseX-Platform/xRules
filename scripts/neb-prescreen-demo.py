@@ -7,7 +7,7 @@ flow `neb-prescreen`, an API key, then calls the public endpoint with a sample r
 
 usage: python3 scripts/neb-prescreen-demo.py [--base http://localhost:4000]
 """
-import json, sys, base64, io, urllib.request, urllib.error
+import json, sys, base64, io, urllib.request, urllib.error, os
 
 BASE = sys.argv[sys.argv.index('--base') + 1] if '--base' in sys.argv else 'http://localhost:4000'
 TOKEN = None
@@ -24,7 +24,7 @@ def call(method, path, body=None, headers=None, ok=(200, 201)):
         raise SystemExit(f'{method} {path} -> {e.code}: {e.read().decode()[:400]}')
     return out.get('data', out) if isinstance(out, dict) and 'success' in out else out
 
-login = call('POST', '/auth/login', {'email': 'admin@example.com', 'password': 'admin123'})
+login = call('POST', '/auth/login', {'email': os.environ.get('XR_EMAIL', 'admin@example.com'), 'password': os.environ.get('XR_PASSWORD', 'admin123')})
 TOKEN = login.get('access_token') or login.get('accessToken')
 projects = call('GET', '/projects')
 projects = projects.get('items', projects) if isinstance(projects, dict) else projects
@@ -36,7 +36,7 @@ print('project', proj['slug'])
 conns = call('GET', f'/connections?project_id={PID}')
 conn = next((c for c in conns if c['slug'] == 'neb-src-ro'), None) or call('POST', '/connections', {
     'name': 'neb-src-ro', 'projectId': PID, 'type': 'postgres',
-    'config': {'envs': {'UAT': {'host': 'localhost', 'port': 5461, 'user': 'xrules_ro', 'password': 'ro_pass', 'database': 'xrulesdb'}},
+    'config': {'envs': {'UAT': {'host': os.environ.get('XR_SRC_HOST', 'localhost'), 'port': int(os.environ.get('XR_SRC_PORT', '5461')), 'user': 'xrules_ro', 'password': os.environ.get('XR_SRC_PASSWORD', 'ro_pass'), 'database': 'xrulesdb'}},
                'allowedObjects': ['neb_src.das_standard_price', 'neb_src.prior_requests', 'neb_src.budget_codes']}})
 t = call('POST', f"/data/connections/{conn['id']}/test")
 print('connection test', t)
