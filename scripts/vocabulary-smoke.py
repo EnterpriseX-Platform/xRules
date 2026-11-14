@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Smoke test: vocabulary terms, sentence check (good + bad), save as rule, run it, read back."""
-import json, sys, urllib.request, urllib.error
-B = 'http://localhost:4000'; T = None
+import json, sys, urllib.request, urllib.error, os
+B = sys.argv[sys.argv.index('--base') + 1] if '--base' in sys.argv else 'http://localhost:4000'; T = None
 def call(m, p, b=None):
     rq = urllib.request.Request(B + p, method=m, data=json.dumps(b).encode() if b is not None else None, headers={'Content-Type': 'application/json', **({'Authorization': 'Bearer ' + T} if T else {})})
     try:
         with urllib.request.urlopen(rq, timeout=60) as r: return r.status, json.loads(r.read() or b'null')
     except urllib.error.HTTPError as e: return e.code, json.loads(e.read() or b'null')
-T = call('POST', '/auth/login', {'email': 'admin@example.com', 'password': 'admin123'})[1]['data']['access_token']
+T = call('POST', '/auth/login', {'email': os.environ.get('XR_EMAIL', 'admin@example.com'), 'password': os.environ.get('XR_PASSWORD', 'admin123')})[1]['data']['access_token']
 projects = call('GET', '/projects')[1]['data']; projects = projects.get('items', projects) if isinstance(projects, dict) else projects
 PID = next(p['id'] for p in projects if p['slug'] == 'neb-pre-screening')
 fails = 0

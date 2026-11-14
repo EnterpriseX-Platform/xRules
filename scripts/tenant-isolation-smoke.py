@@ -5,7 +5,7 @@ Signs up a second user (own tenant), then checks that it cannot read, write or c
 first tenant's projects, entities, list endpoints or gateway APIs, and that tenant/project
 roles behave as designed. Cleans up after itself.
 """
-import json, sys, time, urllib.request, urllib.error
+import json, sys, time, urllib.request, urllib.error, os
 B = sys.argv[sys.argv.index('--base') + 1] if '--base' in sys.argv else 'http://localhost:4000'
 
 def call(m, p, b=None, tok=None, h=None):
@@ -26,7 +26,7 @@ def check(name, cond, got=None):
 data = lambda r: (r[1] or {}).get('data') if isinstance(r[1], dict) else None
 
 # ---- tenant A (admin) and its resources
-A = call('POST', '/auth/login', {'email': 'admin@example.com', 'password': 'admin123'})[1]['data']['access_token']
+A = call('POST', '/auth/login', {'email': os.environ.get('XR_EMAIL', 'admin@example.com'), 'password': os.environ.get('XR_PASSWORD', 'admin123')})[1]['data']['access_token']
 ta = data(call('GET', '/tenant', tok=A)); TA = ta['slug']
 proj = next(p for p in data(call('GET', '/projects', tok=A)) if p['slug'] == 'neb-pre-screening'); PID = proj['id']
 rule = data(call('GET', f'/rules?project_id={PID}', tok=A)); rule = (rule.get('items', rule) if isinstance(rule, dict) else rule)[0]

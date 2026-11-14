@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Smoke test for the API gateway (run after scripts/neb-prescreen-demo.py)."""
-import json, sys, urllib.request, urllib.error
+import json, sys, urllib.request, urllib.error, os
 B = sys.argv[sys.argv.index('--base') + 1] if '--base' in sys.argv else 'http://localhost:4000'
 T = None
 def call(m, p, b=None, h=None):
@@ -10,7 +10,7 @@ def call(m, p, b=None, h=None):
     try:
         with urllib.request.urlopen(rq, timeout=60) as r: return r.status, json.loads(r.read() or b'null'), dict(r.headers)
     except urllib.error.HTTPError as e: return e.code, json.loads(e.read() or b'null'), dict(e.headers)
-T = call('POST', '/auth/login', {'email': 'admin@example.com', 'password': 'admin123'})[1]['data']['access_token']
+T = call('POST', '/auth/login', {'email': os.environ.get('XR_EMAIL', 'admin@example.com'), 'password': os.environ.get('XR_PASSWORD', 'admin123')})[1]['data']['access_token']
 projects = call('GET', '/projects')[1]['data']; projects = projects.get('items', projects) if isinstance(projects, dict) else projects
 PID = next(p['id'] for p in projects if p['slug'] == 'neb-pre-screening')
 spec = next(x for x in call('GET', f'/platform/specs?project_id={PID}')[1]['data'] if x['basePath'] == 'neb-prescreen')
