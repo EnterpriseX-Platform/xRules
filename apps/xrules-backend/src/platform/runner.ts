@@ -4,6 +4,7 @@
 import crypto from 'node:crypto';
 import { prisma } from '../config/database.js';
 import { runFlow, type TraceStep } from '../services/flow-runtime.service.js';
+import { resolveRef } from './scope.js';
 
 const SYSTEM_USER = { userId: '__system__', email: 'system@xrules', tenantId: '*', roles: ['OWNER'] } as any;
 const TRACE_SAMPLE = Number(process.env.XRULES_TRACE_SAMPLE ?? 0.1);
@@ -18,7 +19,7 @@ export async function loadFlow(projectId: string, slugOrId: string, opts: { vers
   const ck = `${projectId}|${slugOrId}|${opts.version ?? (opts.draft ? 'draft' : 'live')}`;
   const c = artifactCache.get(ck);
   if (c && Date.now() - c.at < ARTIFACT_TTL) return c;
-  const flow = await prisma.flow.findFirst({ where: { projectId, OR: [{ id: slugOrId }, { slug: slugOrId }, { alias: slugOrId }] } });
+  const flow = await resolveRef<any>('flow', projectId, slugOrId);   // same project, then elsewhere in the tenant
   if (!flow) throw new Error(`Flow '${slugOrId}' not found`);
   let graph: any = flow.graph; let version = flow.version;
   if (!opts.draft) {
@@ -33,9 +34,7 @@ export async function loadFlow(projectId: string, slugOrId: string, opts: { vers
 
 async function solveRule(projectId: string, slug: string, payload: any) {
   const { executeRule } = await import('../services/execute.service.js');
-  const r = /^[a-z0-9]{20,30}$/i.test(slug)
-    ? await prisma.rule.findUnique({ where: { id: slug } })
-    : await prisma.rule.findFirst({ where: { projectId, OR: [{ slug }, { alias: slug }] } });
+  const r = await resolveRef<any>('rule', projectId, slug);
   if (!r) throw new Error(`Rule '${slug}' not found`);
   const result = await executeRule(r.id, payload, {}, SYSTEM_USER);
   return (result as any).output;
@@ -50,10 +49,11 @@ export async function runArtifact(projectId: string, slugOrId: string, input: an
   const t0 = Date.now();
   let output: any; let error: string | undefined;
   try {
-    output = await runFlow(art.graph, input, (slug, payload) => solveRule(projectId, slug, payload), {
-      projectId, trace,
+    const home = art.projectId;   // rules, data sets and sub-flows resolve from the flow's own project
+    output = await runFlow(art.graph, input, (slug, payload) => solveRule(home, slug, payload), {
+      projectId: home, trace,
       callFlow: async (slug, sub) => {
-        const r = await runArtifact(projectId, slug, sub, { subflow: !o.draft });
+        const r = await runArtifact(home, slug, sub, { subflow: !o.draft });
         trace.push({ seq: trace.length + 1, nodeId: `flow:${slug}`, kind: 'subflow', label: slug, status: r.error ? 'error' : 'ok', ms: r.ms, children: r.trace, output: r.output?.summary });
         if (r.error) throw new Error(r.error);
         return r.output;

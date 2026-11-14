@@ -44,7 +44,7 @@ st, cmp = call('GET', f"/platform/bulk/{bt['data']['draftRunId']}/compare/{bt['d
 check('backtest compare works (draft == live → 0 changed)', st == 200 and cmp['data']['changed'] == 0, cmp)
 # challenger at 100% sampling for the draft
 call('PUT', f'/platform/flows/{flow["id"]}/challenger', {'sampleRate': 1})
-spec = next(x for x in call('GET', f'/platform/specs?project_id={PID}')[1]['data'] if x['basePath'] == 'neb-prescreen')
+spec = next(x for x in call('GET', f'/platform/specs?project_id=_integration')[1]['data'] if x['basePath'] == 'neb-prescreen')
 key = call('POST', '/api-keys', {'name': 'smoke-ch', 'specIds': [spec['id']]})[1]['data']['key']
 for _ in range(3): call('POST', '/api/neb-prescreen/v1/prescreen', over, {'X-API-Key': key})
 time.sleep(2)

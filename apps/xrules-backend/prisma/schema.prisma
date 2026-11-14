@@ -102,6 +102,10 @@ model Project {
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
+  // DECISION: a business project (rules + decision flows). INTEGRATION: the tenant's shared hub
+  // (connections, data sets, REST APIs, triggers) — exactly one per tenant, slug "_integration".
+  kind String @default("DECISION")
+
   // WORKSPACE: every tenant member sees it (role from tenant role) · PRIVATE: only project members + tenant owners/admins
   visibility String          @default("WORKSPACE")
   members    ProjectMember[]

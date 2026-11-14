@@ -15,6 +15,7 @@ function formatProject(project: any, tenant: { id: string; slug: string }, myRol
     slug: project.slug,
     description: project.description,
     visibility: project.visibility,
+    kind: project.kind,
     workspaceId: tenant.id,
     workspaceSlug: tenant.slug,
     myRole: myRole ?? undefined,
@@ -29,7 +30,7 @@ function formatProject(project: any, tenant: { id: string; slug: string }, myRol
 export async function listProjects(userId: string, t: TenantCtx) {
   const ids = await visibleProjectIds(userId, t);
   const projects = await prisma.project.findMany({
-    where: { id: { in: ids } }, orderBy: { updatedAt: 'desc' },
+    where: { id: { in: ids }, kind: 'DECISION' }, orderBy: { updatedAt: 'desc' },
     include: { _count: { select: { rules: true, members: true } } },
   });
   return Promise.all(projects.map(async p => formatProject(p, t, await projectRoleFor(userId, p, t.role))));
@@ -72,6 +73,7 @@ export async function updateProject(id: string, data: { name?: string; descripti
 export async function deleteProject(id: string, t: TenantCtx) {
   const p = await prisma.project.findFirst({ where: { workspaceId: t.id, OR: [{ id }, { slug: id }] } });
   if (!p) throw new NotFoundError('Project');
+  if (p.kind === 'INTEGRATION') throw new ValidationError('The Integration hub belongs to the tenant and cannot be deleted');
   await prisma.project.delete({ where: { id: p.id } });
 }
 

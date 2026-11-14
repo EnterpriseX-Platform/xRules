@@ -23,7 +23,7 @@ function useBreadcrumbs(pathname: string): Crumb[] {
   const { data: project } = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => projectId ? api.get<any>(`/projects/${projectId}`) : null,
-    enabled: !!projectId,
+    enabled: !!projectId && projectId !== '_all',
     staleTime: 60_000,
     retry: false,
   });
@@ -55,8 +55,10 @@ function useBreadcrumbs(pathname: string): Crumb[] {
   if (parts[0] === 'projects' && !projectId) {
     out.push({ label: 'Projects', href: `/projects` });
   }
-  if (project) {
-    out.push({ label: project.name, href: `/projects/${project.slug || projectId}` });
+  if (projectId === '_all') {
+    out.push({ label: 'All projects' });
+  } else if (project) {
+    out.push({ label: project.name, href: project.kind === 'INTEGRATION' ? undefined : `/projects/${project.slug || projectId}` });
   } else if (projectId) {
     const looksLikeId = /^[a-z0-9]{20,}$/i.test(projectId) && !projectId.includes('-');
     out.push({ label: looksLikeId ? projectId.slice(0, 8) + '…' : projectId, mono: looksLikeId });

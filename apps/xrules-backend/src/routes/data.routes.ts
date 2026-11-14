@@ -94,8 +94,9 @@ r.get('/executions/:id', authMiddleware, async (req, res, next) => {
 
 r.get('/flow-executions', authMiddleware, async (req, res, next) => {
   try {
-    const p = await assertProjectAccess(String(req.query.project_id), req.user!);
-    const rows = await prisma.execution.findMany({ where: { flow: { projectId: p.id } }, include: { flow: { select: { name: true, slug: true } } }, orderBy: { createdAt: 'desc' }, take: 100 });
+    const { projectScope } = await import('../platform/scope.js');
+    const ids = await projectScope(req.query.project_id as string, req.user!);
+    const rows = await prisma.execution.findMany({ where: { flow: { projectId: { in: ids } } }, include: { flow: { select: { name: true, slug: true } } }, orderBy: { createdAt: 'desc' }, take: 100 });
     ok(res, rows.map(e => ({ id: e.id, flow: e.flow?.name, slug: e.flow?.slug, version: e.flowVersion, at: e.createdAt.toISOString(), ms: e.duration,
       summary: (e.output as any)?.summary || null, passed: (e.output as any)?.passed ?? null, environment: e.environment })));
   } catch (err) { next(err); }

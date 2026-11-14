@@ -30,12 +30,13 @@ projects = call('GET', '/projects')
 projects = projects.get('items', projects) if isinstance(projects, dict) else projects
 proj = next((p for p in projects if p['slug'] == 'neb-pre-screening'), None) or call('POST', '/projects', {'name': 'NEB Pre-screening'})
 PID = proj['id']
+HUB = '_integration'   # connections, data sets, file templates and REST APIs live in the tenant's Integration hub
 print('project', proj['slug'])
 
 # ---- connection (read-only account on the sample source schema)
-conns = call('GET', f'/connections?project_id={PID}')
+conns = call('GET', f'/connections?project_id={HUB}')
 conn = next((c for c in conns if c['slug'] == 'neb-src-ro'), None) or call('POST', '/connections', {
-    'name': 'neb-src-ro', 'projectId': PID, 'type': 'postgres',
+    'name': 'neb-src-ro', 'projectId': HUB, 'type': 'postgres',
     'config': {'envs': {'UAT': {'host': os.environ.get('XR_SRC_HOST', 'localhost'), 'port': int(os.environ.get('XR_SRC_PORT', '5461')), 'user': 'xrules_ro', 'password': os.environ.get('XR_SRC_PASSWORD', 'ro_pass'), 'database': 'xrulesdb'}},
                'allowedObjects': ['neb_src.das_standard_price', 'neb_src.prior_requests', 'neb_src.budget_codes']}})
 t = call('POST', f"/data/connections/{conn['id']}/test")
@@ -50,13 +51,13 @@ def data_flow(name, sql, mapping, dataset, key, checks=None, unique=None, cron='
         {'id': 'q', 'type': 'quality', 'data': {'checks': checks or [], 'unique': unique or key, 'minRowRatio': 0.9}},
         {'id': 'w', 'type': 'write', 'data': {'dataset': dataset, 'keyFields': key}},
     ], 'edges': [{'source': a, 'target': b} for a, b in [('t', 's'), ('s', 'm'), ('m', 'q'), ('q', 'w')]]}
-    flows = call('GET', f'/flows?project_id={PID}&kind=data')
+    flows = call('GET', f'/flows?project_id={HUB}&kind=data')
     flows = flows.get('items', flows) if isinstance(flows, dict) else flows
     f = next((x for x in flows if x['name'] == name), None)
     if f:
         call('PUT', f"/flows/{f['id']}", {'graph': graph, 'schedule': {'cron': cron}})
     else:
-        f = call('POST', '/flows', {'name': name, 'projectId': PID, 'kind': 'DATA', 'graph': graph, 'schedule': {'cron': cron}})
+        f = call('POST', '/flows', {'name': name, 'projectId': HUB, 'kind': 'DATA', 'graph': graph, 'schedule': {'cron': cron}})
     call('POST', f"/flows/{f['id']}/publish", {'message': 'demo'})
     pv = call('POST', f"/data/flows/{f['id']}/preview")
     run = call('POST', f"/data/flows/{f['id']}/run")
@@ -90,9 +91,9 @@ for slug, src in RULES.items():
 print('rules', len(RULES))
 
 # ---- file template
-tpls = call('GET', f'/data/file-templates?project_id={PID}')
+tpls = call('GET', f'/data/file-templates?project_id={HUB}')
 if not any(x['code'] == 'BUDREQ-01' for x in tpls):
-    call('POST', '/data/file-templates', {'projectId': PID, 'code': 'BUDREQ-01', 'name': 'Equipment request form', 'spec': {
+    call('POST', '/data/file-templates', {'projectId': HUB, 'code': 'BUDREQ-01', 'name': 'Equipment request form', 'spec': {
         'extensions': ['.xlsx'], 'maxBytes': 5 * 1024 * 1024,
         'sheets': [{'name': 'Details', 'headerRow': 1, 'columns': [
             {'name': 'Item', 'type': 'string', 'required': True}, {'name': 'Quantity', 'type': 'number', 'required': True},
@@ -130,8 +131,8 @@ except ImportError:
     xlsx_b64 = None
 
 # ---- REST API: POST /prescreen → decision flow, GET /standard-price/{itemCode} → Data Set lookup
-specs = call('GET', f'/platform/specs?project_id={PID}')
-spec = next((x for x in specs if x['basePath'] == 'neb-prescreen'), None) or call('POST', '/platform/specs', {'projectId': PID, 'name': 'NEB Pre-screening API', 'basePath': 'neb-prescreen', 'version': 1, 'description': 'TOR 4.4 pre-screening'})
+specs = call('GET', f'/platform/specs?project_id={HUB}')
+spec = next((x for x in specs if x['basePath'] == 'neb-prescreen'), None) or call('POST', '/platform/specs', {'projectId': HUB, 'name': 'NEB Pre-screening API', 'basePath': 'neb-prescreen', 'version': 1, 'description': 'TOR 4.4 pre-screening'})
 ops = {(o['method'], o['path']): o for o in (call('GET', f"/platform/specs/{spec['id']}")['operations'] or [])}
 op1 = ops.get(('POST', '/prescreen')) or call('POST', f"/platform/specs/{spec['id']}/operations", {'method': 'POST', 'path': '/prescreen', 'summary': 'Check a budget request (TOR 4.4)',
     'requestSchema': {'type': 'object', 'required': ['context', 'items'], 'properties': {'context': {'type': 'object'}, 'items': {'type': 'array'}}}})

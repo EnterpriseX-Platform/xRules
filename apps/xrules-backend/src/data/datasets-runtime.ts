@@ -12,7 +12,9 @@ function cacheSet(k: string, v: any) {
 }
 
 export async function findDataset(projectId: string, slug: string) {
-  return prisma.dataset.findUnique({ where: { projectId_slug: { projectId, slug } } });
+  // own project first, then the tenant's shared Integration hub (or <project>/<slug>)
+  const { resolveRef } = await import('../platform/scope.js');
+  return resolveRef<any>('dataset', projectId, slug);
 }
 
 export async function ensureDataset(projectId: string, slug: string, keyFields?: string[]) {

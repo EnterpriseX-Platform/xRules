@@ -4,6 +4,7 @@ import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { CommandPalette } from './CommandPalette';
 import { AssistantPanel } from '@/components/assistant/AssistantPanel';
+import { ScopeBar } from './ScopeBar';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -12,6 +13,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar />
         <main className="flex-1 overflow-y-auto bg-bg relative">
+          <ScopeBar />
           {children}
         </main>
       </div>

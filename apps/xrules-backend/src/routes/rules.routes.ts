@@ -17,7 +17,8 @@ router.get('/', authMiddleware, async (req: Request, res: Response, next: NextFu
       return;
     }
 
-    const result = await rulesService.listRules(projectId, req.user!, status);
+    const { listAcross } = await import('../platform/scope.js');
+    const result = await listAcross(projectId, req.user!, id => rulesService.listRules(id, req.user!, status) as any);
     res.json({ success: true, data: result });
   } catch (err) { next(err); }
 });
