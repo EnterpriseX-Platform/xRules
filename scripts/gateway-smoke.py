@@ -13,7 +13,7 @@ def call(m, p, b=None, h=None):
 T = call('POST', '/auth/login', {'email': os.environ.get('XR_EMAIL', 'admin@example.com'), 'password': os.environ.get('XR_PASSWORD', 'admin123')})[1]['data']['access_token']
 projects = call('GET', '/projects')[1]['data']; projects = projects.get('items', projects) if isinstance(projects, dict) else projects
 PID = next(p['id'] for p in projects if p['slug'] == 'neb-pre-screening')
-spec = next(x for x in call('GET', f'/platform/specs?project_id={PID}')[1]['data'] if x['basePath'] == 'neb-prescreen')
+spec = next(x for x in call('GET', f'/platform/specs?project_id=_integration')[1]['data'] if x['basePath'] == 'neb-prescreen')
 key = call('POST', '/api-keys', {'name': 'smoke', 'specIds': [spec['id']], 'rateLimitPerMin': 50, 'systemName': 'smoke'})[1]['data']['key']
 K = {'X-API-Key': key}
 body = {'context': {'fiscalYear': 2571, 'agencyCode': '03007', 'areaCode': '10'},

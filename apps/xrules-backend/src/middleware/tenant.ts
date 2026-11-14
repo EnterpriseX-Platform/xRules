@@ -103,8 +103,12 @@ function readUser(req: Request): AuthUser | null {
 }
 
 /** Effective project role for a user, or null when they cannot see the project. */
-export async function projectRoleFor(userId: string, project: { id: string; visibility: string }, tenantRole: TenantRole): Promise<ProjectRole | null> {
+export async function projectRoleFor(userId: string, project: { id: string; visibility: string; kind?: string }, tenantRole: TenantRole): Promise<ProjectRole | null> {
   if (tenantRole === 'OWNER' || tenantRole === 'ADMIN') return 'ADMIN';
+  if (project.kind === 'INTEGRATION') {                          // the shared hub: members may use it, admins change it
+    const pm = await prisma.projectMember.findUnique({ where: { projectId_userId: { projectId: project.id, userId } } });
+    return (pm?.role as ProjectRole) ?? 'VIEWER';
+  }
   const pm = await prisma.projectMember.findUnique({ where: { projectId_userId: { projectId: project.id, userId } } });
   if (pm) return pm.role as ProjectRole;
   if (project.visibility === 'PRIVATE') return null;
@@ -137,6 +141,7 @@ export async function tenantGuard(req: Request, res: Response, next: NextFunctio
     const tenant = await resolveTenant(user, wanted);
     if (!tenant) return deny(res, 403, 'TENANT_FORBIDDEN', wanted ? `Not a member of tenant '${wanted}'` : 'No tenant membership');
     req.tenant = tenant;
+    (user as any).tenant = tenant;                             // services resolve tenant-wide scopes from the user
 
     // which project(s) does this request touch?
     const ids = new Set<string>();
@@ -167,7 +172,12 @@ export async function tenantGuard(req: Request, res: Response, next: NextFunctio
       : ['GET', 'HEAD'].includes(req.method) ? 'VIEWER' : 'EDITOR';
     let role: ProjectRole | null = null;
     for (const id of ids) {
-      const project = await prisma.project.findFirst({ where: { OR: [{ id }, { slug: id, workspaceId: tenant.id }] }, select: { id: true, workspaceId: true, visibility: true } });
+      if (id === '_all') continue;                               // tenant-wide list: services scope via projectScope()
+      if (id === '_integration') {                               // the tenant's shared hub, created on first use
+        const { integrationProject } = await import('../platform/scope.js');
+        await integrationProject(tenant.id);
+      }
+      const project = await prisma.project.findFirst({ where: { OR: [{ id }, { slug: id, workspaceId: tenant.id }] }, select: { id: true, workspaceId: true, visibility: true, kind: true } });
       if (!project) continue;                                 // route answers 404 / validation
       if (project.workspaceId !== tenant.id) return deny(res, 404, 'NOT_FOUND', 'Not found');
       const r = await projectRoleFor(user.userId, project, tenant.role);

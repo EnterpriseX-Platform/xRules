@@ -28,7 +28,7 @@ test('Decision flow: create, open the editor', async ({ page }) => {
 });
 
 test('Connection: test the read-only sample database', async ({ page }) => {
-  await page.goto(`${P}/integrations/connections`);
+  await page.goto(`projects/_integration/integrations/connections`);
   const row = page.locator('tr').filter({ hasText: /neb|sample|src|postgres/i }).first();
   await row.getByRole('button', { name: /^Test/ }).click();
   await expect(row.getByText(/ok|connected|success|\d+ ms/i).first()).toBeVisible({ timeout: 30_000 });
@@ -36,7 +36,7 @@ test('Connection: test the read-only sample database', async ({ page }) => {
 });
 
 test('Data Set: look up the DAS standard price', async ({ page }) => {
-  await page.goto(`${P}/data-sets`);
+  await page.goto(`projects/_integration/data-sets`);
   await page.getByText(/das.standard.price|DAS standard price/i).first().click();
   await page.getByRole('button', { name: /Lookup|Look up/ }).first().click();
   const inputs = page.locator('main input');
@@ -52,6 +52,7 @@ test('Approvals: author submits, a second reviewer (switching tenant) approves',
   const reviewer = `e2e-reviewer-${s}@example.test`, pw = 'E2e-reviewer-1!';
   expect((await request.post('../xrules-api/auth/signup', { data: { email: reviewer, password: pw, name: 'E2E Reviewer', workspaceName: `Reviewer ${s}` } })).ok()).toBeTruthy();
   await page.goto('settings/tenant');
+  const tenantName = (await page.locator('main h1').first().innerText()).trim();
   await page.getByRole('button', { name: 'Members' }).click();
   await page.locator('#m-email').fill(reviewer);
   await pick(page, 'Role', /^Admin/);
@@ -59,7 +60,7 @@ test('Approvals: author submits, a second reviewer (switching tenant) approves',
   await expect(page.locator('tr', { hasText: reviewer })).toBeVisible();
 
   // author submits a new API for review
-  await page.goto(`${P}/apis`);
+  await page.goto(`projects/_integration/apis`);
   await page.getByRole('button', { name: 'New API' }).click();
   await page.locator('#sp-name').fill(`E2E review ${s}`);
   await page.locator('#sp-base').fill(`e2e-review-${s}`);
@@ -68,7 +69,7 @@ test('Approvals: author submits, a second reviewer (switching tenant) approves',
   const sent = page.waitForResponse(r => r.url().includes('/platform/reviews') && r.request().method() === 'POST');
   await page.getByRole('button', { name: 'Submit for review' }).click();
   expect((await sent).ok()).toBeTruthy();
-  await page.goto(`${P}/approvals`);
+  await page.goto(`projects/_all/approvals`);
   await expect(page.locator('tr', { hasText: `E2E review ${s}` })).toBeVisible();
 
   // reviewer logs in (lands in their own tenant), switches tenant, approves
@@ -80,9 +81,9 @@ test('Approvals: author submits, a second reviewer (switching tenant) approves',
   await rp.getByRole('button', { name: 'Sign in' }).click();
   await rp.waitForURL(u => !u.pathname.endsWith('/login'));
   await rp.getByRole('button', { name: /^Tenant/ }).click();
-  await rp.getByRole('option', { name: /NEB Budget Bureau/ }).click();
+  await rp.getByRole('option', { name: new RegExp(tenantName) }).click();
   await rp.waitForURL(/\/projects$/);
-  await rp.goto(`${P}/approvals`);
+  await rp.goto(`projects/_all/approvals`);
   const row = rp.locator('tr', { hasText: `E2E review ${s}` });
   await row.getByRole('button', { name: 'Approve' }).click();
   await rp.getByRole('button', { name: 'History' }).click();
@@ -98,7 +99,7 @@ test('Approvals: author submits, a second reviewer (switching tenant) approves',
 });
 
 test('Webhook: create one and see its secret', async ({ page }) => {
-  await page.goto(`${P}/integrations/webhooks`);
+  await page.goto(`projects/_integration/integrations/webhooks`);
   await page.getByRole('button', { name: 'New Webhook' }).first().click();
   await page.locator('div.fixed input').first().fill(`e2e hook ${s}`);
   await page.getByPlaceholder('https://example.com/webhooks/xrules').fill(`https://example.invalid/hook-${s}`);
@@ -134,4 +135,55 @@ test('Tenant members: add a viewer, promote, remove', async ({ page, request }) 
   await row.getByRole('button', { name: 'Remove' }).click();
   await expect(page.locator('tr', { hasText: email })).toHaveCount(0);
   await shot(page, '05-members');
+});
+
+test('Tenant-level testing reaches a rule in another project; scope filter narrows it', async ({ page }) => {
+  // new project with one published formula rule
+  await page.goto('projects');
+  await page.getByRole('button', { name: 'New Project' }).first().click();
+  await page.locator('div.fixed input').first().fill(`E2E project x ${s}`);
+  await page.getByRole('button', { name: /^Create$/ }).click();
+  await page.getByText(`E2E project x ${s}`).click();
+  await page.waitForURL(/\/projects\/[^/]+\/rules/);
+  const projSlug = new URL(page.url()).pathname.split('/projects/')[1].split('/')[0];
+  await page.goto(`projects/${projSlug}/rules?new=1`);
+  await page.locator('div.fixed button', { hasText: 'Formula' }).first().click();
+  await page.getByRole('button', { name: /Continue/ }).click();
+  await page.locator('form input').first().fill(`e2e cross ${s}`);
+  await page.getByRole('button', { name: /Create rule/ }).click();
+  await page.waitForURL(/\/rules\/[^/?]+$/);
+  await page.getByRole('button', { name: /^Publish$/ }).click();
+  await expect(page.locator('main').getByText(/^published$/).first()).toBeVisible();
+
+  // tenant-level Testing: target the rule in that project
+  await page.goto('projects/_all/tests');
+  await page.getByRole('button', { name: 'New Test Case' }).click();
+  await page.locator('#tc-name').fill(`e2e cross-project ${s}`);
+  await pick(page, 'Target type', /^Rule/);
+  await pick(page, /^Target$/, `e2e cross ${s}`);
+  await page.locator('#tc-in').fill('{ "amount": 5 }');
+  await page.locator('#tc-exp').fill('[ { "kind": "max_ms", "value": 5000 } ]');
+  await page.getByRole('button', { name: /^Save$/ }).click();
+  const row = page.locator('tr', { hasText: `e2e cross-project ${s}` });
+  await row.getByRole('button', { name: /^Run$/ }).click();
+  await expect(row.getByText(/pass/i).first()).toBeVisible({ timeout: 30_000 });
+
+  // scope filter: the case shows under its project, not under NEB Pre-screening
+  await pick(page, 'Showing', `E2E project x ${s}`);
+  await expect(page.locator('tr', { hasText: `e2e cross-project ${s}` })).toBeVisible();
+  await pick(page, 'Showing', /NEB Pre-screening/);
+  await expect(page.locator('tr', { hasText: `e2e cross-project ${s}` })).toHaveCount(0);
+  await shot(page, '05-cross-project-testing');
+});
+
+test('Sidebar: Integration, Testing, Monitor are tenant-level; project picker governs Decision Engine only', async ({ page }) => {
+  await page.goto(`projects/${PROJECT}/rules`);
+  const nav = page.locator('aside');
+  await expect(nav.getByRole('link', { name: 'REST APIs' })).toHaveAttribute('href', /\/projects\/_integration\/apis$/);
+  await expect(nav.getByRole('link', { name: 'Test Suites' })).toHaveAttribute('href', /\/projects\/_all\/tests$/);
+  await expect(nav.getByRole('link', { name: 'API Traffic' })).toHaveAttribute('href', /\/projects\/_all\/monitor\/traffic$/);
+  await expect(nav.getByRole('link', { name: 'Rules' })).toHaveAttribute('href', new RegExp(`/projects/[^/]+/rules$`));
+  await nav.getByRole('link', { name: 'REST APIs' }).click();
+  await expect(page.getByRole('navigation').getByText('Integration')).toBeVisible();
+  await shot(page, '05-sidebar');
 });

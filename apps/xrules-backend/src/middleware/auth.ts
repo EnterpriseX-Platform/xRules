@@ -17,6 +17,7 @@ declare global {
 }
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+  if (req.user && (req as any).tenant) { next(); return; }   // already verified by tenantGuard (keeps req.user.tenant)
   const authHeader = req.headers.authorization;
 
   if (!authHeader?.startsWith('Bearer ')) {

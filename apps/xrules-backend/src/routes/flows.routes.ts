@@ -8,7 +8,8 @@ r.get('/', authMiddleware, async (req, res, next) => {
   try {
     const projectId = req.query.project_id as string;
     if (!projectId) { res.status(400).json({ success: false, error: { code: 'INVALID_INPUT', message: 'project_id required' } }); return; }
-    res.json({ success: true, data: await svc.listFlows(projectId, req.user!, req.query.status as string, req.query.kind as string) });
+    const { listAcross } = await import('../platform/scope.js');
+    res.json({ success: true, data: await listAcross(projectId, req.user!, id => svc.listFlows(id, req.user!, req.query.status as string, req.query.kind as string) as any) });
   } catch (e) { next(e); }
 });
 

@@ -57,7 +57,32 @@ export function Sidebar() {
     { href: `/projects`, label: 'Projects',  icon: FolderKanban },
   ];
 
-  // Decision Engine — write, check and ship decisions.
+  // Tenant level — shared by every project
+  const HUB = '/projects/_integration';
+  const ALL = '/projects/_all';
+  const integration: NavItem[] = [
+    { href: `${HUB}/apis`,                      label: 'REST APIs',   icon: Zap },
+    { href: `${HUB}/triggers`,                  label: 'Triggers',    icon: Timer },
+    { href: `${HUB}/data-sets`,                 label: 'Data Sets',   icon: Layers },
+    { href: `${HUB}/integrations/connections`,  label: 'Connections', icon: Database },
+    { href: `${HUB}/integrations/api-keys`,     label: 'API Keys',    icon: KeyRound },
+  ];
+  const testing: NavItem[] = [
+    { href: `${ALL}/tests`,       label: 'Test Suites', icon: FlaskConical },
+    { href: `${ALL}/test-runs`,   label: 'Test Runs',   icon: ListChecks },
+    { href: `${ALL}/approvals`,   label: 'Approvals',   icon: BadgeCheck },
+  ];
+  const monitor: NavItem[] = [
+    { href: `${ALL}/monitor`,              label: 'Overview',    icon: Gauge },
+    { href: `${ALL}/monitor/traffic`,      label: 'API Traffic', icon: Activity },
+    { href: `${ALL}/monitor/decisions`,    label: 'Decisions',   icon: PieChart },
+    { href: `${ALL}/monitor/data-health`,  label: 'Data Health', icon: HeartPulse },
+    { href: `${ALL}/monitor/alerts`,       label: 'Alerts',      icon: Bell },
+    { href: `${ALL}/executions`,           label: 'Executions',  icon: History },
+    { href: `${ALL}/audit`,                label: 'Audit Log',   icon: ListTree },
+  ];
+
+  // Project level — Decision Engine only
   const engine: NavItem[] = project ? [
     { href: `${projBase}/rules`,            label: 'Rules',          icon: FileText },
     { href: `${projBase}/flows?kind=DECISION`, label: 'Decision Flows', icon: Workflow },
@@ -66,36 +91,7 @@ export function Sidebar() {
     { href: `${projBase}/simulations`,      label: 'Simulations',    icon: GitCompare },
     { href: `${projBase}/models`,           label: 'Models',         icon: Brain },
     { href: `${projBase}/releases`,         label: 'Releases',       icon: ScrollText },
-    { href: `${projBase}/approvals`,        label: 'Approvals',      icon: BadgeCheck },
-  ] : [];
-
-  // Integration — data in, APIs out (DEH style: REST APIs and Triggers).
-  const integration: NavItem[] = project ? [
-    { href: `${projBase}/apis`,                      label: 'REST APIs',   icon: Zap },
-    { href: `${projBase}/triggers`,                  label: 'Triggers',    icon: Timer },
-    { href: `${projBase}/data-sets`,                 label: 'Data Sets',   icon: Layers },
-    { href: `${projBase}/integrations/connections`, label: 'Connections', icon: Database },
-    { href: `${projBase}/integrations/api-keys`,    label: 'API Keys',    icon: KeyRound },
-  ] : [];
-
-  // Testing
-  const testing: NavItem[] = project ? [
-    { href: `${projBase}/tests`,       label: 'Test Suites', icon: FlaskConical },
-    { href: `${projBase}/test-runs`,   label: 'Test Runs',   icon: ListChecks },
-  ] : [];
-
-  // Monitor
-  const monitor: NavItem[] = project ? [
-    { href: `${projBase}/monitor`,              label: 'Overview',    icon: Gauge },
-    { href: `${projBase}/monitor/traffic`,      label: 'API Traffic', icon: Activity },
-    { href: `${projBase}/monitor/decisions`,    label: 'Decisions',   icon: PieChart },
-    { href: `${projBase}/monitor/data-health`,  label: 'Data Health', icon: HeartPulse },
-    { href: `${projBase}/monitor/alerts`,       label: 'Alerts',      icon: Bell },
-    { href: `${projBase}/executions`,           label: 'Executions',  icon: History },
-    { href: `${projBase}/audit`,                label: 'Audit Log',   icon: ListTree },
-  ] : [];
-  const projectNav: NavItem[] = projBase ? [
-    { href: `${projBase}/access`, label: 'Members & Access', icon: UserCog },
+    { href: `${projBase}/access`,           label: 'Members & Access', icon: UserCog },
   ] : [];
 
   return (
@@ -109,25 +105,29 @@ export function Sidebar() {
       </div>
 
       <div className="flex-1 overflow-y-auto py-3 space-y-3">
-        {/* Project picker */}
-        <div className="px-3">
-          <ProjectPicker
-            projects={projects || []}
-            current={currentProject}
-            onPick={(p) => setProject(p.id)}
-          />
-        </div>
-
         {/* Ungrouped top */}
         <div className="px-2 space-y-0.5">
           {top.map((it) => <NavRow key={it.href} item={it} pathname={pathname} />)}
         </div>
 
-        {project && <NavSection id="engine"      label="Decision Engine" items={engine}      pathname={pathname} />}
-        {project && <NavSection id="integration" label="Integration"     items={integration} pathname={pathname} />}
-        {project && <NavSection id="testing"     label="Testing"         items={testing}     pathname={pathname} />}
-        {project && <NavSection id="monitor"     label="Monitor"         items={monitor}     pathname={pathname} />}
-        {project && <NavSection id="project"     label="Project"         items={projectNav}  pathname={pathname} />}
+        {/* Tenant level */}
+        <NavSection id="integration" label="Integration" items={integration} pathname={pathname} />
+        <NavSection id="testing"     label="Testing"     items={testing}     pathname={pathname} />
+        <NavSection id="monitor"     label="Monitor"     items={monitor}     pathname={pathname} />
+
+        {/* Project level — Decision Engine */}
+        <div className="pt-2 mt-1">
+          <div className="hr mb-3 mx-3" />
+          <div className="px-4 pb-1.5 text-[12px] font-semibold text-[#525252]">Decision Engine</div>
+          <div className="px-3 pb-1">
+            <ProjectPicker
+              projects={projects || []}
+              current={currentProject}
+              onPick={(p) => setProject(p.id)}
+            />
+          </div>
+        </div>
+        {project && <NavSection id="engine" label="" items={engine} pathname={pathname} />}
 
         {/* Settings — ungrouped, with hairline separator */}
         <div className="px-2 pt-3 mt-2">
@@ -157,7 +157,7 @@ function NavSection({ label, items, pathname }: {
   if (!items.length) return null;
   return (
     <div className="space-y-0.5">
-      <div className="px-4 pt-1 pb-0.5 text-[12px] font-semibold text-[#525252]">{label}</div>
+      {label && <div className="px-4 pt-1 pb-0.5 text-[12px] font-semibold text-[#525252]">{label}</div>}
       <div className="px-2">
         {items.map((it) => <NavRow key={it.href} item={it} pathname={pathname} />)}
       </div>

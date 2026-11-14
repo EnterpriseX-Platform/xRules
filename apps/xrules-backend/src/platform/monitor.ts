@@ -2,14 +2,14 @@
 // Aggregates straight from executions with Postgres percentile functions (indexes on
 // operationId/targetType + createdAt). TimescaleDB continuous aggregates can replace these later.
 import { prisma } from '../config/database.js';
-import { assertProjectAccess } from '../services/_access.js';
+import { projectScope } from './scope.js';
 import type { AuthUser } from '../middleware/auth.js';
 import { enqueue, registerHandler, outbox } from './queue.js';
 
 const since = (h: number) => new Date(Date.now() - h * 3600_000);
 
 export async function traffic(projectIdOrSlug: string, user: AuthUser, hours = 24) {
-  const p = await assertProjectAccess(projectIdOrSlug, user);
+  const ids = await projectScope(projectIdOrSlug, user);   // one project or the whole tenant
   const ops = await prisma.$queryRawUnsafe<any[]>(`
     SELECT o.id, o.method, o.path, s.name AS spec, s."basePath", s.version, w.slug AS tenant,
       count(e.id)::int AS calls,
@@ -19,43 +19,43 @@ export async function traffic(projectIdOrSlug: string, user: AuthUser, hours = 2
       percentile_cont(0.99) WITHIN GROUP (ORDER BY e.duration) AS p99
     FROM api_operations o JOIN api_specs s ON s.id = o."specId" JOIN workspaces w ON w.id = s."workspaceId"
     LEFT JOIN executions e ON e."operationId" = o.id AND e."createdAt" >= $2 AND e."targetType" = 'operation'
-    WHERE s."projectId" = $1 GROUP BY o.id, s.id, w.slug ORDER BY calls DESC`, p.id, since(hours));
+    WHERE s."projectId" = ANY($1) GROUP BY o.id, s.id, w.slug ORDER BY calls DESC`, ids, since(hours));
   const keys = await prisma.$queryRawUnsafe<any[]>(`
     SELECT k.id, k.name, k."systemName", k.prefix, count(e.id)::int AS calls, count(e.id) FILTER (WHERE e.status <> 'SUCCESS')::int AS errors
     FROM executions e JOIN api_keys k ON k.id = e."apiKeyId" JOIN api_operations o ON o.id = e."operationId" JOIN api_specs s ON s.id = o."specId"
-    WHERE s."projectId" = $1 AND e."createdAt" >= $2 GROUP BY k.id ORDER BY calls DESC`, p.id, since(hours));
+    WHERE s."projectId" = ANY($1) AND e."createdAt" >= $2 GROUP BY k.id ORDER BY calls DESC`, ids, since(hours));
   const series = await prisma.$queryRawUnsafe<any[]>(`
     SELECT date_trunc('hour', e."createdAt") AS t, count(*)::int AS calls, count(*) FILTER (WHERE e.status <> 'SUCCESS')::int AS errors,
       percentile_cont(0.95) WITHIN GROUP (ORDER BY e.duration) AS p95
     FROM executions e JOIN api_operations o ON o.id = e."operationId" JOIN api_specs s ON s.id = o."specId"
-    WHERE s."projectId" = $1 AND e."createdAt" >= $2 GROUP BY 1 ORDER BY 1`, p.id, since(hours));
+    WHERE s."projectId" = ANY($1) AND e."createdAt" >= $2 GROUP BY 1 ORDER BY 1`, ids, since(hours));
   return { hours, operations: ops.map(n), keys, series: series.map(n) };
 }
 const n = (r: any) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, typeof v === 'bigint' ? Number(v) : v instanceof Date ? v.toISOString() : v === null ? null : typeof v === 'object' && v && 'toNumber' in (v as any) ? (v as any).toNumber() : v]));
 
 export async function decisions(projectIdOrSlug: string, user: AuthUser, hours = 24 * 7) {
-  const p = await assertProjectAccess(projectIdOrSlug, user);
+  const ids = await projectScope(projectIdOrSlug, user);   // one project or the whole tenant
   const byRule = await prisma.$queryRawUnsafe<any[]>(`
     SELECT f->>'ruleCode' AS code, f->>'severity' AS severity, count(*)::int AS n
     FROM executions e JOIN flows fl ON fl.id = e."flowId", jsonb_array_elements(COALESCE(e.findings, '[]'::jsonb)) f
-    WHERE fl."projectId" = $1 AND e."createdAt" >= $2 AND e."targetType" IS DISTINCT FROM 'challenger' AND e."targetType" IS DISTINCT FROM 'test'
-    GROUP BY 1, 2 ORDER BY n DESC`, p.id, since(hours));
+    WHERE fl."projectId" = ANY($1) AND e."createdAt" >= $2 AND e."targetType" IS DISTINCT FROM 'challenger' AND e."targetType" IS DISTINCT FROM 'test'
+    GROUP BY 1, 2 ORDER BY n DESC`, ids, since(hours));
   const totals = await prisma.$queryRawUnsafe<any[]>(`
     SELECT count(*)::int AS total,
       count(*) FILTER (WHERE (e.output->>'passed') = 'false' OR (e.output->'body'->>'passed') = 'false')::int AS failed
     FROM executions e JOIN flows fl ON fl.id = e."flowId"
-    WHERE fl."projectId" = $1 AND e."createdAt" >= $2 AND e.findings IS NOT NULL AND e."targetType" IS DISTINCT FROM 'challenger' AND e."targetType" IS DISTINCT FROM 'test'`, p.id, since(hours));
+    WHERE fl."projectId" = ANY($1) AND e."createdAt" >= $2 AND e.findings IS NOT NULL AND e."targetType" IS DISTINCT FROM 'challenger' AND e."targetType" IS DISTINCT FROM 'test'`, ids, since(hours));
   const byAgency = await prisma.$queryRawUnsafe<any[]>(`
     SELECT COALESCE(e.input->'context'->>'agencyCode', e.input->'body'->'context'->>'agencyCode') AS agency, count(*)::int AS n,
       count(*) FILTER (WHERE jsonb_array_length(COALESCE(e.findings, '[]'::jsonb)) > 0)::int AS with_findings
     FROM executions e JOIN flows fl ON fl.id = e."flowId"
-    WHERE fl."projectId" = $1 AND e."createdAt" >= $2 AND e.findings IS NOT NULL GROUP BY 1 ORDER BY with_findings DESC LIMIT 30`, p.id, since(hours));
+    WHERE fl."projectId" = ANY($1) AND e."createdAt" >= $2 AND e.findings IS NOT NULL GROUP BY 1 ORDER BY with_findings DESC LIMIT 30`, ids, since(hours));
   return { hours, totals: totals[0], byRule, byAgency };
 }
 
 export async function dataHealth(projectIdOrSlug: string, user: AuthUser) {
-  const p = await assertProjectAccess(projectIdOrSlug, user);
-  const sets = await prisma.dataset.findMany({ where: { projectId: p.id } });
+  const ids = await projectScope(projectIdOrSlug, user);   // one project or the whole tenant
+  const sets = await prisma.dataset.findMany({ where: { projectId: { in: ids } } });
   const out = [];
   for (const d of sets) {
     const latest = await prisma.datasetSnapshot.findFirst({ where: { datasetId: d.id }, orderBy: { createdAt: 'desc' } });
@@ -65,17 +65,17 @@ export async function dataHealth(projectIdOrSlug: string, user: AuthUser) {
       lastStatus: latest?.status ?? null, lastAt: latest?.createdAt.toISOString() ?? null, rejectedRows: latest?.rejectedCount ?? 0,
       stale: !!latest && !!active && latest.id !== active.id && latest.status === 'REJECTED' });
   }
-  const conns = (await prisma.connection.findMany({ where: { projectId: p.id } })).map(c => ({ id: c.id, slug: c.slug, type: c.type.toLowerCase(), lastTest: (c.meta as any)?.lastTest ?? null }));
+  const conns = (await prisma.connection.findMany({ where: { projectId: { in: ids } } })).map(c => ({ id: c.id, slug: c.slug, type: c.type.toLowerCase(), lastTest: (c.meta as any)?.lastTest ?? null }));
   return { datasets: out, connections: conns };
 }
 
 export async function overview(projectIdOrSlug: string, user: AuthUser) {
-  const p = await assertProjectAccess(projectIdOrSlug, user);
-  const t = await traffic(p.id, user, 24);
-  const y = await prisma.$queryRawUnsafe<any[]>(`SELECT count(*)::int AS n FROM executions e JOIN api_operations o ON o.id = e."operationId" JOIN api_specs s ON s.id = o."specId" WHERE s."projectId" = $1 AND e."createdAt" BETWEEN $2 AND $3`, p.id, since(48), since(24));
-  const dh = await dataHealth(p.id, user);
-  const alerts = await prisma.alertEvent.findMany({ where: { status: 'FIRING', rule: { projectId: p.id } }, include: { rule: true }, orderBy: { startedAt: 'desc' } });
-  const bulk = await prisma.bulkRun.count({ where: { projectId: p.id, status: { in: ['RUNNING', 'QUEUED'] } } });
+  const ids = await projectScope(projectIdOrSlug, user);   // one project or the whole tenant
+  const t = await traffic(projectIdOrSlug, user, 24);
+  const y = await prisma.$queryRawUnsafe<any[]>(`SELECT count(*)::int AS n FROM executions e JOIN api_operations o ON o.id = e."operationId" JOIN api_specs s ON s.id = o."specId" WHERE s."projectId" = ANY($1) AND e."createdAt" BETWEEN $2 AND $3`, ids, since(48), since(24));
+  const dh = await dataHealth(projectIdOrSlug, user);
+  const alerts = await prisma.alertEvent.findMany({ where: { status: 'FIRING', rule: { projectId: { in: ids } } }, include: { rule: true }, orderBy: { startedAt: 'desc' } });
+  const bulk = await prisma.bulkRun.count({ where: { projectId: { in: ids }, status: { in: ['RUNNING', 'QUEUED'] } } });
   const calls = t.operations.reduce((a: number, o: any) => a + o.calls, 0);
   return {
     callsToday: calls, callsYesterday: y[0]?.n ?? 0,
@@ -101,7 +101,7 @@ async function measure(rule: any): Promise<{ value: number; message: string }> {
   const p = rule.projectId; const w = new Date(Date.now() - rule.windowMin * 60_000);
   if (rule.metric === 'error_rate' || rule.metric === 'p95_ms') {
     const r = await prisma.$queryRawUnsafe<any[]>(`SELECT count(*)::int AS n, count(*) FILTER (WHERE e.status <> 'SUCCESS')::int AS err, percentile_cont(0.95) WITHIN GROUP (ORDER BY e.duration) AS p95
-      FROM executions e JOIN api_operations o ON o.id = e."operationId" JOIN api_specs s ON s.id = o."specId" WHERE s."projectId" = $1 AND e."createdAt" >= $2`, p, w);
+      FROM executions e JOIN api_operations o ON o.id = e."operationId" JOIN api_specs s ON s.id = o."specId" WHERE s."projectId" = ANY($1) AND e."createdAt" >= $2`, p, w);
     const x = r[0]; if (!x.n) return { value: 0, message: 'No calls' };
     return rule.metric === 'error_rate' ? { value: x.err / x.n, message: `${x.err} errors in ${x.n} calls` } : { value: Number(x.p95), message: `p95 ${Math.round(Number(x.p95))} ms` };
   }

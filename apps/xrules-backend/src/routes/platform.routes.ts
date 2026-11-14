@@ -11,12 +11,13 @@ import * as bulk from '../platform/bulk.js';
 import { runTrigger, triggerConfig } from '../platform/triggers.js';
 import { enqueue } from '../platform/queue.js';
 
+import { projectScope, integrationProject, listAcross } from '../platform/scope.js';
 const r = Router();
 const ok = (res: any, data: any, status = 200) => res.status(status).json({ success: true, data });
 const h = (fn: (req: any) => Promise<any>, status = 200) => async (req: any, res: any, next: any) => { try { ok(res, await fn(req), status); } catch (e) { next(e); } };
 
 // ---- API Specs
-r.get('/specs', authMiddleware, h(req => specs.list(String(req.query.project_id), req.user)));
+r.get('/specs', authMiddleware, h(req => listAcross(String(req.query.project_id), req.user, id => specs.list(id, req.user))));
 r.post('/specs', authMiddleware, h(req => specs.create(req.body, req.user), 201));
 r.get('/specs/:id', authMiddleware, h(req => specs.get(req.params.id, req.user)));
 r.put('/specs/:id', authMiddleware, h(req => specs.update(req.params.id, req.body, req.user)));
@@ -82,15 +83,17 @@ r.put('/tests/:id', authMiddleware, h(async req => (await import('../platform/te
 r.post('/tests/:id/run', authMiddleware, h(async req => (await import('../platform/testing.js')).runCase(req.params.id)));
 r.post('/tests/target/:type/:id/run', authMiddleware, h(async req => (await import('../platform/testing.js')).runForTarget(req.params.type, req.params.id)));
 r.get('/test-runs', authMiddleware, h(async req => {
-  const p = await assertProjectAccess(String(req.query.project_id), req.user);
-  return prisma.testRun.findMany({ where: { testSuite: { projectId: p.id } }, include: { testSuite: { select: { name: true } } }, orderBy: { createdAt: 'desc' }, take: 100 });
+  const ids = await projectScope(req.query.project_id as string, req.user);
+  return prisma.testRun.findMany({ where: { testSuite: { projectId: { in: ids } } }, include: { testSuite: { select: { name: true } } }, orderBy: { createdAt: 'desc' }, take: 100 });
 }));
 r.get('/suites', authMiddleware, h(async req => {
-  const p = await assertProjectAccess(String(req.query.project_id), req.user);
-  return prisma.testSuite.findMany({ where: { projectId: p.id }, orderBy: { name: 'asc' } });
+  const ids = await projectScope(req.query.project_id as string, req.user);
+  return prisma.testSuite.findMany({ where: { projectId: { in: ids } }, orderBy: { name: 'asc' } });
 }));
 r.post('/suites', authMiddleware, h(async req => {
-  const p = await assertProjectAccess(req.body.projectId, req.user, 'write');
+  // a suite created on the tenant-level Testing screen belongs to the tenant's first decision project it targets later; default: integration hub
+  const p = req.body.projectId && req.body.projectId !== '_all' ? await assertProjectAccess(req.body.projectId, req.user, 'write')
+    : await assertProjectAccess((await integrationProject((req.user as any).tenant.id)).id, req.user, 'write');
   const slug = String(req.body.name).toLowerCase().replace(/[^a-z0-9]+/g, '-') || `suite-${Date.now()}`;
   return prisma.testSuite.create({ data: { projectId: p.id, name: req.body.name, slug, description: req.body.description } });
 }, 201));
@@ -112,7 +115,9 @@ r.get('/monitor/traffic', authMiddleware, h(async req => (await import('../platf
 r.get('/monitor/decisions', authMiddleware, h(async req => (await import('../platform/monitor.js')).decisions(String(req.query.project_id), req.user, Number(req.query.hours) || 168)));
 r.get('/monitor/data-health', authMiddleware, h(async req => (await import('../platform/monitor.js')).dataHealth(String(req.query.project_id), req.user)));
 r.get('/alerts', authMiddleware, h(async req => {
-  const p = await assertProjectAccess(String(req.query.project_id), req.user);
+  // alert conditions watch API traffic and data sets, which live in the tenant's integration hub
+  const hub = await integrationProject((req.user as any).tenant.id);
+  const p = await assertProjectAccess(hub.id, req.user);
   const m = await import('../platform/monitor.js'); await m.ensureDefaultAlerts(p.id);
   return { rules: await prisma.alertRule.findMany({ where: { projectId: p.id }, orderBy: { createdAt: 'asc' } }),
     events: await prisma.alertEvent.findMany({ where: { rule: { projectId: p.id } }, include: { rule: { select: { name: true } } }, orderBy: { startedAt: 'desc' }, take: 100 }) };

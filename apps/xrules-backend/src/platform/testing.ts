@@ -1,3 +1,4 @@
+import { projectScope } from './scope.js';
 // Test cases for every target (rule, decision flow, API operation), suites, the publish gate
 // and the nightly run. Cases run against the DRAFT — the thing that is about to be published.
 import { prisma } from '../config/database.js';
@@ -88,18 +89,22 @@ function checkExpectations(list: any) {
   });
 }
 
-export async function createCase(data: { projectId: string; name: string; targetType: string; targetId: string; input: any; expectations: Expectation[]; suiteIds?: string[] }, user: AuthUser) {
+export async function createCase(data: { projectId?: string; name: string; targetType: string; targetId: string; input: any; expectations: Expectation[]; suiteIds?: string[] }, user: AuthUser) {
   checkExpectations(data.expectations);
-  const p = await assertProjectAccess(data.projectId, user, 'write');
   if (!['rule', 'decision_flow', 'operation'].includes(data.targetType)) throw new ValidationError('targetType must be rule, decision_flow or operation');
-  let targetId = data.targetId;
-  if (data.targetType === 'decision_flow') { const f = await prisma.flow.findFirst({ where: { projectId: p.id, OR: [{ id: targetId }, { slug: targetId }] } }); if (!f) throw new NotFoundError('Flow'); targetId = f.id; }
-  if (data.targetType === 'rule') { const r = await prisma.rule.findFirst({ where: { projectId: p.id, OR: [{ id: targetId }, { slug: targetId }] } }); if (!r) throw new NotFoundError('Rule'); targetId = r.id; }
+  // the case lives with its target, so it can be created from the tenant-level Testing screen
+  const t: any = (user as any).tenant;
+  const inTenant = t ? { project: { workspaceId: t.id } } : {};
+  let targetId = data.targetId; let owner: string | undefined;
+  if (data.targetType === 'decision_flow') { const f = await prisma.flow.findFirst({ where: { ...inTenant, OR: [{ id: targetId }, { slug: targetId }] } }); if (!f) throw new NotFoundError('Flow'); targetId = f.id; owner = f.projectId; }
+  if (data.targetType === 'rule') { const r = await prisma.rule.findFirst({ where: { ...inTenant, OR: [{ id: targetId }, { slug: targetId }] } }); if (!r) throw new NotFoundError('Rule'); targetId = r.id; owner = r.projectId; }
+  if (data.targetType === 'operation') { const o = await prisma.apiOperation.findUnique({ where: { id: targetId }, include: { spec: { select: { projectId: true } } } }); if (!o) throw new NotFoundError('Operation'); owner = o.spec.projectId; }
+  const p = await assertProjectAccess(owner!, user, 'write');
   return prisma.testCase.create({ data: { name: data.name, projectId: p.id, targetType: data.targetType, targetId, ruleId: data.targetType === 'rule' ? targetId : null, input: data.input ?? {}, expectations: data.expectations as any, suiteIds: data.suiteIds || [] } });
 }
 export async function listCases(projectIdOrSlug: string, user: AuthUser, f: { targetType?: string; targetId?: string; suiteId?: string }) {
-  const p = await assertProjectAccess(projectIdOrSlug, user);
-  return prisma.testCase.findMany({ where: { projectId: p.id, ...(f.targetType ? { targetType: f.targetType } : {}), ...(f.targetId ? { targetId: f.targetId } : {}), ...(f.suiteId ? { suiteIds: { has: f.suiteId } } : {}) }, orderBy: { name: 'asc' } });
+  const ids = await projectScope(projectIdOrSlug, user);
+  return prisma.testCase.findMany({ where: { projectId: { in: ids }, ...(f.targetType ? { targetType: f.targetType } : {}), ...(f.targetId ? { targetId: f.targetId } : {}), ...(f.suiteId ? { suiteIds: { has: f.suiteId } } : {}) }, orderBy: { name: 'asc' } });
 }
 export async function updateCase(id: string, data: any, user: AuthUser) {
   const c = await prisma.testCase.findUnique({ where: { id } }); if (!c?.projectId) throw new NotFoundError('Test case');

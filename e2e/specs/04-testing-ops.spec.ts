@@ -1,5 +1,5 @@
 // Testing, Bulk Runs, Simulations, Vocabulary, Approvals, Alerts, Members & Access, Tenant — through the UI.
-import { test, expect, noErrorOnScreen, shot, pick, stamp, PROJECT } from './fixtures';
+import { test, expect, noErrorOnScreen, shot, pick, stamp, PROJECT, EMAIL } from './fixtures';
 
 const s = stamp();
 const P = `projects/${PROJECT}`;
@@ -7,7 +7,7 @@ const REQ = { context: { fiscalYear: 2571, agencyCode: '03007', areaCode: '10' }
   items: [{ lineId: 'L-001', budgetType: 'equipment', itemCode: 'DAS-1203-0045', qty: 4, unitPrice: 28500, amount: 114000 }] };
 
 test('Test case: create against the decision flow, run it, see it pass', async ({ page }) => {
-  await page.goto(`${P}/tests`);
+  await page.goto(`projects/_all/tests`);
   await page.locator('#suite-new').fill(`e2e suite ${s}`);
   await page.getByRole('button', { name: 'Create suite' }).click();
   await pick(page, 'Test suite', `e2e suite ${s}`);
@@ -25,7 +25,7 @@ test('Test case: create against the decision flow, run it, see it pass', async (
   await page.getByRole('button', { name: 'Run suite' }).click();
   await page.waitForTimeout(3000);
   await shot(page, '04-test-case');
-  await page.goto(`${P}/test-runs`);
+  await page.goto(`projects/_all/test-runs`);
   const run = page.locator('tr', { hasText: `e2e suite ${s}` }).first();
   await expect(run).toBeVisible();
   await expect(run.getByText(/pass/i).first()).toBeVisible();
@@ -80,7 +80,7 @@ test('Vocabulary: add a term, write a business rule, save it as a draft rule', a
 });
 
 test('Alerts: save a webhook, evaluate now', async ({ page }) => {
-  await page.goto(`${P}/monitor/alerts`);
+  await page.goto(`projects/_all/monitor/alerts`);
   await page.locator('#al-hook').fill('https://example.invalid/xrules-e2e');
   await page.getByRole('button', { name: /^Save$/ }).click();
   await page.getByRole('button', { name: 'Evaluate now' }).click();
@@ -91,7 +91,7 @@ test('Alerts: save a webhook, evaluate now', async ({ page }) => {
 });
 
 test('Approvals: pending and history tabs', async ({ page }) => {
-  await page.goto(`${P}/approvals`);
+  await page.goto(`projects/_all/approvals`);
   await page.getByRole('button', { name: 'History' }).click();
   await noErrorOnScreen(page);
 });
@@ -116,6 +116,6 @@ test('Tenant: rename and restore', async ({ page }) => {
   await page.getByRole('button', { name: /^Save$/ }).click();
   await expect(page.getByRole('heading', { name: orig })).toBeVisible();
   await page.getByRole('button', { name: 'Members' }).click();
-  await expect(page.getByText('admin@xrules.uat')).toBeVisible();
+  await expect(page.getByText(EMAIL)).toBeVisible();
   await shot(page, '04-tenant');
 });

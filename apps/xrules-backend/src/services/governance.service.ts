@@ -52,8 +52,9 @@ export async function decide(id: string, decision: 'APPROVED' | 'REJECTED', note
 }
 
 export async function list(projectIdOrSlug: string, user: AuthUser, status?: string) {
-  const p = await assertProjectAccess(projectIdOrSlug, user);
-  return prisma.reviewRequest.findMany({ where: { projectId: p.id, ...(status ? { status } : {}) }, orderBy: { createdAt: 'desc' }, take: 200 });
+  const { projectScope } = await import('../platform/scope.js');
+  const ids = await projectScope(projectIdOrSlug, user);
+  return prisma.reviewRequest.findMany({ where: { projectId: { in: ids }, ...(status ? { status } : {}) }, orderBy: { createdAt: 'desc' }, take: 200 });
 }
 
 export async function audit(projectId: string, user: AuthUser, action: string, entityType: string, entityId: string, meta?: any) {

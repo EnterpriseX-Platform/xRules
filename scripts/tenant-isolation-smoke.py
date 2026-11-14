@@ -31,7 +31,7 @@ ta = data(call('GET', '/tenant', tok=A)); TA = ta['slug']
 proj = next(p for p in data(call('GET', '/projects', tok=A)) if p['slug'] == 'neb-pre-screening'); PID = proj['id']
 rule = data(call('GET', f'/rules?project_id={PID}', tok=A)); rule = (rule.get('items', rule) if isinstance(rule, dict) else rule)[0]
 flows = data(call('GET', f'/flows?project_id={PID}', tok=A)); flows = flows.get('items', flows) if isinstance(flows, dict) else flows
-spec = next(x for x in data(call('GET', f'/platform/specs?project_id={PID}', tok=A)) if x['basePath'] == 'neb-prescreen')
+spec = next(x for x in data(call('GET', f'/platform/specs?project_id=_integration', tok=A)) if x['basePath'] == 'neb-prescreen')
 check('spec URL carries tenant', spec['url'] == f'/api/{TA}/neb-prescreen/v1', spec['url'])
 secret_ids = {PID, rule['id'], spec['id'], *(f['id'] for f in flows)}
 

@@ -29,7 +29,8 @@ async function loadRows(projectId: string, source: any): Promise<any[]> {
   if (source.kind === 'rows') return source.rows || [];
   if (source.kind === 'file') return readSheet(Buffer.from(source.contentBase64, 'base64'), source.name || 'file.xlsx', source.sheet, source.headerRow || 1);
   if (source.kind === 'dataset') {
-    const ds = await prisma.dataset.findUnique({ where: { projectId_slug: { projectId, slug: source.dataset } } });
+    const { findDataset } = await import('../data/datasets-runtime.js');
+    const ds = await findDataset(projectId, source.dataset);
     if (!ds?.activeSnapshotId) throw new ValidationError(`Data Set '${source.dataset}' has no active snapshot`);
     const rows = await prisma.datasetRow.findMany({ where: { snapshotId: ds.activeSnapshotId }, take: source.limit || MAX_ROWS, orderBy: { id: 'asc' }, select: { data: true } });
     return rows.map(r => r.data);

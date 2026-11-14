@@ -13,7 +13,7 @@ def call(m, p, b=None, h=None, raw=False):
 T = call('POST', '/auth/login', {'email': os.environ.get('XR_EMAIL', 'admin@example.com'), 'password': os.environ.get('XR_PASSWORD', 'admin123')})[1]['data']['access_token']
 projects = call('GET', '/projects')[1]['data']; projects = projects.get('items', projects) if isinstance(projects, dict) else projects
 PID = next(p['id'] for p in projects if p['slug'] == 'neb-pre-screening')
-spec = next(x for x in call('GET', f'/platform/specs?project_id={PID}')[1]['data'] if x['basePath'] == 'neb-prescreen')
+spec = next(x for x in call('GET', f'/platform/specs?project_id=_integration')[1]['data'] if x['basePath'] == 'neb-prescreen')
 key = call('POST', '/api-keys', {'name': 'smoke-bulk', 'specIds': [spec['id']], 'rateLimitPerMin': 100})[1]['data']['key']
 fails = 0
 def check(name, cond, got=None):
@@ -40,13 +40,13 @@ check('csv has 301 lines', st == 200 and len(csv.strip().split('\n')) == 301, cs
 g = {'nodes': [{'id': 't', 'type': 'trigger', 'data': {'type': 'webhook', 'secret': 'hook-secret-123'}},
                {'id': 'd', 'type': 'callDecisionFlow', 'data': {'flow': 'neb-prescreen', 'inputMap': '{{input.body}}', 'outputAs': 'decision'}}],
      'edges': [{'source': 't', 'target': 'd'}]}
-fl = [f for f in call('GET', f'/flows?project_id={PID}')[1]['data'] if f['slug'] == 'smoke-webhook']
-f = fl[0] if fl else call('POST', '/flows', {'name': 'smoke webhook', 'projectId': PID, 'kind': 'TRIGGER', 'graph': g})[1]['data']
+fl = [f for f in call('GET', f'/flows?project_id=_integration')[1]['data'] if f['slug'] == 'smoke-webhook']
+f = fl[0] if fl else call('POST', '/flows', {'name': 'smoke webhook', 'projectId': '_integration', 'kind': 'TRIGGER', 'graph': g})[1]['data']
 call('PUT', f"/flows/{f['id']}", {'graph': g}); call('POST', f"/flows/{f['id']}/publish", {})
 st, o = call('POST', '/hooks/smoke-webhook', item(9, 30000), {'X-Hook-Token': 'hook-secret-123'})
 check('webhook accepted 202', st == 202, (st, o))
 check('webhook bad token 401', call('POST', '/hooks/smoke-webhook', {}, {'X-Hook-Token': 'nope'})[0] == 401)
 time.sleep(4)
-trig = [t for t in call('GET', f'/platform/triggers?project_id={PID}')[1]['data'] if t['slug'] == 'smoke-webhook'][0]
+trig = [t for t in call('GET', f'/platform/triggers?project_id=_integration')[1]['data'] if t['slug'] == 'smoke-webhook'][0]
 check('trigger ran from queue', trig['last'] and trig['last']['ok'], trig)
 sys.exit(1 if fails else 0)
