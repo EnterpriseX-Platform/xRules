@@ -198,8 +198,33 @@ function DefinitionTab({ rule, projectId }: { rule: any; projectId: string }) {
     );
   }
 
-  // Fallback raw JSON for any other type (MODEL_CALL etc.)
+  if (t === 'MODEL_CALL') return <ModelCallDefinition rule={rule} projectId={projectId} onSave={(d) => mut.mutate({ definition: d })} saving={mut.isPending} />;
+
+  // Fallback raw JSON for any other type
   return <RawJsonDefinition rule={rule} onSave={(d) => mut.mutate({ definition: d })} />;
+}
+
+function ModelCallDefinition({ rule, projectId, onSave, saving }: { rule: any; projectId: string; onSave: (d: any) => void; saving: boolean }) {
+  const d0 = rule.definition || {};
+  const [d, setD] = useState({ model: d0.model || '', forEach: d0.forEach || '', fields: (d0.fields || []).join(', ') });
+  const { data: models = [] } = useQuery({ queryKey: ['models', projectId], queryFn: () => api.get<any[]>(`/models?project_id=${projectId}`) });
+  return (
+    <div className="card p-5 space-y-4 max-w-3xl">
+      <div>
+        <label className="label-section block mb-1.5">Model</label>
+        <div className="flex flex-wrap gap-1.5">{(models as any[]).map(m => (
+          <button key={m.id} type="button" aria-pressed={d.model === m.slug} onClick={() => setD({ ...d, model: m.slug })}
+            className={`h-8 px-3 text-[13px] border ${d.model === m.slug ? 'bg-[#0f62fe] text-white border-[#0f62fe]' : 'bg-white border-[#c6c6c6] hover:bg-[#e8e8e8]'}`}>{m.name}</button>
+        ))}</div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div><label htmlFor="mc-each" className="label-section block mb-1.5">Predict for each item in (optional)</label><input id="mc-each" className="input w-full font-mono" value={d.forEach} onChange={e => setD({ ...d, forEach: e.target.value })} placeholder="items" /></div>
+        <div><label htmlFor="mc-fields" className="label-section block mb-1.5">Input fields (comma separated, optional)</label><input id="mc-fields" className="input w-full font-mono" value={d.fields} onChange={e => setD({ ...d, fields: e.target.value })} placeholder="amount, qty, strategy" /></div>
+      </div>
+      <button className="btn-primary disabled:opacity-50" disabled={!d.model || saving}
+        onClick={() => onSave({ model: d.model, ...(d.forEach ? { forEach: d.forEach } : {}), ...(d.fields.trim() ? { fields: d.fields.split(',').map((x: string) => x.trim()).filter(Boolean) } : {}) })}>Save</button>
+    </div>
+  );
 }
 
 function RawJsonDefinition({ rule, onSave }: { rule: any; onSave: (d: any) => void }) {

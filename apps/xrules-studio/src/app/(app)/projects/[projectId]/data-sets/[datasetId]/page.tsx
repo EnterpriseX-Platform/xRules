@@ -5,8 +5,9 @@ import { useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { PageHead, Table, Td, Tag, Btn, fmtTime } from '@/components/pipeline/ui';
+import { PreparePanel } from '@/components/pipeline/Prepare';
 
-const TABS = ['Snapshots', 'Preview', 'Lookup', 'Used by'] as const;
+const TABS = ['Snapshots', 'Preview', 'Prepare', 'Lookup', 'Used by'] as const;
 const STATUS: Record<string, any> = { ACTIVE: ['green', 'Active'], KEPT: ['gray', 'Kept'], REJECTED: ['red', 'Rejected'], VALIDATED: ['blue', 'Validated'], RUNNING: ['blue', 'Running'] };
 
 export default function DataSetDetailPage() {
@@ -39,6 +40,7 @@ export default function DataSetDetailPage() {
         </Table>
       )}
       {tab === 'Preview' && <PreviewTab datasetId={datasetId} snapshotId={active?.id} />}
+      {tab === 'Prepare' && <PrepareTab datasetId={datasetId} snapshotId={active?.id} />}
       {tab === 'Lookup' && <LookupTab datasetId={datasetId} keyFields={ds.keyFields} />}
       {tab === 'Used by' && <UsedBy datasetId={datasetId} projectId={projectId} />}
     </div>
@@ -51,6 +53,17 @@ function PreviewTab({ datasetId, snapshotId }: { datasetId: string; snapshotId?:
   const cols = Array.from(new Set(rows.flatMap((r: any) => Object.keys(r))));
   if (!snapshotId) return <div className="text-[14px] text-[#525252]">No active snapshot yet</div>;
   return <Table head={cols}>{rows.map((r: any, i: number) => <tr key={i}>{cols.map(c => <Td key={c} mono>{String(r[c] ?? '')}</Td>)}</tr>)}</Table>;
+}
+
+function PrepareTab({ datasetId, snapshotId }: { datasetId: string; snapshotId?: string }) {
+  const { data } = useQuery({ queryKey: ['ds-rows', snapshotId, 'cols'], queryFn: () => api.get<any[]>(`/data/datasets/${datasetId}/snapshots/${snapshotId}/rows?limit=20`), enabled: !!snapshotId });
+  const [done, setDone] = useState<any>(null);   // survives the panel re-mount on the new snapshot
+  if (!snapshotId) return <div className="text-[14px] text-[#525252]">No active snapshot yet</div>;
+  const cols = Array.from(new Set((data || []).flatMap((r: any) => Object.keys(r.data || {}))));
+  return <div className="space-y-4">
+    {done && <div className="px-4 py-3 text-[14px] border-l-[3px] bg-[#defbe6] border-[#24a148]">New snapshot active · {done.rows.toLocaleString()} rows · the previous snapshot is kept</div>}
+    {cols.length ? <PreparePanel key={snapshotId} datasetId={datasetId} columns={cols} onApplied={setDone} /> : null}
+  </div>;
 }
 
 function LookupTab({ datasetId, keyFields }: { datasetId: string; keyFields: string[] }) {

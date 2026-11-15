@@ -50,7 +50,7 @@ export function Sidebar() {
   }, [projects, project, setProject, pathname]);
 
   const currentProject = projects?.find((p: any) => p.id === project);
-  const projBase = `/projects/${project || '_'}`;
+  const projBase = `/projects/${currentProject?.slug || project || '_'}`;   // slug, so it matches the URL
 
   const perms = usePerms();
   const single = (projects?.length ?? 0) <= 1;
@@ -64,6 +64,7 @@ export function Sidebar() {
     { href: `${projBase}/vocabulary`,          label: 'Vocabulary',     icon: BookA },
     { href: `${projBase}/bulk`,                label: 'Bulk Runs',      icon: Rows3 },
     { href: `${projBase}/simulations`,         label: 'Simulations',    icon: GitCompare },
+    { href: `${projBase}/models`,              label: 'Models',         icon: Brain },
     { href: `${projBase}/releases`,            label: 'Releases',       icon: ScrollText },
   ] : [];
   // Tenant level

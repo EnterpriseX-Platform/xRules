@@ -6,6 +6,7 @@ import { Brain, Plus, Trash2 } from 'lucide-react';
 import { PageContent, PageHeader } from '@/components/layout/AppShell';
 import { EntityTable, StatusPill, Pill } from '@/components/EntityList';
 import { api } from '@/lib/api';
+import { Dropdown } from '@/components/pipeline/Dropdown';
 
 const MODEL_TONE: Record<string, any> = { ML: 'info', LLM: 'warn', PMML: 'mint' };
 
@@ -28,13 +29,14 @@ export default function ModelsPage() {
     <PageContent>
       <PageHeader
         title="Models"
-        description="ML / LLM / PMML artifacts referenced by rules of type MODEL_CALL"
+        description="Train, evaluate and publish models · used by Model Call rules"
         stats={[{ label: 'Total', value: rows.length }]}
         actions={<button className="btn-primary" onClick={() => setShowCreate(true)}><Plus className="h-3.5 w-3.5" />New Model</button>}
       />
       <EntityTable
         rows={rows}
         isLoading={isLoading}
+        hrefFor={(m: any) => `/projects/${projectId}/models/${m.id}`}
         emptyText="No models yet"
         emptyIcon={Brain}
         emptyBody="Register an ML or PMML artifact, then call it from a Rule of type MODEL_CALL."
@@ -106,11 +108,7 @@ function CreateModelDialog({ projectId, onClose, onCreated }: { projectId: strin
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label-section block mb-1.5">Type</label>
-              <select className="input w-full" value={type} onChange={(e) => setType(e.target.value)}>
-                <option value="ML">ML (scikit / XGBoost)</option>
-                <option value="LLM">LLM (prompt template)</option>
-                <option value="PMML">PMML</option>
-              </select>
+              <Dropdown value={type} onChange={setType} options={[{ value: 'ML', label: 'ML', hint: 'trained in xRules' }, { value: 'PMML', label: 'PMML', hint: 'imported' }, { value: 'LLM', label: 'LLM', hint: 'prompt template' }]} />
             </div>
             <div>
               <label className="label-section block mb-1.5">Version</label>

@@ -36,6 +36,15 @@ async function datasetFor(id: string, user: any, perm: 'read' | 'write' = 'read'
   return d;
 }
 
+r.post('/datasets/upload', authMiddleware, async (req, res, next) => {
+  try { ok(res, await (await import('../platform/ml.js')).uploadDataset(req.body || {}, req.user!)); } catch (e) { next(e); }
+});
+r.post('/datasets/:id/profile', authMiddleware, async (req, res, next) => {
+  try { ok(res, await (await import('../platform/ml.js')).profileDataset(req.params.id, req.body || {}, req.user!)); } catch (e) { next(e); }
+});
+r.post('/datasets/:id/prepare', authMiddleware, async (req, res, next) => {
+  try { ok(res, await (await import('../platform/ml.js')).prepareDataset(req.params.id, req.body || {}, req.user!)); } catch (e) { next(e); }
+});
 r.post('/connections/:id/test', authMiddleware, async (req, res, next) => {
   try { ok(res, await testConnection(req.params.id, req.user!, (req.query.env as string) || req.body?.env)); } catch (e) { next(e); }
 });

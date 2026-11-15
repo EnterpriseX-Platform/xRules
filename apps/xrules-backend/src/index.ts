@@ -9,6 +9,7 @@ import { startScheduler } from './data/dataflow.service.js';
 import { startWorkers } from './platform/queue.js';
 import { startTriggerScheduler } from './platform/triggers.js';
 import './platform/bulk.js';
+import './platform/ml.js';                 // registers the ml.train queue handler
 
 // JSON has no BigInt: raw SQL counts (count(*)) come back as BigInt
 (BigInt.prototype as any).toJSON = function () { return Number(this); };

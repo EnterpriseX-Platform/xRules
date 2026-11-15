@@ -441,8 +441,30 @@ model Model {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  versions ModelVersion[]
+
   @@unique([projectId, slug])
   @@map("models")
+}
+
+// One training run of a model: data, settings, evaluation report and the trained artifact (TOR 4.13.1).
+model ModelVersion {
+  id          String    @id @default(cuid())
+  modelId     String
+  model       Model     @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  version     Int
+  status      String    @default("TRAINING") // TRAINING | READY | FAILED | PUBLISHED | RETIRED
+  config      Json                           // dataset, snapshot, algorithm, target, features, params, scaler, split, search
+  report      Json?                          // metrics, confusion, importance, search result, samples
+  artifact    Bytes?
+  error       String?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  trainedAt   DateTime?
+  publishedAt DateTime?
+
+  @@unique([modelId, version])
+  @@map("model_versions")
 }
 
 enum ModelType {
