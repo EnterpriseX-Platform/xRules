@@ -4,11 +4,13 @@ import { useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { PageHead, Table, Td, Tag, Btn, Tabs, Notice, fmtTime } from '@/components/pipeline/ui';
+import { usePerms } from '@/lib/perms';
 
 const TYPE: Record<string, string> = { rule: 'Rule', decision_flow: 'Decision Flow', api_spec: 'API', release: 'Release' };
 const ST: Record<string, [any, string]> = { PENDING: ['orange', 'Pending'], APPROVED: ['green', 'Approved'], REJECTED: ['red', 'Rejected'], WITHDRAWN: ['gray', 'Withdrawn'] };
 
 export default function ApprovalsPage() {
+  const perms = usePerms();
   const { projectId } = useParams<{ projectId: string }>();
   const qc = useQueryClient();
   const [tab, setTab] = useState('Pending');
@@ -29,7 +31,7 @@ export default function ApprovalsPage() {
             <Td>{r.submittedBy}</Td><Td>{fmtTime(r.createdAt)}</Td>
             <Td><Tag tone={ST[r.status][0]}>{ST[r.status][1]}</Tag></Td>
             <Td>{r.status === 'PENDING' ? <input className="input w-56" placeholder="Reason (optional)" value={note[r.id] || ''} onChange={e => setNote({ ...note, [r.id]: e.target.value })} /> : <span>{r.reviewedBy}{r.decisionNote && <span className="text-[12px] text-[#525252]"> · {r.decisionNote}</span>}</span>}</Td>
-            <Td>{r.status === 'PENDING' && <div className="flex gap-1"><button className="h-8 px-3 text-white bg-[#0f62fe] hover:bg-[#0353e9]" onClick={() => decide.mutate({ id: r.id, ok: true })}>Approve</button><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={() => decide.mutate({ id: r.id, ok: false })}>Reject</button></div>}</Td>
+            <Td>{r.status === 'PENDING' && perms.approve && <div className="flex gap-1"><button className="h-8 px-3 text-white bg-[#0f62fe] hover:bg-[#0353e9]" onClick={() => decide.mutate({ id: r.id, ok: true })}>Approve</button><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={() => decide.mutate({ id: r.id, ok: false })}>Reject</button></div>}</Td>
           </tr>
         ))}
       </Table>

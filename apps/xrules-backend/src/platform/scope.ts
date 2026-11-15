@@ -91,3 +91,61 @@ export async function listAcross<T>(idOrSlug: string, user: AuthUser, list: (pro
   }));
   return parts.flat();
 }
+
+// ---------------------------------------------------------------- references between rules, flows and APIs
+type Ref = { kind: 'rule' | 'flow'; ref: string };
+const RULE_NODES = new Set(['rulecall', 'rule']);
+const FLOW_NODES = new Set(['calldecisionflow', 'subflow']);
+
+/** Rule / flow references written in a flow graph (node types are matched case-insensitively). */
+export function refsInGraph(graph: any): Ref[] {
+  const out: Ref[] = [];
+  for (const n of graph?.nodes ?? []) {
+    const t = String(n.type ?? n.data?.kind ?? '').toLowerCase().replace(/[^a-z]/g, '');
+    const d = n.data ?? {};
+    if (RULE_NODES.has(t)) { const r = d.ruleSlug || d.rule || d.slug || d.ruleId; if (r) out.push({ kind: 'rule', ref: String(r) }); }
+    if (FLOW_NODES.has(t)) { const f = d.flow || d.flowSlug; if (f) out.push({ kind: 'flow', ref: String(f) }); }
+  }
+  return out;
+}
+
+const brief = async (kind: 'rule' | 'flow', row: any) => {
+  const p = await prisma.project.findUnique({ where: { id: row.projectId }, select: { slug: true, name: true, kind: true } });
+  return { kind, id: row.id, slug: row.slug, name: row.name, status: String(row.status ?? '').toLowerCase(), flowKind: row.kind,
+    project: { slug: p?.slug, name: p?.kind === 'INTEGRATION' ? 'Integration' : p?.name } };
+};
+
+/** What a flow calls: rules and decision flows, resolved from the flow's own project. */
+export async function flowUses(flowId: string) {
+  const f = await prisma.flow.findUnique({ where: { id: flowId } });
+  if (!f) throw new NotFoundError('Flow');
+  const seen = new Set<string>(); const items: any[] = []; const missing: string[] = [];
+  for (const r of refsInGraph(f.graph)) {
+    const key = `${r.kind}:${r.ref}`; if (seen.has(key)) continue; seen.add(key);
+    const row = await resolveRef<any>(r.kind, f.projectId, r.ref).catch(() => null);
+    if (row) items.push(await brief(r.kind, row)); else missing.push(r.ref);
+  }
+  return { items, missing };
+}
+
+/** Who calls a rule or flow: flows anywhere in the tenant (draft graph), plus REST API operations running those flows. */
+export async function usedBy(kind: 'rule' | 'flow', id: string) {
+  const target = kind === 'rule' ? await prisma.rule.findUnique({ where: { id } }) : await prisma.flow.findUnique({ where: { id } });
+  if (!target) throw new NotFoundError(kind === 'rule' ? 'Rule' : 'Flow');
+  const home = await prisma.project.findUnique({ where: { id: target.projectId }, select: { workspaceId: true, slug: true } });
+  const flows = await prisma.flow.findMany({ where: { project: { workspaceId: home!.workspaceId }, id: { not: kind === 'flow' ? id : undefined } },
+    select: { id: true, slug: true, name: true, status: true, kind: true, projectId: true, graph: true } });
+  const names = new Set([target.id, target.slug, (target as any).alias, `${home!.slug}/${target.slug}`].filter(Boolean));
+  const callers: any[] = [];
+  for (const f of flows) {
+    const hit = refsInGraph(f.graph).some(r => r.kind === kind && names.has(r.ref));
+    if (!hit) continue;
+    // a bare slug resolves to the caller's own project first — make sure it really points at this target
+    const resolved = await resolveRef<any>(kind, f.projectId, refsInGraph(f.graph).find(r => r.kind === kind && names.has(r.ref))!.ref).catch(() => null);
+    if (resolved?.id === target.id) callers.push(f);
+  }
+  const items = await Promise.all(callers.map(f => brief('flow', f)));
+  const ops = await prisma.apiOperation.findMany({ where: { flowId: { in: [...callers.map(f => f.id), ...(kind === 'flow' ? [id] : [])] } },
+    include: { spec: { select: { id: true, name: true, basePath: true, version: true } } } });
+  return { flows: items, operations: ops.map(o => ({ id: o.id, method: o.method, path: o.path, spec: o.spec, flowId: o.flowId })) };
+}

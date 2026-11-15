@@ -4,8 +4,10 @@ import { useParams, useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { PageHead, Table, Td, Tag, Btn, fmtTime, cronText } from '@/components/pipeline/ui';
+import { usePerms } from '@/lib/perms';
 
 export default function DataFlowsPage() {
+  const perms = usePerms();
   const { projectId } = useParams<{ projectId: string }>();
   const router = useRouter(); const qc = useQueryClient();
   const { data: flows } = useQuery({ queryKey: ['data-flows', projectId], queryFn: () => api.get<any[]>(`/data/flows?project_id=${projectId}`) });
@@ -24,7 +26,7 @@ export default function DataFlowsPage() {
   return (
     <div className="px-8 py-6">
       <PageHead title="Data Flows" sub={`${flows?.length ?? 0} flows${failed ? ` · failed ${failed} in the latest run` : ''}`}
-        actions={<Btn onClick={() => create.mutate()} disabled={create.isPending}>New Data Flow</Btn>} />
+        actions={perms.integrate ? (<Btn onClick={() => create.mutate()} disabled={create.isPending}>New Data Flow</Btn>) : undefined} />
       <Table head={['Name', 'Source → target', 'Schedule', 'Last run', 'Rows', 'Next run', '']}
         empty={flows && !flows.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">No Data Flows yet</div> : null}>
         {(flows || []).map(f => (

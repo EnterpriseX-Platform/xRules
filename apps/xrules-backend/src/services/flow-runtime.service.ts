@@ -106,7 +106,9 @@ async function runFileCheck(data: any, ctx: any, opts: FlowOptions) {
   const ruleCode = data.ruleCode || 'TOR-4.4.1.7';
   for (const f of files) {
     if (!f?.templateCode) continue;
-    const tpl = opts.projectId ? await prisma.fileTemplate.findUnique({ where: { projectId_code: { projectId: opts.projectId, code: String(f.templateCode) } } }) : null;
+    // own project first, then any project in the tenant (templates usually live in the Integration hub)
+    const tpl = opts.projectId ? (await prisma.fileTemplate.findUnique({ where: { projectId_code: { projectId: opts.projectId, code: String(f.templateCode) } } }))
+      ?? (await prisma.fileTemplate.findFirst({ where: { code: String(f.templateCode), project: { workspace: { projects: { some: { id: opts.projectId } } } } } })) : null;
     if (!tpl) { dc.findings.push({ ruleCode, severity: 'SKIPPED', fileId: f.fileId, message: `Template ${f.templateCode} not found, file not checked` }); continue; }
     dc.lineage[`template:${tpl.code}`] = `v${tpl.version}`;
     dc.findings.push(...await checkFile(f, tpl.code, tpl.spec as unknown as TemplateSpec, ruleCode));

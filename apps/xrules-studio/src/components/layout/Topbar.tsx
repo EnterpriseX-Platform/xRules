@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTheme, useAuth, useProject } from '@/lib/store';
 import { api } from '@/lib/api';
 import { TenantSwitcher } from './TenantSwitcher';
+import { usePerms } from '@/lib/perms';
 
 interface Crumb { label: string; href?: string; mono?: boolean }
 
@@ -121,6 +122,7 @@ export function Topbar() {
   const projectId = useProject((s) => s.currentProjectId);
 
   const crumbs = useBreadcrumbs(pathname);
+  const perms = usePerms();
   const isRulesContext = pathname.includes('/rules');
   const onProjectsList = pathname.endsWith('/projects');
 
@@ -159,7 +161,7 @@ export function Topbar() {
       </button>
 
       {/* Context-aware primary action */}
-      {!onProjectsList && projectId && (
+      {!onProjectsList && projectId && perms.write && (
         <Link
           href={isRulesContext
             ? `/projects/${projectId}/rules?new=1`

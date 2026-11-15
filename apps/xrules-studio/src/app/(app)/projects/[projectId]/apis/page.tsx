@@ -4,8 +4,10 @@ import { useParams, useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { PageHead, Table, Td, Tag, Btn, Input, Panel, Notice } from '@/components/pipeline/ui';
+import { usePerms } from '@/lib/perms';
 
 export default function ApisPage() {
+  const perms = usePerms();
   const { projectId } = useParams<{ projectId: string }>();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -17,7 +19,7 @@ export default function ApisPage() {
   const create = useMutation({ mutationFn: () => api.post<any>('/platform/specs', { projectId, name: f.name, basePath: f.basePath || undefined, version: Number(f.version) || 1, description: f.description }), onSuccess: s => router.push(`/projects/${projectId}/apis/${s.id}`) });
   return (
     <div className="px-8 py-6">
-      <PageHead title="REST APIs" sub={`${specs.length} API · served at /api/{base path}/v{version}/…`} actions={<Btn onClick={() => setOpen(o => !o)}>New API</Btn>} />
+      <PageHead title="REST APIs" sub={`${specs.length} API · served at /api/{base path}/v{version}/…`} actions={perms.integrate ? (<Btn onClick={() => setOpen(o => !o)}>New API</Btn>) : undefined} />
       {open && (
         <Panel title="New API" className="mb-4">
           <div className="grid grid-cols-4 gap-4">

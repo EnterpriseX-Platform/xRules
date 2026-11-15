@@ -8,13 +8,14 @@ import {
   Activity, KeyRound, Plug, Webhook, ScrollText, Settings,
   ChevronDown, Workflow, Briefcase, ListTree, Zap,
   Database, Layers, Network, BookA, Rows3, GitCompare, BadgeCheck, Timer, ListChecks, Gauge, PieChart, HeartPulse, Bell, History,
-  UserCog,
+  UserCog, Lock,
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { useProject } from '@/lib/store';
 import { useQuery } from '@tanstack/react-query';
 import { projectsApi } from '@/lib/api';
 import { cn } from '@/lib/cn';
+import { usePerms } from '@/lib/perms';
 
 interface NavItem { href: string; label: string; icon: any }
 
@@ -51,47 +52,48 @@ export function Sidebar() {
   const currentProject = projects?.find((p: any) => p.id === project);
   const projBase = `/projects/${project || '_'}`;
 
-  // Top-level (no section header) — daily entry points.
-  const top: NavItem[] = [
-    { href: `/`,         label: 'Dashboard', icon: LayoutDashboard },
-    { href: `/projects`, label: 'Projects',  icon: FolderKanban },
-  ];
-
-  // Tenant level — shared by every project
+  const perms = usePerms();
+  const single = (projects?.length ?? 0) <= 1;
   const HUB = '/projects/_integration';
   const ALL = '/projects/_all';
+
+  // Project level — the daily work, so it sits first
+  const engine: NavItem[] = project ? [
+    { href: `${projBase}/rules`,               label: 'Rules',          icon: FileText },
+    { href: `${projBase}/flows?kind=DECISION`, label: 'Decision Flows', icon: Workflow },
+    { href: `${projBase}/vocabulary`,          label: 'Vocabulary',     icon: BookA },
+    { href: `${projBase}/bulk`,                label: 'Bulk Runs',      icon: Rows3 },
+    { href: `${projBase}/simulations`,         label: 'Simulations',    icon: GitCompare },
+    { href: `${projBase}/releases`,            label: 'Releases',       icon: ScrollText },
+  ] : [];
+  // Tenant level
   const integration: NavItem[] = [
-    { href: `${HUB}/apis`,                      label: 'REST APIs',   icon: Zap },
-    { href: `${HUB}/triggers`,                  label: 'Triggers',    icon: Timer },
-    { href: `${HUB}/data-sets`,                 label: 'Data Sets',   icon: Layers },
-    { href: `${HUB}/integrations/connections`,  label: 'Connections', icon: Database },
-    { href: `${HUB}/integrations/api-keys`,     label: 'API Keys',    icon: KeyRound },
+    { href: `${HUB}/apis`,                     label: 'REST APIs',   icon: Zap },
+    { href: `${HUB}/triggers`,                 label: 'Triggers',    icon: Timer },
+    { href: `${HUB}/data-sets`,                label: 'Data Sets',   icon: Layers },
+    { href: `${HUB}/integrations/connections`, label: 'Connections', icon: Database },
   ];
   const testing: NavItem[] = [
-    { href: `${ALL}/tests`,       label: 'Test Suites', icon: FlaskConical },
-    { href: `${ALL}/test-runs`,   label: 'Test Runs',   icon: ListChecks },
-    { href: `${ALL}/approvals`,   label: 'Approvals',   icon: BadgeCheck },
+    { href: `${ALL}/tests`,     label: 'Test Suites', icon: FlaskConical },
+    { href: `${ALL}/test-runs`, label: 'Test Runs',   icon: ListChecks },
+    { href: `${ALL}/approvals`, label: 'Approvals',   icon: BadgeCheck },
   ];
   const monitor: NavItem[] = [
-    { href: `${ALL}/monitor`,              label: 'Overview',    icon: Gauge },
-    { href: `${ALL}/monitor/traffic`,      label: 'API Traffic', icon: Activity },
-    { href: `${ALL}/monitor/decisions`,    label: 'Decisions',   icon: PieChart },
-    { href: `${ALL}/monitor/data-health`,  label: 'Data Health', icon: HeartPulse },
-    { href: `${ALL}/monitor/alerts`,       label: 'Alerts',      icon: Bell },
-    { href: `${ALL}/executions`,           label: 'Executions',  icon: History },
-    { href: `${ALL}/audit`,                label: 'Audit Log',   icon: ListTree },
+    { href: `${ALL}/monitor`,             label: 'Overview',    icon: Gauge },
+    { href: `${ALL}/monitor/traffic`,     label: 'API Traffic', icon: Activity },
+    { href: `${ALL}/monitor/decisions`,   label: 'Decisions',   icon: PieChart },
+    { href: `${ALL}/monitor/data-health`, label: 'Data Health', icon: HeartPulse },
+    { href: `${ALL}/monitor/alerts`,      label: 'Alerts',      icon: Bell },
+    { href: `${ALL}/executions`,          label: 'Executions',  icon: History },
   ];
-
-  // Project level — Decision Engine only
-  const engine: NavItem[] = project ? [
-    { href: `${projBase}/rules`,            label: 'Rules',          icon: FileText },
-    { href: `${projBase}/flows?kind=DECISION`, label: 'Decision Flows', icon: Workflow },
-    { href: `${projBase}/vocabulary`,       label: 'Vocabulary',     icon: BookA },
-    { href: `${projBase}/bulk`,             label: 'Bulk Runs',      icon: Rows3 },
-    { href: `${projBase}/simulations`,      label: 'Simulations',    icon: GitCompare },
-    { href: `${projBase}/models`,           label: 'Models',         icon: Brain },
-    { href: `${projBase}/releases`,         label: 'Releases',       icon: ScrollText },
-    { href: `${projBase}/access`,           label: 'Members & Access', icon: UserCog },
+  // Admin — tenant owners and admins only
+  const admin: NavItem[] = perms.admin ? [
+    { href: '/settings/tenant?tab=Members',              label: 'Members & Roles', icon: UserCog },
+    { href: '/projects',                                  label: 'Projects',        icon: FolderKanban },
+    ...(project ? [{ href: `${projBase}/access`, label: 'Project Access', icon: Lock }] : []),
+    { href: `${HUB}/integrations/api-keys`,               label: 'API Keys',        icon: KeyRound },
+    { href: `${ALL}/audit`,                               label: 'Audit Log',       icon: ListTree },
+    { href: '/settings/tenant',                           label: 'Tenant',          icon: Settings },
   ] : [];
 
   return (
@@ -104,39 +106,29 @@ export function Sidebar() {
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-3 space-y-3">
-        {/* Ungrouped top */}
-        <div className="px-2 space-y-0.5">
-          {top.map((it) => <NavRow key={it.href} item={it} pathname={pathname} />)}
+      <div className="flex-1 overflow-y-auto py-3 space-y-2">
+        <div className="px-2">
+          <NavRow item={{ href: '/', label: 'Dashboard', icon: LayoutDashboard }} pathname={pathname} />
         </div>
 
-        {/* Tenant level */}
+        {/* Decision Engine — project picker only when there is a choice */}
+        <div>
+          <div className="px-4 pt-1 pb-1 text-[12px] font-semibold text-[#525252]">Decision Engine</div>
+          {!single && (
+            <div className="px-3 pb-1">
+              <ProjectPicker projects={projects || []} current={currentProject} onPick={(p) => setProject(p.id)} />
+            </div>
+          )}
+          {project && <div className="px-2">{engine.map(it => <NavRow key={it.href} item={it} pathname={pathname} />)}</div>}
+        </div>
+
         <NavSection id="integration" label="Integration" items={integration} pathname={pathname} />
         <NavSection id="testing"     label="Testing"     items={testing}     pathname={pathname} />
         <NavSection id="monitor"     label="Monitor"     items={monitor}     pathname={pathname} />
-
-        {/* Project level — Decision Engine */}
-        <div className="pt-2 mt-1">
-          <div className="hr mb-3 mx-3" />
-          <div className="px-4 pb-1.5 text-[12px] font-semibold text-[#525252]">Decision Engine</div>
-          <div className="px-3 pb-1">
-            <ProjectPicker
-              projects={projects || []}
-              current={currentProject}
-              onPick={(p) => setProject(p.id)}
-            />
-          </div>
-        </div>
-        {project && <NavSection id="engine" label="" items={engine} pathname={pathname} />}
-
-        {/* Settings — ungrouped, with hairline separator */}
-        <div className="px-2 pt-3 mt-2">
-          <div className="hr mb-2 mx-1" />
-          <NavRow
-            item={{ href: '/settings', label: 'Settings', icon: Settings }}
-            pathname={pathname}
-          />
-        </div>
+        {admin.length > 0 && <>
+          <div className="hr mx-3" />
+          <NavSection id="admin" label="Admin" items={admin} pathname={pathname} />
+        </>}
       </div>
 
       {/* Status footer — hairline divider, low-key */}
@@ -151,16 +143,24 @@ export function Sidebar() {
   );
 }
 
-function NavSection({ label, items, pathname }: {
+function NavSection({ id, label, items, pathname }: {
   id: string; label: string; items: NavItem[]; pathname: string;
 }) {
+  const here = items.some(it => it.href.split('?')[0] !== '/' && pathname.startsWith(it.href.split('?')[0]));
+  const [open, setOpen] = useState<boolean>(() => {
+    try { const v = localStorage.getItem(`xrules-nav-${id}`); return v === null ? true : v === '1'; } catch { return true; }
+  });
+  useEffect(() => { if (here) setOpen(true); }, [here]);
   if (!items.length) return null;
+  const toggle = () => setOpen(o => { try { localStorage.setItem(`xrules-nav-${id}`, o ? '0' : '1'); } catch {} return !o; });
   return (
     <div className="space-y-0.5">
-      {label && <div className="px-4 pt-1 pb-0.5 text-[12px] font-semibold text-[#525252]">{label}</div>}
-      <div className="px-2">
-        {items.map((it) => <NavRow key={it.href} item={it} pathname={pathname} />)}
-      </div>
+      <button type="button" onClick={toggle} aria-expanded={open}
+        className="w-full px-4 pt-1 pb-0.5 flex items-center justify-between text-[12px] font-semibold text-[#525252] hover:text-[#161616]">
+        <span>{label}</span>
+        <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', !open && '-rotate-90')} />
+      </button>
+      {open && <div className="px-2">{items.map((it) => <NavRow key={it.href} item={it} pathname={pathname} />)}</div>}
     </div>
   );
 }

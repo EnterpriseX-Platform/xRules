@@ -115,7 +115,7 @@ test('Tenant: rename and restore', async ({ page }) => {
   await name.fill(orig);
   await page.getByRole('button', { name: /^Save$/ }).click();
   await expect(page.getByRole('heading', { name: orig })).toBeVisible();
-  await page.getByRole('button', { name: 'Members' }).click();
+  await page.getByRole('button', { name: 'Members' }).first().click();
   await expect(page.getByText(EMAIL)).toBeVisible();
   await shot(page, '04-tenant');
 });

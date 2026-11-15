@@ -13,6 +13,13 @@ r.get('/', authMiddleware, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+r.get('/:id/uses', authMiddleware, async (req, res, next) => {
+  try { const { flowUses } = await import('../platform/scope.js'); res.json({ success: true, data: await flowUses(req.params.id) }); } catch (e) { next(e); }
+});
+r.get('/:id/used-by', authMiddleware, async (req, res, next) => {
+  try { const { usedBy } = await import('../platform/scope.js'); res.json({ success: true, data: await usedBy('flow', req.params.id) }); } catch (e) { next(e); }
+});
+
 r.get('/:id', authMiddleware, async (req, res, next) => {
   try { res.json({ success: true, data: await svc.getFlow(req.params.id, req.user!) }); } catch (e) { next(e); }
 });

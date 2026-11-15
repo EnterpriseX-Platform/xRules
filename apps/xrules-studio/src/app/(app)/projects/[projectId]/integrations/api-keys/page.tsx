@@ -6,8 +6,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, apiKeysApi } from '@/lib/api';
 import { useAuth } from '@/lib/store';
 import { PageHead, Table, Td, Tag, Btn, Input, Panel, Notice, Tabs, fmtTime } from '@/components/pipeline/ui';
+import { usePerms } from '@/lib/perms';
 
 export default function ApiKeysPage() {
+  const perms = usePerms();
   const { projectId } = useParams<{ projectId: string }>();
   const qc = useQueryClient();
   const ws = useAuth((s: any) => s.workspace);
@@ -26,7 +28,7 @@ export default function ApiKeysPage() {
   const toggleSpec = (id: string) => setF({ ...f, specIds: f.specIds.includes(id) ? f.specIds.filter((x: string) => x !== id) : [...f.specIds, id] });
   return (
     <div className="px-8 py-6">
-      <PageHead title="API Keys" sub="One key per calling system · choose which APIs it may call" actions={tab === 'Keys' ? <Btn onClick={() => setOpen(o => !o)}>New Key</Btn> : undefined} />
+      <PageHead title="API Keys" sub="One key per calling system · choose which APIs it may call" actions={perms.admin ? (tab === 'Keys' ? <Btn onClick={() => setOpen(o => !o)}>New Key</Btn> : undefined) : undefined} />
       <Tabs tabs={['Keys', 'Webhooks']} value={tab} onChange={setTab} />
       {tab === 'Keys' && <>
         {created && <div className="mb-4"><Notice kind="success">Key created. Copy it now; it will not be shown again<div className="font-mono text-[13px] mt-2 bg-white px-2 py-1 select-all">{created.key}</div></Notice></div>}

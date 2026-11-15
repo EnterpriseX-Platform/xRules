@@ -10,6 +10,7 @@ import { PageContent } from '@/components/layout/AppShell';
 import { StatusPill, Pill } from '@/components/ui/Pill';
 import { rulesApi, simulationsApi, api } from '@/lib/api';
 import { TableDesigner } from '@/components/rule/TableDesigner';
+import { RuleRelations } from '@/components/pipeline/Relations';
 import { TreeDesigner } from '@/components/rule/TreeDesigner';
 import { ScriptingDesigner } from '@/components/rule/ScriptingDesigner';
 import { LookupDesigner } from '@/components/rule/LookupDesigner';
@@ -92,6 +93,8 @@ export default function RuleDetailPage() {
       </div>
 
       <CompareModal ruleId={rule.id} currentVersion={rule.version} />
+
+      <RuleRelations ruleId={rule.id} home={projectId} />
 
       {/* Tabs */}
       <div className="tabs-row mb-6">

@@ -103,4 +103,8 @@ router.get('/by-alias/:alias', authMiddleware, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.get('/:id/used-by', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  try { const { usedBy } = await import('../platform/scope.js'); res.json({ success: true, data: await usedBy('rule', req.params.id) }); } catch (err) { next(err); }
+});
+
 export default router;

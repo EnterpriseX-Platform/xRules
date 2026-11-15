@@ -7,10 +7,12 @@ import { api } from '@/lib/api';
 import { PageHead, Table, Td, Tag, Btn, Input, TextArea, Panel, Notice, Tabs } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { TraceView } from '@/components/pipeline/TraceView';
+import { usePerms } from '@/lib/perms';
 
 const METHOD_TONE: Record<string, any> = { GET: 'blue', POST: 'green', PUT: 'orange', PATCH: 'orange', DELETE: 'red' };
 
 export default function SpecPage() {
+  const perms = usePerms();
   const { projectId, specId } = useParams<{ projectId: string; specId: string }>();
   const qc = useQueryClient();
   const [tab, setTab] = useState('Operations');

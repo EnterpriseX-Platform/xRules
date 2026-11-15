@@ -16,6 +16,7 @@ import { pipelineNodeTypes } from './PipelineNode';
 import { STEPS, metaFor, type FlowKindName } from './registry';
 import { StepInspector } from './StepInspector';
 import { TraceView } from './TraceView';
+import { FlowRelations } from './Relations';
 
 type Graph = { nodes: Node[]; edges: Edge[] };
 const EDGE = { type: 'smoothstep', style: { stroke: '#161616', strokeWidth: 1.4 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#161616', width: 18, height: 18 } } as const;
@@ -186,6 +187,8 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
           {(save.error || publish.error) && <span className="text-[13px] text-[#da1e28] ml-3">{String((save.error as any)?.message || (publish.error as any)?.message)}</span>}
         </div>
       </div>
+
+      <FlowRelations flowId={flowId} home={projectId} />
 
       <div className="flex-1 flex min-h-0">
         {/* canvas */}

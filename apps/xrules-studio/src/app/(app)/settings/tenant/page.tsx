@@ -1,22 +1,30 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageContent } from '@/components/layout/AppShell';
 import { PageHead, Panel, Table, Td, Btn, Tabs, Input, Notice, Tag } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
-import { tenantApi } from '@/lib/api';
+import { tenantApi, api } from '@/lib/api';
 import { useAuth } from '@/lib/store';
 
 const ROLE_OPTS = [
   { value: 'OWNER', label: 'Owner', hint: 'full control' },
   { value: 'ADMIN', label: 'Admin', hint: 'members, all projects' },
-  { value: 'MEMBER', label: 'Member', hint: 'create and edit' },
+  { value: 'INTEGRATOR', label: 'Integrator', hint: 'rules + Integration' },
+  { value: 'MEMBER', label: 'Member', hint: 'rules and flows' },
   { value: 'VIEWER', label: 'Viewer', hint: 'read only' },
 ];
 const roleLabel = (r: string) => ROLE_OPTS.find(o => o.value === r)?.label ?? r;
 
-export default function TenantSettingsPage() {
-  const [tab, setTab] = useState('General');
+export default function TenantSettingsPageWrapper() {
+  return <Suspense><TenantSettingsPage /></Suspense>;
+}
+
+function TenantSettingsPage() {
+  const sp = useSearchParams();
+  const [tab, setTab] = useState(sp.get('tab') === 'Members' ? 'Members' : 'General');
+  useEffect(() => { if (sp.get('tab') === 'Members') setTab('Members'); }, [sp]);
   const { data: t } = useQuery({ queryKey: ['tenant'], queryFn: tenantApi.current });
   const admin = t && (t.role === 'OWNER' || t.role === 'ADMIN');
   return (
@@ -77,6 +85,7 @@ function Members({ me, admin }: { me: any; admin: boolean }) {
   const [err, setErr] = useState<string | null>(null);
   const onErr = (e: any) => setErr(e.message);
   const addM = useMutation({ mutationFn: () => tenantApi.addMember(add), onSuccess: () => { setAdd({ email: '', role: 'MEMBER' }); setErr(null); inv(); }, onError: onErr });
+  const approveM = useMutation({ mutationFn: (v: { userId: string; canApprove: boolean }) => api.put(`/tenant/members/${v.userId}`, { canApprove: v.canApprove }), onSuccess: () => { setErr(null); inv(); }, onError: onErr });
   const roleM = useMutation({ mutationFn: (v: { userId: string; role: string }) => tenantApi.setRole(v.userId, v.role), onSuccess: () => { setErr(null); inv(); }, onError: onErr });
   const delM = useMutation({ mutationFn: (userId: string) => tenantApi.removeMember(userId), onSuccess: () => { setErr(null); inv(); }, onError: onErr });
   const opts = me.role === 'OWNER' ? ROLE_OPTS : ROLE_OPTS.filter(o => o.value !== 'OWNER');
@@ -97,7 +106,7 @@ function Members({ me, admin }: { me: any; admin: boolean }) {
         </Panel>
       )}
       {err && <Notice kind="error">{err}</Notice>}
-      <Table head={['Name', 'Email', 'Role', 'Joined', '']}>
+      <Table head={['Name', 'Email', 'Role', 'Approver', 'Joined', '']}>
         {members.map((m: any) => {
           const self = m.userId === user?.id;
           const canEdit = admin && (me.role === 'OWNER' || m.role !== 'OWNER');
@@ -106,6 +115,9 @@ function Members({ me, admin }: { me: any; admin: boolean }) {
               <Td>{m.name || '—'}{self && <span className="ml-2"><Tag tone="blue">you</Tag></span>}</Td>
               <Td mono>{m.email}</Td>
               <Td className="w-56">{canEdit ? <Dropdown value={m.role} options={opts} onChange={v => v !== m.role && roleM.mutate({ userId: m.userId, role: v })} /> : roleLabel(m.role)}</Td>
+              <Td>{m.role === 'OWNER' || m.role === 'ADMIN' ? <span className="text-[#525252]">Always</span>
+                : canEdit ? <label className="inline-flex items-center gap-2 cursor-pointer"><input type="checkbox" aria-label={`Approver ${m.email}`} checked={!!m.canApprove} onChange={e => approveM.mutate({ userId: m.userId, canApprove: e.target.checked })} />{m.canApprove ? 'Yes' : 'No'}</label>
+                : (m.canApprove ? 'Yes' : 'No')}</Td>
               <Td>{new Date(m.joinedAt).toLocaleDateString('en-GB')}</Td>
               <Td className="text-right">
                 {(canEdit || self) && <Btn kind="ghost" onClick={() => delM.mutate(m.userId)}>{self ? 'Leave' : 'Remove'}</Btn>}

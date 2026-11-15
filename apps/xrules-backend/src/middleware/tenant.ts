@@ -14,9 +14,9 @@ import { prisma } from '../config/database.js';
 import { env } from '../config/env.js';
 import type { AuthUser } from './auth.js';
 
-export type TenantRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
+export type TenantRole = 'OWNER' | 'ADMIN' | 'INTEGRATOR' | 'MEMBER' | 'VIEWER';
 export type ProjectRole = 'ADMIN' | 'EDITOR' | 'VIEWER';
-export interface TenantCtx { id: string; slug: string; name: string; role: TenantRole }
+export interface TenantCtx { id: string; slug: string; name: string; role: TenantRole; canApprove?: boolean }
 
 declare global {
   namespace Express {
@@ -105,7 +105,8 @@ function readUser(req: Request): AuthUser | null {
 /** Effective project role for a user, or null when they cannot see the project. */
 export async function projectRoleFor(userId: string, project: { id: string; visibility: string; kind?: string }, tenantRole: TenantRole): Promise<ProjectRole | null> {
   if (tenantRole === 'OWNER' || tenantRole === 'ADMIN') return 'ADMIN';
-  if (project.kind === 'INTEGRATION') {                          // the shared hub: members may use it, admins change it
+  if (project.kind === 'INTEGRATION') {                          // the shared hub: integrators change it, everyone else reads it
+    if (tenantRole === 'INTEGRATOR') return 'EDITOR';
     const pm = await prisma.projectMember.findUnique({ where: { projectId_userId: { projectId: project.id, userId } } });
     return (pm?.role as ProjectRole) ?? 'VIEWER';
   }
@@ -128,7 +129,7 @@ export async function resolveTenant(user: AuthUser, wanted?: string): Promise<Te
   if (!ms.length) return null;
   const pick = wanted ? ms.find(m => m.workspace.slug === wanted || m.workspace.id === wanted) : (ms.find(m => m.workspace.slug === user.tenantId) ?? ms[0]);
   if (!pick) return null;
-  return { id: pick.workspace.id, slug: pick.workspace.slug, name: pick.workspace.name, role: pick.role as TenantRole };
+  return { id: pick.workspace.id, slug: pick.workspace.slug, name: pick.workspace.name, role: pick.role as TenantRole, canApprove: pick.canApprove || pick.role === 'OWNER' || pick.role === 'ADMIN' };
 }
 
 export async function tenantGuard(req: Request, res: Response, next: NextFunction) {
@@ -169,7 +170,8 @@ export async function tenantGuard(req: Request, res: Response, next: NextFunctio
     if (!ids.size) return next();                             // tenant-level endpoint; services scope by req.tenant
 
     const need: ProjectRole = /^\/projects\/[^/]+(\/members|\/?$)/.test(path) && !['GET', 'HEAD'].includes(req.method) ? 'ADMIN'
-      : ['GET', 'HEAD'].includes(req.method) ? 'VIEWER' : 'EDITOR';
+      : ['GET', 'HEAD'].includes(req.method) || /^\/platform\/reviews\/[^/]+\/(approve|reject)$/.test(path) ? 'VIEWER'   // approvers are checked in the review service
+      : 'EDITOR';
     let role: ProjectRole | null = null;
     for (const id of ids) {
       if (id === '_all') continue;                               // tenant-wide list: services scope via projectScope()

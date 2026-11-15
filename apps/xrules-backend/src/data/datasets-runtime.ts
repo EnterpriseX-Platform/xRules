@@ -11,10 +11,21 @@ function cacheSet(k: string, v: any) {
   cache.set(k, v);
 }
 
+// project+slug → dataset row, cached briefly: lookups run per item inside decision flows
+const dsCache = new Map<string, { at: number; row: any }>();
 export async function findDataset(projectId: string, slug: string) {
+  const k = `${projectId}|${slug}`; const c = dsCache.get(k);
+  if (c && Date.now() - c.at < 30_000) {
+    // the active snapshot can change (sync / activate) — re-read just that field
+    if (!c.row) return null;
+    const fresh = await prisma.dataset.findUnique({ where: { id: c.row.id } });
+    if (fresh) { c.row = fresh; return fresh; }
+  }
   // own project first, then the tenant's shared Integration hub (or <project>/<slug>)
   const { resolveRef } = await import('../platform/scope.js');
-  return resolveRef<any>('dataset', projectId, slug);
+  const row = await resolveRef<any>('dataset', projectId, slug);
+  dsCache.set(k, { at: Date.now(), row });
+  return row;
 }
 
 export async function ensureDataset(projectId: string, slug: string, keyFields?: string[]) {
