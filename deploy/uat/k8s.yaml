@@ -58,6 +58,7 @@ spec:
             - { name: PORT, value: "4000" }
             - { name: XRULES_ENV, value: UAT }
             - { name: ENGINE_HUB_URL, value: "http://xrules-engine-svc:50051" }
+            - { name: XRULES_ML_URL, value: "http://xrules-ml-svc:4600" }
           readinessProbe: { httpGet: { path: /health, port: 4000 }, initialDelaySeconds: 10, periodSeconds: 10 }
           livenessProbe: { httpGet: { path: /health, port: 4000 }, initialDelaySeconds: 60, periodSeconds: 20 }
           resources: { requests: { cpu: 200m, memory: 384Mi }, limits: { cpu: "1", memory: 1536Mi } }
@@ -115,3 +116,26 @@ apiVersion: v1
 kind: Service
 metadata: { name: xrules-engine-svc, namespace: budget-bb }
 spec: { selector: { app: xrules-engine }, ports: [{ name: http, port: 50051, targetPort: 50051 }, { name: grpc, port: 50060, targetPort: 50060 }] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: xrules-ml, namespace: budget-bb, labels: { app: xrules-ml } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: xrules-ml } }
+  template:
+    metadata: { labels: { app: xrules-ml } }
+    spec:
+      imagePullSecrets: [{ name: img-secret }]
+      containers:
+        - name: xrules-ml
+          image: registry.nipa.cloud/ebudet-bb-registry/neb-page:xrules-ml.placeholder
+          ports: [{ containerPort: 4600 }]
+          readinessProbe: { httpGet: { path: /health, port: 4600 }, initialDelaySeconds: 10, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /health, port: 4600 }, initialDelaySeconds: 40, periodSeconds: 20 }
+          resources: { requests: { cpu: 250m, memory: 512Mi }, limits: { cpu: "2", memory: 3Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: xrules-ml-svc, namespace: budget-bb }
+spec: { selector: { app: xrules-ml }, ports: [{ port: 4600, targetPort: 4600 }] }

@@ -43,10 +43,11 @@ function useBreadcrumbs(pathname: string): Crumb[] {
   const isFlow = (section === 'flows' || section === 'data-flows') && !!subId;
   const isSet = section === 'data-sets' && !!subId;
   const isSpec = section === 'apis' && !!subId;
+  const isModel = section === 'models' && !!subId;
   const { data: entity } = useQuery({
     queryKey: ['crumb', section, subId],
-    queryFn: () => api.get<any>(isFlow ? `/flows/${subId}` : isSpec ? `/platform/specs/${subId}` : `/data/datasets/${subId}`),
-    enabled: isFlow || isSet || isSpec,
+    queryFn: () => api.get<any>(isFlow ? `/flows/${subId}` : isSpec ? `/platform/specs/${subId}` : isModel ? `/models/${subId}` : `/data/datasets/${subId}`),
+    enabled: isFlow || isSet || isSpec || isModel,
     staleTime: 60_000,
     retry: false,
   });
@@ -91,7 +92,7 @@ function useBreadcrumbs(pathname: string): Crumb[] {
   const isMonitorSub = section === 'monitor';
   if (rule) {
     out.push({ label: rule.name });
-  } else if (entity && (isFlow || isSet || isSpec)) {
+  } else if (entity && (isFlow || isSet || isSpec || isModel)) {
     out.push({ label: entity.name || entity.slug });
   } else if (subId && !isIntegrationsSub && !isMonitorSub) {
     const looksLikeId = /^[a-z0-9]{20,}$/i.test(subId) && !subId.includes('-');
