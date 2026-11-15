@@ -6,8 +6,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { PageHead, Table, Td, Tag, Btn, Input, Panel, Notice, fmtTime, pct } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
+import { usePerms } from '@/lib/perms';
 
 export default function SimulationsPage() {
+  const perms = usePerms();
   const { projectId } = useParams<{ projectId: string }>();
   const qc = useQueryClient();
   const { data: flows = [] } = useQuery({ queryKey: ['flows-all', projectId], queryFn: () => api.get<any[]>(`/flows?project_id=${projectId}`) });
@@ -27,7 +29,7 @@ export default function SimulationsPage() {
         <Panel title="Backtest">
           <div className="text-[14px] text-[#525252] mb-3">Run the draft and the live version over past real requests and compare each result</div>
           <Input id="bt-lim" label="Most recent requests" mono value={limit} onChange={setLimit} />
-          <div className="mt-4"><Btn onClick={() => backtest.mutate()} disabled={!flow || backtest.isPending}>Start backtest</Btn></div>
+          <div className="mt-4">{perms.write && <Btn onClick={() => backtest.mutate()} disabled={!flow || backtest.isPending}>Start backtest</Btn>}</div>
           {backtest.error && <div className="mt-3"><Notice kind="error">{String((backtest.error as any).message)}</Notice></div>}
         </Panel>
         <Panel title="Champion / Challenger on live traffic">

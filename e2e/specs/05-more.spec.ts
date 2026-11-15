@@ -54,7 +54,7 @@ test('Approvals: author submits, a second reviewer (switching tenant) approves',
   await page.goto('settings/tenant');
   await expect(page.locator('main h1').first()).not.toHaveText('Tenant');   // wait for the tenant to load
   const tenantName = (await page.locator('main h1').first().innerText()).trim();
-  await page.getByRole('button', { name: 'Members' }).click();
+  await page.getByRole('button', { name: 'Members' }).first().click();
   await page.locator('#m-email').fill(reviewer);
   await pick(page, 'Role', /^Admin/);
   await page.getByRole('button', { name: /^Add$/ }).click();
@@ -94,7 +94,7 @@ test('Approvals: author submits, a second reviewer (switching tenant) approves',
 
   // tidy: remove the reviewer from the tenant
   await page.goto('settings/tenant');
-  await page.getByRole('button', { name: 'Members' }).click();
+  await page.getByRole('button', { name: 'Members' }).first().click();
   await page.locator('tr', { hasText: reviewer }).getByRole('button', { name: 'Remove' }).click();
   await expect(page.locator('tr', { hasText: reviewer })).toHaveCount(0);
 });
@@ -124,7 +124,7 @@ test('Tenant members: add a viewer, promote, remove', async ({ page, request }) 
   const r = await request.post('../xrules-api/auth/signup', { data: { email, password: 'E2e-member-1!', name: 'E2E Member', workspaceName: `E2E Member ${s}` } });
   expect(r.ok()).toBeTruthy();
   await page.goto('settings/tenant');
-  await page.getByRole('button', { name: 'Members' }).click();
+  await page.getByRole('button', { name: 'Members' }).first().click();
   await page.locator('#m-email').fill(email);
   await pick(page, 'Role', /Viewer/);
   await page.getByRole('button', { name: /^Add$/ }).click();
@@ -177,14 +177,17 @@ test('Tenant-level testing reaches a rule in another project; scope filter narro
   await shot(page, '05-cross-project-testing');
 });
 
-test('Sidebar: Integration, Testing, Monitor are tenant-level; project picker governs Decision Engine only', async ({ page }) => {
+test('Sidebar: Decision Engine first; Integration/Testing/Monitor tenant-level; Admin for admins', async ({ page }) => {
   await page.goto(`projects/${PROJECT}/rules`);
   const nav = page.locator('aside');
+  await expect(nav.getByRole('link', { name: 'Rules' })).toHaveAttribute('href', new RegExp(`/projects/[^/]+/rules$`));
   await expect(nav.getByRole('link', { name: 'REST APIs' })).toHaveAttribute('href', /\/projects\/_integration\/apis$/);
   await expect(nav.getByRole('link', { name: 'Test Suites' })).toHaveAttribute('href', /\/projects\/_all\/tests$/);
-  await expect(nav.getByRole('link', { name: 'API Traffic' })).toHaveAttribute('href', /\/projects\/_all\/monitor\/traffic$/);
-  await expect(nav.getByRole('link', { name: 'Rules' })).toHaveAttribute('href', new RegExp(`/projects/[^/]+/rules$`));
-  await nav.getByRole('link', { name: 'REST APIs' }).click();
-  await expect(page.getByRole('navigation').getByText('Integration')).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Members & Roles' })).toBeVisible();          // admin section
+  const order = await nav.locator('a').allInnerTexts();
+  expect(order.indexOf('Rules')).toBeLessThan(order.indexOf('REST APIs'));                  // daily work first
+  await nav.getByRole('button', { name: 'Monitor' }).click();                                // collapse
+  await expect(nav.getByRole('link', { name: 'API Traffic' })).toHaveCount(0);
+  await nav.getByRole('button', { name: 'Monitor' }).click();
   await shot(page, '05-sidebar');
 });

@@ -6,6 +6,7 @@ import { Plus, Workflow, Zap, GitBranch } from 'lucide-react';
 import { PageContent, PageHeader } from '@/components/layout/AppShell';
 import { EntityTable, StatusPill, Pill } from '@/components/EntityList';
 import { flowsApi } from '@/lib/api';
+import { usePerms } from '@/lib/perms';
 
 type Kind = 'DECISION' | 'INTEGRATION' | 'ALL';
 
@@ -36,6 +37,7 @@ const KIND_META: Record<Exclude<Kind, 'ALL'>, {
 };
 
 export default function FlowsPage() {
+  const perms = usePerms();
   const { projectId } = useParams<{ projectId: string }>();
   const sp = useSearchParams();
   const router = useRouter();
@@ -68,10 +70,10 @@ export default function FlowsPage() {
         description={meta?.description || 'Orchestration — both sync (decision flows) and async (integration flows).'}
         stats={[{ label: 'Published', value: stats.published }, { label: 'Draft', value: stats.draft }, { label: 'Total', value: stats.total }]}
         actions={
-          <button className="btn-primary" onClick={() => setShowCreate(true)}>
+          perms.write ? (<button className="btn-primary" onClick={() => setShowCreate(true)}>
             <Plus className="h-3.5 w-3.5" />
             {meta?.cta || 'New flow'}
-          </button>
+          </button>) : undefined
         }
       />
 
@@ -92,10 +94,10 @@ export default function FlowsPage() {
         emptyIcon={meta?.icon || Workflow}
         emptyBody={meta?.emptyBody}
         emptyCta={
-          <button className="btn-primary text-sm" onClick={() => setShowCreate(true)}>
+          perms.write ? (<button className="btn-primary text-sm" onClick={() => setShowCreate(true)}>
             <Plus className="h-3.5 w-3.5" />
             {meta?.cta || 'Create your first flow'}
-          </button>
+          </button>) : undefined
         }
         hrefFor={(f) => `/projects/${projectId}/flows/${f.id}`}
         columns={[

@@ -6,9 +6,11 @@ import { api } from '@/lib/api';
 import { PageHead, Table, Td, Tag, Btn, Input, TextArea, Panel, Notice, DropZone, fileToBase64, fmtTime, pct } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { BULK_STATUS as STATUS } from '@/components/pipeline/status';
+import { usePerms } from '@/lib/perms';
 
 
 export default function BulkPage() {
+  const perms = usePerms();
   const { projectId } = useParams<{ projectId: string }>();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -30,7 +32,7 @@ export default function BulkPage() {
   });
   return (
     <div className="px-8 py-6">
-      <PageHead title="Bulk Runs" sub="Run a rule or decision flow over many rows · results as a file · retry only failed rows" actions={<Btn onClick={() => setOpen(o => !o)}>New Bulk Run</Btn>} />
+      <PageHead title="Bulk Runs" sub="Run a rule or decision flow over many rows · results as a file · retry only failed rows" actions={perms.write ? (<Btn onClick={() => setOpen(o => !o)}>New Bulk Run</Btn>) : undefined} />
       {open && (
         <Panel title="New bulk run" className="mb-4">
           <div className="grid grid-cols-3 gap-4">

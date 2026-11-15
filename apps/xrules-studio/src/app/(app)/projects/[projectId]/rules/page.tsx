@@ -13,6 +13,7 @@ import { PageContent, PageHeader } from '@/components/layout/AppShell';
 import { StatusPill, Pill } from '@/components/ui/Pill';
 import { rulesApi, api } from '@/lib/api';
 import { NewRuleDialog } from '@/components/rule/NewRuleDialog';
+import { usePerms } from '@/lib/perms';
 
 const TYPE_TONE: Record<string, any> = {
   DECISION_TABLE: 'info',
@@ -46,6 +47,7 @@ const TYPE_ICON_CLS: Record<string, string> = {
 };
 
 export default function RulesPage() {
+  const perms = usePerms();
   const { projectId } = useParams<{ projectId: string }>();
   const sp = useSearchParams();
   const router = useRouter();
@@ -116,10 +118,10 @@ export default function RulesPage() {
               <Network className="h-3.5 w-3.5" />
               Graph
             </Link>
-            <button className="btn-primary" onClick={() => setShowCreate(true)}>
+            {perms.write && (<button className="btn-primary" onClick={() => setShowCreate(true)}>
               <Plus className="h-3.5 w-3.5" />
               New Rule
-            </button>
+            </button>)}
           </div>
         }
       />
@@ -205,10 +207,10 @@ export default function RulesPage() {
                   <div className="text-xs text-subtle leading-relaxed mb-4">
                     Pick from 8 rule kinds — from simple decision tables to LLM-backed AI agents — to author your first decision.
                   </div>
-                  <button className="btn-primary text-sm" onClick={() => setShowCreate(true)}>
+                  {perms.write && (<button className="btn-primary text-sm" onClick={() => setShowCreate(true)}>
                     <Plus className="h-3.5 w-3.5" />
                     Create your first rule
-                  </button>
+                  </button>)}
                 </div>
               </td></tr>
             )}

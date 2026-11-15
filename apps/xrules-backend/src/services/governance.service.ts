@@ -42,7 +42,11 @@ export async function submit(data: { targetType: string; targetId: string; note?
 export async function decide(id: string, decision: 'APPROVED' | 'REJECTED', note: string | undefined, user: AuthUser) {
   const r = await prisma.reviewRequest.findUnique({ where: { id } });
   if (!r) throw new NotFoundError('Review');
-  await assertProjectAccess(r.projectId, user, 'admin');
+  // approvers: tenant owners/admins, or members marked "can approve" who can see the project
+  await assertProjectAccess(r.projectId, user, 'read');
+  const p = await prisma.project.findUnique({ where: { id: r.projectId }, select: { workspaceId: true } });
+  const m = await prisma.workspaceMember.findFirst({ where: { workspaceId: p!.workspaceId, userId: user.userId } });
+  if (!m || !(m.role === 'OWNER' || m.role === 'ADMIN' || m.canApprove)) throw new ForbiddenError('You are not an approver in this tenant');
   if (r.status !== 'PENDING') throw new ValidationError(`review is ${r.status.toLowerCase()}`);
   if (r.submittedBy === (user.email || user.userId)) throw new ForbiddenError('You cannot approve your own submission');
   const out = await prisma.reviewRequest.update({ where: { id }, data: { status: decision, reviewedBy: user.email || user.userId, decisionNote: note, decidedAt: new Date() } });

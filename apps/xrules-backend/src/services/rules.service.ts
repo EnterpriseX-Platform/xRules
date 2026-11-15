@@ -50,7 +50,7 @@ export async function setLock(id: string, locked: boolean, user: AuthUser) {
     where: { id }, include: { project: true },
   });
   if (!rule) throw new NotFoundError('Rule');
-  await checkMembership(rule.project.workspaceId, user.userId, ['OWNER', 'ADMIN', 'MEMBER', 'EDITOR']);
+  await checkMembership(rule.project.workspaceId, user.userId, ['OWNER', 'ADMIN', 'INTEGRATOR', 'MEMBER', 'EDITOR']);
   const updated = await prisma.rule.update({
     where: { id },
     data: {
@@ -81,7 +81,7 @@ export async function setAlias(id: string, alias: string, user: AuthUser) {
     where: { id }, include: { project: true },
   });
   if (!rule) throw new NotFoundError('Rule');
-  await checkMembership(rule.project.workspaceId, user.userId, ['OWNER', 'ADMIN', 'MEMBER', 'EDITOR']);
+  await checkMembership(rule.project.workspaceId, user.userId, ['OWNER', 'ADMIN', 'INTEGRATOR', 'MEMBER', 'EDITOR']);
   const updated = await prisma.rule.update({
     where: { id },
     data: { alias: sanitized },
@@ -271,7 +271,7 @@ export async function updateRule(
     throw new ValidationError('Rule is locked. Unlock it before editing.');
   }
 
-  await checkMembership(rule.project.workspaceId, user.userId, ['OWNER', 'ADMIN', 'MEMBER']);
+  await checkMembership(rule.project.workspaceId, user.userId, ['OWNER', 'ADMIN', 'INTEGRATOR', 'MEMBER']);
 
   const updateData: any = {};
   if (data.name) updateData.name = data.name;
@@ -329,7 +329,7 @@ export async function publishRule(id: string, user: AuthUser) {
     throw new NotFoundError('Rule');
   }
 
-  await checkMembership(rule.project.workspaceId, user.userId, ['OWNER', 'ADMIN', 'MEMBER']);
+  await checkMembership(rule.project.workspaceId, user.userId, ['OWNER', 'ADMIN', 'INTEGRATOR', 'MEMBER']);
   const { assertPublishable } = await import('./governance.service.js');
   await assertPublishable(rule.projectId, 'rule', rule.id, user);
 

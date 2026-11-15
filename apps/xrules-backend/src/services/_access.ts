@@ -6,8 +6,8 @@ import { projectRoleFor } from '../middleware/tenant.js';
 
 export type Permission = 'read' | 'write' | 'admin';
 
-const READ_ROLES = ['OWNER', 'ADMIN', 'MEMBER', 'VIEWER', 'EDITOR'];
-const WRITE_ROLES = ['OWNER', 'ADMIN', 'MEMBER', 'EDITOR'];
+const READ_ROLES = ['OWNER', 'ADMIN', 'INTEGRATOR', 'MEMBER', 'VIEWER', 'EDITOR'];
+const WRITE_ROLES = ['OWNER', 'ADMIN', 'INTEGRATOR', 'MEMBER', 'EDITOR'];
 const ADMIN_ROLES = ['OWNER', 'ADMIN'];
 
 function rolesFor(perm: Permission): string[] {

@@ -5,11 +5,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { PageHead, Table, Td, Tag, Btn, Input, TextArea, Panel, Notice, fmtTime } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
+import { usePerms } from '@/lib/perms';
 
 const ST: Record<string, [any, string]> = { PASS: ['green', 'Passed'], FAIL: ['red', 'Failed'], ERROR: ['red', 'Error'], PENDING: ['gray', 'Not run'] };
 const TT: Record<string, string> = { rule: 'Rule', decision_flow: 'Decision Flow', operation: 'API operation' };
 
 export default function TestsPage() {
+  const perms = usePerms();
   const { projectId } = useParams<{ projectId: string }>();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -36,11 +38,11 @@ export default function TestsPage() {
     <div className="px-8 py-6">
       <PageHead title="Test Suites" sub={`${cases.length} cases · ${passed} passed · all cases of an item must pass before it can be published`} actions={<>
         {suite && <Btn kind="tertiary" onClick={() => runSuite.mutate()} disabled={runSuite.isPending}>Run suite</Btn>}
-        <Btn onClick={() => setOpen(o => !o)}>New Test Case</Btn></>} />
+        {perms.write && <Btn onClick={() => setOpen(o => !o)}>New Test Case</Btn>}</>} />
       <div className="flex gap-2 items-end mb-4">
         <div className="w-80"><div className="text-[12px] text-[#525252] mb-1.5">Test suite</div><Dropdown value={suite} onChange={setSuite} options={[{ value: '', label: 'All cases' }, ...(suites as any[]).map(s => ({ value: s.id, label: s.name }))]} /></div>
         <Input id="suite-new" className="w-64" label="New suite" value={suiteName} onChange={setSuiteName} placeholder="TOR 4.4" />
-        <Btn kind="ghost" onClick={() => { newSuite.mutate(suiteName); setSuiteName(''); }} disabled={!suiteName.trim()}>Create suite</Btn>
+        {perms.write && <Btn kind="ghost" onClick={() => { newSuite.mutate(suiteName); setSuiteName(''); }} disabled={!suiteName.trim()}>Create suite</Btn>}
       </div>
       {open && (
         <Panel title="New test case" className="mb-4">

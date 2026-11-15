@@ -6,6 +6,7 @@ import { Webhook, Plus, Trash2, Copy, Lock } from 'lucide-react';
 import { PageContent, PageHeader } from '@/components/layout/AppShell';
 import { EntityTable, Pill } from '@/components/EntityList';
 import { api } from '@/lib/api';
+import { usePerms } from '@/lib/perms';
 
 const EVENTS = [
   { id: 'execute.success',   label: 'Execute → success' },
@@ -17,6 +18,7 @@ const EVENTS = [
 ];
 
 export default function WebhooksPage() {
+  const perms = usePerms();
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [revealedSecret, setRevealedSecret] = useState<string | null>(null);
@@ -37,7 +39,7 @@ export default function WebhooksPage() {
         title="Webhooks"
         description="HMAC-SHA256 signed callbacks delivered when chosen events occur. Retried with exponential backoff up to 5 times."
         stats={[{ label: 'Active', value: hooks.filter((h: any) => h.active).length }, { label: 'Total', value: hooks.length }]}
-        actions={<button className="btn-primary" onClick={() => setShowCreate(true)}><Plus className="h-3.5 w-3.5" />New Webhook</button>}
+        actions={perms.integrate ? (<button className="btn-primary" onClick={() => setShowCreate(true)}><Plus className="h-3.5 w-3.5" />New Webhook</button>) : undefined}
       />
 
       {revealedSecret && (

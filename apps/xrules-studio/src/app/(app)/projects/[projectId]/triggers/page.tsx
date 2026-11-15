@@ -5,10 +5,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { PageHead, Table, Td, Tag, Btn, Input, Panel, fmtTime, cronText } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
+import { usePerms } from '@/lib/perms';
 
 const TYPE: Record<string, string> = { schedule: 'Schedule', webhook: 'Webhook', manual: 'Manual', data_sync: 'Data Set sync' };
 
 export default function TriggersPage() {
+  const perms = usePerms();
   const { projectId } = useParams<{ projectId: string }>();
   const router = useRouter(); const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -26,7 +28,7 @@ export default function TriggersPage() {
   });
   return (
     <div className="px-8 py-6">
-      <PageHead title="Triggers" sub={`${rows.length} triggers · started on a schedule, by webhook or by hand · includes Data Set syncs`} actions={<Btn onClick={() => setOpen(o => !o)}>New Trigger</Btn>} />
+      <PageHead title="Triggers" sub={`${rows.length} triggers · started on a schedule, by webhook or by hand · includes Data Set syncs`} actions={perms.integrate ? (<Btn onClick={() => setOpen(o => !o)}>New Trigger</Btn>) : undefined} />
       {open && (
         <Panel title="New trigger" className="mb-4">
           <div className="grid grid-cols-3 gap-4">

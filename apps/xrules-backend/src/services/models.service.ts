@@ -37,7 +37,7 @@ async function assertProjectAccess(idOrSlug: string, user: AuthUser, write = fal
     where: { workspaceId: project.workspaceId, userId: user.userId },
   });
   if (!m) throw new ForbiddenError('Access denied');
-  if (write && m.role !== 'OWNER' && m.role !== 'ADMIN' && m.role !== 'MEMBER') {
+  if (write && m.role !== 'OWNER' && m.role !== 'ADMIN' && m.role !== 'MEMBER' && m.role !== 'INTEGRATOR') {
     throw new ForbiddenError('Insufficient permissions');
   }
   return project;

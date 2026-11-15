@@ -7,6 +7,7 @@ import { X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { PageHead, Table, Td, Tag, Btn, fmtTime } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
+import { usePerms } from '@/lib/perms';
 
 const TYPES = [
   { value: 'oracle', label: 'Oracle', fields: [['host', 'Host'], ['port', 'Port'], ['serviceName', 'Service name'], ['user', 'User'], ['password', 'Password', 1]] },
@@ -18,6 +19,7 @@ const TYPES = [
 const ENVS = ['UAT', 'PROD'];
 
 export default function ConnectionsPage() {
+  const perms = usePerms();
   const { projectId } = useParams<{ projectId: string }>();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -27,7 +29,7 @@ export default function ConnectionsPage() {
 
   return (
     <div className="px-8 py-6">
-      <PageHead title="Connections" sub="Encrypted secrets · separate UAT / PROD settings · read-only access" actions={<Btn onClick={() => setOpen(true)}>New Connection</Btn>} />
+      <PageHead title="Connections" sub="Encrypted secrets · separate UAT / PROD settings · read-only access" actions={perms.integrate ? (<Btn onClick={() => setOpen(true)}>New Connection</Btn>) : undefined} />
       <Table head={['Connection', 'Type', 'Last test', 'Read-only', '']}
         empty={!rows.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">No connections yet</div> : null}>
         {rows.map((c: any) => {

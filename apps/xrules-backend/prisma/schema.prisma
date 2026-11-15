@@ -70,6 +70,8 @@ model WorkspaceMember {
   workspaceId String
   userId      String
   role        WorkspaceRole @default(MEMBER)
+  // may approve reviews (four-eyes still applies); owners and admins always may
+  canApprove  Boolean       @default(false)
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -83,6 +85,7 @@ model WorkspaceMember {
 enum WorkspaceRole {
   OWNER
   ADMIN
+  INTEGRATOR // member who may also change the tenant's Integration hub
   MEMBER
   VIEWER
 }
