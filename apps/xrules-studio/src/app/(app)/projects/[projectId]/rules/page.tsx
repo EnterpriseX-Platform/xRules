@@ -14,6 +14,8 @@ import { StatusPill, Pill } from '@/components/ui/Pill';
 import { rulesApi, api } from '@/lib/api';
 import { NewRuleDialog } from '@/components/rule/NewRuleDialog';
 import { usePerms } from '@/lib/perms';
+import { Select } from '@/components/ui/Select';
+import { FolderPanel, flatten, subtreeIds, DRAG_TYPE } from '@/components/rule/FolderPanel';
 
 const TYPE_TONE: Record<string, any> = {
   DECISION_TABLE: 'info',
@@ -78,10 +80,13 @@ export default function RulesPage() {
     queryFn: () => api.get<any[]>(`/folders?project_id=${projectId}`),
   });
 
+  const inFolder = folderId ? subtreeIds(folders, folderId) : new Set<string>();
+  const folderList = flatten(folders);
+  const moveTo = async (ruleId: string, to: string) => { await api.post('/folders/move-item', { kind: 'rule', itemId: ruleId, folderId: to || null }); qc.invalidateQueries({ queryKey: ['rules', projectId] }); qc.invalidateQueries({ queryKey: ['folders', projectId] }); };
   const filtered = rules.filter((r: any) =>
     (!search || r.name.toLowerCase().includes(search.toLowerCase()) || r.slug.includes(search.toLowerCase()))
     && (!typeFilter || String(r.type || '').toUpperCase() === typeFilter)
-    && (folderId === null || r.folderId === folderId),
+    && (folderId === null || (!!r.folderId && inFolder.has(r.folderId))),
   );
 
   const stats = {
@@ -126,26 +131,8 @@ export default function RulesPage() {
         }
       />
 
-      <div className="grid grid-cols-1 xl:grid-cols-[220px_1fr] gap-3">
-        {/* Folder tree */}
-        <div className="card p-2">
-          <div className="flex items-center justify-between px-2 py-1">
-            <span className="label-section flex items-center gap-1.5"><FolderTree className="h-3 w-3" />Folders</span>
-            <button className="btn-ghost p-0 text-xs" onClick={async () => {
-              const name = prompt('Folder name');
-              if (!name) return;
-              await api.post('/folders', { projectId, name });
-              qc.invalidateQueries({ queryKey: ['folders', projectId] });
-            }} title="New folder"><FolderPlus className="h-3 w-3" /></button>
-          </div>
-          <button
-            className={`w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted/50 ${folderId === null ? 'bg-muted text-text' : 'text-subtle'}`}
-            onClick={() => setFolderId(null)}
-          >
-            <FileText className="h-3 w-3 inline mr-1.5" />All rules ({rules.length})
-          </button>
-          <FolderTreeView folders={folders} folderId={folderId} setFolderId={setFolderId} depth={0} parentId={null} />
-        </div>
+      <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr] gap-3">
+        <FolderPanel projectId={projectId} folders={folders} rules={rules} folderId={folderId} setFolderId={setFolderId} canWrite={!!perms.write} />
 
         {/* Main */}
         <div>
@@ -190,15 +177,16 @@ export default function RulesPage() {
               <th className="py-3 px-2 label-section w-10"></th>
               <th className="py-3 px-4 label-section">Rule</th>
               <th className="py-3 px-4 label-section">Type</th>
+              <th className="py-3 px-4 label-section">Folder</th>
               <th className="py-3 px-4 label-section">Status</th>
               <th className="py-3 px-4 label-section text-right">Version</th>
               <th className="py-3 px-4 label-section w-12"></th>
             </tr>
           </thead>
           <tbody>
-            {isLoading && <tr><td colSpan={7} className="text-center py-12 text-subtle font-mono text-sm">Loading…</td></tr>}
+            {isLoading && <tr><td colSpan={8} className="text-center py-12 text-subtle font-mono text-sm">Loading…</td></tr>}
             {!isLoading && filtered.length === 0 && (
-              <tr><td colSpan={7} className="text-center py-16">
+              <tr><td colSpan={8} className="text-center py-16">
                 <div className="max-w-sm mx-auto">
                   <div className="h-14 w-14 mx-auto rounded-full bg-accent/10 flex items-center justify-center mb-3">
                     <FileText className="h-6 w-6 text-accent" />
@@ -219,7 +207,8 @@ export default function RulesPage() {
               const Icon = TYPE_ICON[T] || FileText;
               const tone = TYPE_TONE[T] || 'subtle';
               return (
-              <tr key={r.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+              <tr key={r.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors"
+                draggable={!!perms.write} onDragStart={e => { e.dataTransfer.setData(DRAG_TYPE, r.id); e.dataTransfer.effectAllowed = 'move'; }}>
                 <td className="py-3 px-4 row-index">{String(i + 1).padStart(2, '0')}</td>
                 <td className="py-3 px-2">
                   <div className={`h-7 w-7 rounded flex items-center justify-center border ${TYPE_ICON_CLS[tone] || TYPE_ICON_CLS.subtle}`}>
@@ -234,6 +223,14 @@ export default function RulesPage() {
                 </td>
                 <td className="py-3 px-4">
                   <Pill tone={tone}>{T.replace('_', ' ')}</Pill>
+                </td>
+                <td className="py-3 px-4 w-48">
+                  {perms.write
+                    ? <Select aria-label={`Folder of ${r.name}`} value={r.folderId || ''} onChange={e => moveTo(r.id, e.target.value)} className="h-8 text-xs w-44">
+                        <option value="">—</option>
+                        {folderList.map(f => <option key={f.id} value={f.id}>{f.path}</option>)}
+                      </Select>
+                    : <span className="text-xs text-subtle">{folderList.find(f => f.id === r.folderId)?.path || '—'}</span>}
                 </td>
                 <td className="py-3 px-4"><StatusPill status={r.status} /></td>
                 <td className="py-3 px-4 text-right font-mono text-xs text-subtle tabular-nums">v{r.version}</td>
@@ -286,32 +283,3 @@ function TypeChip({ current, value, projectId, tone, children }: {
     <Link href={href} className={`pill border ${toneCls}`}>{children}</Link>
   );
 }
-
-interface TreeNode { id: string; name: string; parentId: string | null; ruleCount: number; flowCount: number; children?: TreeNode[] }
-
-function FolderTreeView({ folders, folderId, setFolderId, depth, parentId }: {
-  folders: TreeNode[]; folderId: string | null; setFolderId: (id: string | null) => void;
-  depth: number; parentId: string | null;
-}) {
-  const here = folders.filter(f => f.parentId === parentId);
-  if (here.length === 0) return null;
-  return (
-    <div>
-      {here.map(f => (
-        <div key={f.id}>
-          <button
-            className={`w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted/50 truncate ${folderId === f.id ? 'bg-muted text-text' : 'text-subtle'}`}
-            style={{ paddingLeft: `${8 + depth * 12}px` }}
-            onClick={() => setFolderId(f.id)}
-          >
-            <Folder className="h-3 w-3 inline mr-1.5" />
-            {f.name}
-            <span className="ml-1 text-[10px] text-subtle/70">({f.ruleCount + f.flowCount})</span>
-          </button>
-          <FolderTreeView folders={folders} folderId={folderId} setFolderId={setFolderId} depth={depth + 1} parentId={f.id} />
-        </div>
-      ))}
-    </div>
-  );
-}
-

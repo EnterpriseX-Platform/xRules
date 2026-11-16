@@ -9,6 +9,7 @@ CREATE TEMP TABLE opf AS SELECT "flowId" AS id FROM api_operations WHERE "specId
 DELETE FROM api_specs WHERE id IN (SELECT id FROM sp);
 DELETE FROM flows WHERE id IN (SELECT id FROM opf) OR ("projectId" IN (SELECT id FROM pr) AND slug LIKE 'e2e-%');
 DELETE FROM rules WHERE "projectId" IN (SELECT id FROM pr) AND slug LIKE 'e2e-%';
+DELETE FROM folders WHERE "projectId" IN (SELECT id FROM pr) AND name LIKE 'e2e %';
 DELETE FROM models WHERE "projectId" IN (SELECT id FROM pr) AND (name LIKE 'e2e %' OR slug LIKE 'ml-smoke-%');
 DELETE FROM rules WHERE "projectId" IN (SELECT id FROM pr) AND slug LIKE 'ml-smoke-%';
 DELETE FROM datasets WHERE "projectId" IN (SELECT id FROM pr) AND (slug LIKE 'ml-requests-%' OR slug LIKE 'ml-smoke-%');

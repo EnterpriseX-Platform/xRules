@@ -57,7 +57,8 @@ export async function create(
   user: AuthUser,
 ) {
   if (!data.name) throw new ValidationError('name required');
-  await assertProjectAccess(data.projectId, user, 'write');
+  const project = await assertProjectAccess(data.projectId, user, 'write');
+  data = { ...data, projectId: project.id };
 
   if (data.parentId) {
     const parent = await prisma.folder.findUnique({ where: { id: data.parentId } });
@@ -120,8 +121,16 @@ export async function remove(id: string, user: AuthUser) {
   const f = await prisma.folder.findUnique({ where: { id } });
   if (!f) throw new NotFoundError('Folder');
   await assertProjectAccess(f.projectId, user, 'write');
-  // Cascade deletes children due to relation onDelete: Cascade.
-  await prisma.folder.delete({ where: { id } });
+  // Like a package: removing a folder never removes rules. Everything inside the folder and its
+  // sub-folders moves up to the parent; the sub-folders themselves go with the folder.
+  const all = await prisma.folder.findMany({ where: { projectId: f.projectId }, select: { id: true, parentId: true } });
+  const ids = [id];
+  for (let i = 0; i < ids.length; i++) all.filter(x => x.parentId === ids[i]).forEach(x => ids.push(x.id));
+  await prisma.$transaction([
+    prisma.rule.updateMany({ where: { folderId: { in: ids } }, data: { folderId: f.parentId } }),
+    prisma.flow.updateMany({ where: { folderId: { in: ids } }, data: { folderId: f.parentId } }),
+    prisma.folder.delete({ where: { id } }),
+  ]);
 }
 
 // Move a rule or flow into a folder (or to root by passing null).
