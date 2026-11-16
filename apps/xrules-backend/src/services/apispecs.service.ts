@@ -74,7 +74,7 @@ export async function addOperation(specId: string, data: { method: string; path:
     projectId: s.projectId, name: `${method} ${path}`, slug, kind: 'API',
     graph: { nodes: [
       { id: 'in', type: 'apiInput', position: { x: 40, y: 60 }, data: { label: `${method} ${path}` } },
-      { id: 'out', type: 'apiResponse', position: { x: 640, y: 60 }, data: { label: 'API Response', status: 200, body: '{{input.body}}' } }],
+      { id: 'out', type: 'apiResponse', position: { x: 640, y: 60 }, data: { label: 'API Response', status: 200 } }],
       edges: [{ id: 'e1', source: 'in', target: 'out' }] },
   } });
   const op = await prisma.apiOperation.create({ data: { specId, method, path, summary: data.summary, requestSchema: data.requestSchema, responseSchema: data.responseSchema, flowId: flow.id }, include: { flow: true } });
