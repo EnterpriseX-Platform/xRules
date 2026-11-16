@@ -157,6 +157,11 @@ router.post('/rules/:id/execute', apiKeyAuthMiddleware, async (req: Request, res
       res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'API key does not have execute scope' } });
       return;
     }
+    // a key limited to chosen REST APIs may call only those, never a rule directly
+    if ((req.apiKey as any).specIds?.length) {
+      res.status(403).json({ success: false, error: { code: 'KEY_LIMITED_TO_APIS', message: 'This API key may only call its REST APIs' } });
+      return;
+    }
     const rule = await resolveRule(req.params.id, req.apiKey!.workspaceId);
     if (!rule) throw new NotFoundError('Rule');
     if (rule.project.workspaceId !== req.apiKey!.workspaceId) {
@@ -191,6 +196,11 @@ router.post('/flows/:slug/execute', apiKeyAuthMiddleware, async (req: Request, r
   try {
     if (!req.apiKey!.scopes.includes('execute')) {
       res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'API key does not have execute scope' } });
+      return;
+    }
+    // a key limited to chosen REST APIs may call only those, never a rule directly
+    if ((req.apiKey as any).specIds?.length) {
+      res.status(403).json({ success: false, error: { code: 'KEY_LIMITED_TO_APIS', message: 'This API key may only call its REST APIs' } });
       return;
     }
     const flow = await resolveFlow(req.params.slug, req.apiKey!.workspaceId);
