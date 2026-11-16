@@ -144,6 +144,15 @@ interface FlowGraph {
 
 type SolveFn = (slugOrId: string, input: any) => Promise<any>;
 
+// In an API flow the input is the whole request; a rule without an input map gets its data —
+// path parameters, query and JSON body merged — not the envelope.
+function ruleInput(input: any): any {
+  const isRequest = input && typeof input === 'object' && 'body' in input && 'headers' in input;
+  if (!isRequest) return input;
+  const body = input.body && typeof input.body === 'object' && !Array.isArray(input.body) ? input.body : {};
+  return { ...(input.params || {}), ...(input.query || {}), ...body };
+}
+
 const TEMPLATE_RE = /\{\{\s*([^{}]+?)\s*\}\}/g;
 
 // "{{input.amount}}" / "{{customer.tier}}" → value from context
@@ -288,7 +297,7 @@ export async function runFlow(graph: FlowGraph, input: any, solve: SolveFn, opts
         const slug = data.ruleSlug || data.rule || data.slug;
         if (!slug) throw new Error(`ruleCall node '${cur.id}' missing data.ruleSlug`);
         if (shouldSkip(data, ctx)) { stepStatus = 'skipped'; stepNote = 'reference data not available'; break; }
-        const mappedInput = data.inputMap ? renderObject(data.inputMap, ctx) : ctx.input;
+        const mappedInput = data.inputMap ? renderObject(data.inputMap, ctx) : ruleInput(ctx.input);
         const out = await solve(String(slug), mappedInput);
         const key = data.outputAs || slug.toString().replace(/-/g, '_');
         ctx[key] = out;
@@ -421,7 +430,7 @@ async function runBranch(
     if (kind === 'rulecall') {
       const slug = data.ruleSlug || data.rule || data.slug;
       if (slug && !shouldSkip(data, ctx)) {
-        const mappedInput = data.inputMap ? renderObject(data.inputMap, ctx) : ctx.input;
+        const mappedInput = data.inputMap ? renderObject(data.inputMap, ctx) : ruleInput(ctx.input);
         const out = await solve(String(slug), mappedInput);
         const key = data.outputAs || String(slug).replace(/-/g, '_');
         ctx[key] = out;
