@@ -342,13 +342,22 @@ function ColumnHeader({ col, side, inputSchema, onUpdate, onRemove }: {
             </Select>
           ) : (
             <input
+              aria-label="Column name"
               className="bg-transparent border-0 outline-none text-text font-mono text-xs w-full p-0"
               value={col.name}
+              onFocus={(e) => e.currentTarget.select()}
               onChange={(e) => onUpdate({ ...col, name: e.target.value })}
             />
           )}
-          <div className="text-[9px] uppercase tracking-label text-subtle mt-0.5">
-            {side === 'condition' ? 'condition' : 'result'} · {col.type}
+          <div className="flex items-center gap-1 mt-0.5 text-[10px] uppercase text-subtle">
+            <span>{side === 'condition' ? 'condition' : 'result'} ·</span>
+            <Select aria-label={`Type of ${col.name}`} value={col.type || 'string'} onChange={(e) => onUpdate({ ...col, type: e.target.value })}
+              className="w-24 h-6 text-[11px] !bg-transparent !border-0 !px-1">
+              <option value="string">string</option>
+              <option value="number">number</option>
+              <option value="boolean">boolean</option>
+              <option value="date">date</option>
+            </Select>
           </div>
         </div>
         <button className="btn-ghost p-0.5 opacity-50 hover:opacity-100" onClick={onRemove} title="Remove column">
@@ -379,7 +388,8 @@ function Cell({ side, value, onChange }: { side: ColumnSide; value: any; onChang
   return (
     <div className="flex items-center gap-1 px-1 py-1">
       <Select
-        className="bg-transparent border-0 outline-none text-[11px] font-mono text-text cursor-pointer"
+        aria-label="Operator"
+        className="w-24 shrink-0 h-8 text-[12px] font-mono"
         value={parsed.operator}
         onChange={(e) => setOp(e.target.value)}
       >
@@ -387,7 +397,8 @@ function Cell({ side, value, onChange }: { side: ColumnSide; value: any; onChang
       </Select>
       {opSpec.argCount >= 1 && (
         <input
-          className="bg-transparent border-0 outline-none text-[11px] font-mono text-text flex-1 min-w-0"
+          aria-label="Condition value"
+          className="h-8 px-2 bg-white border-b border-[#8d8d8d] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2 text-[12px] font-mono text-text flex-1 min-w-[60px]"
           placeholder="value"
           value={parsed.args[0] ?? ''}
           onChange={(e) => setArg(0, e.target.value)}
@@ -397,7 +408,8 @@ function Cell({ side, value, onChange }: { side: ColumnSide; value: any; onChang
         <>
           <span className="text-[10px] text-subtle">AND</span>
           <input
-            className="bg-transparent border-0 outline-none text-[11px] font-mono text-text flex-1 min-w-0"
+            aria-label="Condition value 2"
+            className="h-8 px-2 bg-white border-b border-[#8d8d8d] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2 text-[12px] font-mono text-text flex-1 min-w-[60px]"
             placeholder="value"
             value={parsed.args[1] ?? ''}
             onChange={(e) => setArg(1, e.target.value)}

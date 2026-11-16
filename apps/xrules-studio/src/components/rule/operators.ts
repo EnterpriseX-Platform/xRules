@@ -51,16 +51,18 @@ export function parseCellExpression(raw: any): { operator: string; args: any[] }
   if (raw === null || raw === undefined) return { operator: 'ANY', args: [] };
   if (typeof raw !== 'string') return { operator: '=', args: [raw] };
   const s = raw.trim();
-  if (s === '-' || s === '' || s === 'ANY') return { operator: 'ANY', args: [] };
-  if (s === 'ELSE' || s === '_else_') return { operator: 'ELSE', args: [] };
+  const u = s.toUpperCase();
+  if (s === '-' || s === '' || u === 'ANY') return { operator: 'ANY', args: [] };
+  if (u === 'ELSE' || s === '_else_') return { operator: 'ELSE', args: [] };
   if (s === 'NULL' || s === 'null') return { operator: 'NULL', args: [] };
   if (s === '!NULL' || s === 'not null') return { operator: '!NULL', args: [] };
 
-  const btw = s.match(/^(\!?BTW(?:\s+LO|\s+RO)?)\s+(.+?)\s+AND\s+(.+)$/i);
-  if (btw) return { operator: btw[1].toUpperCase(), args: [btw[2].trim(), btw[3].trim()] };
+  const btw = s.match(/^(\!?BTW(?:\s+LO|\s+RO)?)\s*(.*?)\s+AND\s*(.*)$/i) || s.match(/^(\!?BTW(?:\s+LO|\s+RO)?)$/i);
+  if (btw) return { operator: btw[1].toUpperCase().replace(/\s+/g, ' '), args: [(btw[2] ?? '').trim(), (btw[3] ?? '').trim()] };
 
-  const cmp = s.match(/^(>=|<=|>|<|!=|=|!IN|IN|C TXT|C IN|!C IN|EQ ARR)\s+(.+)$/);
-  if (cmp) return { operator: cmp[1].toUpperCase(), args: [cmp[2].trim()] };
+  // operator with or without its value yet ("> " while the user is still typing the number)
+  const cmp = s.match(/^(>=|<=|!=|>|<|=|!IN|IN|C TXT|C IN|!C IN|EQ ARR)(?:\s+(.*))?$/i);
+  if (cmp) return { operator: cmp[1].toUpperCase(), args: [(cmp[2] ?? '').trim()] };
 
   // Bare value — treat as equality
   return { operator: '=', args: [s] };
