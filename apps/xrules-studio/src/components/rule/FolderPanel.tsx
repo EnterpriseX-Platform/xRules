@@ -64,10 +64,11 @@ export function FolderPanel({ projectId, folders, rules, folderId, setFolderId, 
   const row = (sel: boolean, key: string) =>
     `group flex items-center h-8 pr-1 text-[13px] cursor-pointer ${over === key ? 'outline outline-2 -outline-offset-2 outline-[#0f62fe] bg-[#edf5ff]' : sel ? 'bg-[#e0e0e0] text-[#161616] font-semibold' : 'text-[#393939] hover:bg-[#e8e8e8]'}`;
 
-  function Node({ f, depth }: { f: FolderNode; depth: number }) {
+  // a plain render function (not a component) so rows keep their DOM while dragging over them
+  function node(f: FolderNode, depth: number): React.ReactNode {
     const isOpen = open.has(f.id); const kids = f.children || [];
     return (
-      <div>
+      <div key={f.id}>
         {renaming === f.id ? (
           <NameInput initial={f.name} depth={depth} onCancel={() => setRenaming(null)}
             onSave={name => run(async () => { await api.patch(`/folders/${f.id}/rename`, { name }); setRenaming(null); })} />
@@ -99,7 +100,7 @@ export function FolderPanel({ projectId, folders, rules, folderId, setFolderId, 
             </span>}
           </div>
         )}
-        {isOpen && kids.map(k => <Node key={k.id} f={k} depth={depth + 1} />)}
+        {isOpen && kids.map(k => node(k, depth + 1))}
         {creating?.parentId === f.id && <NameInput depth={depth + 1} onCancel={() => setCreating(null)}
           onSave={name => run(async () => { await api.post('/folders', { projectId, name, parentId: f.id }); setCreating(null); })} />}
       </div>
@@ -118,7 +119,7 @@ export function FolderPanel({ projectId, folders, rules, folderId, setFolderId, 
           <FileText className="h-4 w-4 mr-2 shrink-0" /><span className="flex-1">All rules</span>
           <span className="text-[12px] text-[#6f6f6f] tabular-nums px-2 font-normal">{rules.length}</span>
         </div>
-        {folders.map(f => <Node key={f.id} f={f} depth={0} />)}
+        {folders.map(f => node(f, 0))}
         {creating?.parentId === null && <NameInput depth={0} onCancel={() => setCreating(null)}
           onSave={name => run(async () => { await api.post('/folders', { projectId, name }); setCreating(null); })} />}
       </div>
