@@ -161,11 +161,14 @@ function bestHref(pathname: string): string | null {
   for (const it of ALL_ITEMS) {
     const [path, qs] = it.href.split('?');
     if (!(pathname === path || pathname.startsWith(path + '/'))) continue;
+    if (path === '/projects' && pathname !== path) continue;   // Admin › Projects is the list only
     const itKind = qs ? new URLSearchParams(qs).get('kind') : null;
     if (itKind && kind && itKind.toLowerCase() !== kind.toLowerCase()) continue;
     const score = path.length * 2 + (itKind && kind ? 1 : 0);
     if (score > bestScore) { best = it; bestScore = score; }
   }
+  // pages inside the Integration hub without their own menu item (an API operation's flow) belong to REST APIs
+  if (!best && pathname.startsWith('/projects/_integration/')) return ALL_ITEMS.find(i => i.href.endsWith('/_integration/apis'))?.href ?? null;
   return best?.href ?? null;
 }
 

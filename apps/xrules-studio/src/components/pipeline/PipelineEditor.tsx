@@ -103,13 +103,28 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
   const updateNode = (id: string, data: any) => { setNodes(ns => ns.map(n => n.id === id ? { ...n, data } : n)); setDirty(true); };
   const removeNode = (id: string) => { commit(nodes.filter(n => n.id !== id), edges.filter(e => e.source !== id && e.target !== id)); setSelectedId(null); };
 
+  // A new step goes after the selected step (or the last one) — and before an end step such as
+  // API Response, so Input → Rule → Response instead of Input → Response → Rule.
+  const isEnd = (n: Node) => /response|output/i.test(String(n.type));
   const addStep = (k: string) => {
     const m = metaFor(k); const id = `${k}-${Date.now().toString(36)}`;
-    const last = selectedId ? nodes.find(n => n.id === selectedId) : [...nodes].sort((a, b) => b.position.x - a.position.x)[0];
-    const pos = last ? { x: last.position.x + 300, y: last.position.y } : { x: 40, y: 60 };
+    const rightmost = [...nodes].sort((a, b) => b.position.x - a.position.x)[0];
+    let from = selectedId ? nodes.find(n => n.id === selectedId) : rightmost;
+    if (from && isEnd(from) && !selectedId) from = nodes.find(n => edges.some(e => e.source === n.id && e.target === from!.id)) ?? from;
+    const nextEdge = from ? edges.find(e => e.source === from!.id) : undefined;
+    const next = nextEdge ? nodes.find(n => n.id === nextEdge.target) : undefined;
+    const pos = from ? { x: from.position.x + 300, y: from.position.y } : { x: 40, y: 60 };
     const n: Node = { id, type: k, position: pos, data: { label: m.title } };
-    const es = last ? [...edges, { ...EDGE, id: `${last.id}-${id}`, source: last.id, target: id } as Edge] : edges;
-    commit([...nodes, n], es); setSelectedId(id); setAddOpen(false);
+    let es = edges;
+    let ns = [...nodes];
+    if (from && next) {
+      // insert between: from → new → next, and move everything right of the new step along
+      es = [...edges.filter(e => e !== nextEdge), { ...EDGE, id: `${from.id}-${id}`, source: from.id, target: id } as Edge, { ...EDGE, id: `${id}-${next.id}`, source: id, target: next.id } as Edge];
+      ns = ns.map(x => (x.position.x >= pos.x - 1 ? { ...x, position: { ...x.position, x: x.position.x + 300 } } : x));
+    } else if (from) {
+      es = [...edges, { ...EDGE, id: `${from.id}-${id}`, source: from.id, target: id } as Edge];
+    }
+    commit([...ns, n], es); setSelectedId(id); setAddOpen(false);
   };
 
   const graphToSave = () => ({

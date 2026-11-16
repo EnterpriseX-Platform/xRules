@@ -501,66 +501,35 @@ function SimulateTab({ rule, projectId }: { rule: any; projectId: string }) {
 }
 
 function ApiTab({ rule }: { rule: any }) {
-  const url = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}/api/v1/rules/${rule.slug || rule.id}/execute`;
-  const curl = `curl -X POST '${url}' \\
-  -H 'Content-Type: application/json' \\
-  -H 'X-API-Key: YOUR_API_KEY' \\
-  -d '${JSON.stringify({ input: {} })}'`;
-
-  const ts = `import { XRulesClient } from '@xrules/sdk';
-
-const client = new XRulesClient({
-  baseUrl: '${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}',
-  apiKey: process.env.XRULES_API_KEY!,
-});
-
-const result = await client.execute('${rule.slug}', { /* input */ });
-console.log(result.output);`;
-
-  const py = `from xrules import XRulesClient
-
-client = XRulesClient(
-    base_url="${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}",
-    api_key=os.environ["XRULES_API_KEY"],
-)
-
-result = client.execute("${rule.slug}", {})
-print(result["output"])`;
-
-  const [tab, setTab] = useState<'curl' | 'ts' | 'python' | 'openapi'>('curl');
-
-  const { data: spec } = useQuery({
-    queryKey: ['openapi', rule.id],
-    queryFn: () => rulesApi.openapi(rule.id),
-    enabled: tab === 'openapi',
-  });
-
+  // Outside systems call a rule through a REST API (Integration › REST APIs) with a key that may call that API.
+  const { data } = useQuery({ queryKey: ['used-by', 'rule', rule.id], queryFn: () => api.get<any>(`/rules/${rule.id}/used-by`) });
+  const [tenant] = useState(() => { try { return JSON.parse(localStorage.getItem('xrules-auth') || '{}')?.state?.workspace?.slug || ''; } catch { return ''; } });
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const apiBase = `${origin}${process.env.NEXT_PUBLIC_BACKEND_URL || ''}/api/${tenant}`;
+  const sample: Record<string, any> = {};
+  ((rule.definition as any)?.inputs || []).forEach((c: any) => { if (c?.name) sample[c.name] = c.type === 'number' ? 0 : ''; });
+  const ops: any[] = data?.operations || [];
   return (
     <div className="space-y-4">
-      <div className="card p-4">
-        <div className="label-section mb-2">Execute Endpoint</div>
-        <div className="font-mono text-sm bg-muted p-3 rounded mb-3 break-all">
-          <span className="text-accent">POST</span>{' '}
-          <span className="text-text">{url}</span>
+      {ops.length === 0 && (
+        <div className="card p-4 flex items-center justify-between gap-4">
+          <div className="text-[14px] text-[#161616]">Not on a REST API yet</div>
+          <Link href="/projects/_integration/apis" className="btn-primary">REST APIs</Link>
         </div>
-        <p className="text-xs text-subtle">
-          Authentication via <code className="font-mono text-text bg-muted px-1.5 py-0.5 rounded">X-API-Key</code> header.
-          Input validated against the rule&apos;s Input Schema.
-        </p>
-      </div>
-
-      <div className="card overflow-hidden">
-        <div className="px-4 border-b border-border tabs-row mt-2 mb-2 ml-4">
-          {(['curl', 'ts', 'python', 'openapi'] as const).map((t) => (
-            <button key={t} className={`tab ${tab === t ? 'tab-active' : ''}`} onClick={() => setTab(t)}>
-              {t}
-            </button>
-          ))}
-        </div>
-        <pre className="p-4 overflow-x-auto text-xs font-mono text-text bg-muted/30 m-0">
-          {tab === 'curl' ? curl : tab === 'ts' ? ts : tab === 'python' ? py : JSON.stringify(spec, null, 2)}
-        </pre>
-      </div>
+      )}
+      {ops.map((o: any) => {
+        const url = `${apiBase}/${o.spec.basePath}/v${o.spec.version}${o.path}`;
+        const curl = `curl -X ${o.method} '${url}' \\\n  -H 'Content-Type: application/json' \\\n  -H 'X-API-Key: YOUR_API_KEY'${o.method === 'GET' ? '' : ` \\\n  -d '${JSON.stringify(sample)}'`}`;
+        return (
+          <div key={o.id} className="card p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="font-mono text-[14px] break-all"><span className="text-[#0f62fe]">{o.method}</span> {url}</div>
+              <Link href={`/projects/_integration/apis/${o.spec.id}`} className="btn-ghost">Open API</Link>
+            </div>
+            <pre className="p-3 overflow-x-auto text-xs font-mono text-text bg-[#f4f4f4] m-0">{curl}</pre>
+          </div>
+        );
+      })}
     </div>
   );
 }

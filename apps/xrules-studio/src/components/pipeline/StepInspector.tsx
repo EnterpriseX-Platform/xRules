@@ -36,8 +36,10 @@ export function StepInspector({ node, projectId, onChange, onRemove, onClose }: 
   const needsSets = k === 'join' || k === 'enrich' || k === 'write' || k === 'lookup';
   const { data: conns } = useQuery({ queryKey: ['connections', projectId], queryFn: () => api.get<any[]>(`/connections?project_id=${projectId}`), enabled: needsConns });
   const { data: sets } = useQuery({ queryKey: ['datasets', projectId], queryFn: () => api.get<any[]>(`/datasets?project_id=${projectId}`), enabled: needsSets });
-  const { data: rules } = useQuery({ queryKey: ['rules', projectId], queryFn: () => rulesApi.list(projectId), enabled: k === 'ruleCall' || k === 'rulecall' });
+  // rules from every project the user can see; another project's rule is referenced as <project>/<slug>
+  const { data: rules } = useQuery({ queryKey: ['rules', '_all'], queryFn: () => rulesApi.list('_all'), enabled: k === 'ruleCall' || k === 'rulecall' });
   const ruleList: any[] = Array.isArray(rules) ? rules : ((rules as any)?.data || (rules as any)?.items || []);
+  const ruleRef = (r: any) => (r.project?.slug && r.project.slug !== projectId && r.projectId !== projectId ? `${r.project.slug}/${r.slug}` : r.slug);
   const setOpts = (sets || []).map((s: any) => ({ value: s.slug, label: s.slug, hint: s.rowCount ? `${s.rowCount} rows` : undefined }));
 
   return (
@@ -116,7 +118,7 @@ export function StepInspector({ node, projectId, onChange, onRemove, onClose }: 
         </>}
 
         {(k === 'ruleCall' || k === 'rulecall') && <>
-          <Field label="Rule"><Dropdown value={d.ruleSlug} onChange={v => set({ ruleSlug: v })} options={ruleList.map((r: any) => ({ value: r.slug, label: r.name || r.slug, hint: r.type }))} /></Field>
+          <Field label="Rule"><Dropdown value={d.ruleSlug} onChange={v => set({ ruleSlug: v })} options={ruleList.map((r: any) => ({ value: ruleRef(r), label: r.name || r.slug, hint: r.project?.name ? `${r.project.name} · ${r.type}` : r.type }))} /></Field>
           <Field label="Rule code (adds its results to Findings)" htmlFor="st-rcode"><Text id="st-rcode" mono value={d.ruleCode} onChange={(v: string) => set({ ruleCode: v })} placeholder="TOR-4.4.1.4" /></Field>
           <Field label="Level when failed"><Dropdown value={d.severity || 'ERROR'} onChange={v => set({ severity: v })} options={[{ value: 'ERROR', label: 'ERROR · blocks submission' }, { value: 'WARNING', label: 'WARNING · allows submission' }]} /></Field>
           <Field label="Store result as" htmlFor="st-oa"><Text id="st-oa" mono value={d.outputAs} onChange={(v: string) => set({ outputAs: v })} /></Field>
