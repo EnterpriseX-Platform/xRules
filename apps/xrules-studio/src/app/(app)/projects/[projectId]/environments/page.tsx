@@ -6,6 +6,7 @@ import { GitBranch, Plus } from 'lucide-react';
 import { PageContent, PageHeader } from '@/components/layout/AppShell';
 import { Pill } from '@/components/ui/Pill';
 import { environmentsApi, releasesApi } from '@/lib/api';
+import { Select } from '@/components/ui/Select';
 
 export default function EnvironmentsPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -59,7 +60,7 @@ export default function EnvironmentsPage() {
                    <span className="text-subtle">Pinned release</span>
                    {e.release ? <Pill tone="ok">{e.release.name}</Pill> : <Pill tone="subtle">none</Pill>}
                  </div>
-                 <select
+                 <Select
                    className="input w-full mt-2 text-xs"
                    value={e.releaseId || ''}
                    onChange={async (ev) => {
@@ -69,7 +70,7 @@ export default function EnvironmentsPage() {
                  >
                    <option value="">— select release —</option>
                    {releases.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                 </select>
+                 </Select>
                </div>
              </div>
            ))}

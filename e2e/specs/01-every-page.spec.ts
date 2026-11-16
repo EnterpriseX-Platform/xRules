@@ -39,6 +39,8 @@ for (const [name, path, title] of PAGES) {
     await expect(page.locator('main h1').first()).toHaveText(title);
     await page.waitForTimeout(2500); // let queries settle (some pages poll, so no networkidle)
     await noErrorOnScreen(page);
+    await expect(page.locator('select'), 'no native select').toHaveCount(0);
+    await expect(page.locator('input[type=file]:visible'), 'no native file picker').toHaveCount(0);
     await shot(page, `01-${name}`);
   });
 }

@@ -4,6 +4,7 @@ import { Node } from 'reactflow';
 import { nodeLabel } from './nodeTypes';
 import { useQuery } from '@tanstack/react-query';
 import { rulesApi } from '@/lib/api';
+import { Select } from '@/components/ui/Select';
 
 export function NodeConfig({
   node, projectId, onChange, onDelete,
@@ -51,9 +52,9 @@ export function NodeConfig({
       {node.type === 'http' && (
         <>
           <Field label="Method">
-            <select className="input w-full" value={data.method || 'GET'} onChange={(e) => set({ method: e.target.value })}>
+            <Select className="input w-full" value={data.method || 'GET'} onChange={(e) => set({ method: e.target.value })}>
               <option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option>
-            </select>
+            </Select>
           </Field>
           <Field label="URL">
             <input className="input w-full font-mono text-xs" placeholder="https://api.example.com/users/{{input.userId}}" value={data.url || ''} onChange={(e) => set({ url: e.target.value })} />
@@ -81,10 +82,10 @@ export function NodeConfig({
       {node.type === 'transform' && (
         <>
           <Field label="Language">
-            <select className="input w-full" value={data.language || 'jsonata'} onChange={(e) => set({ language: e.target.value })}>
+            <Select className="input w-full" value={data.language || 'jsonata'} onChange={(e) => set({ language: e.target.value })}>
               <option value="jsonata">JSONata</option>
               <option value="jsonpath">JSONPath</option>
-            </select>
+            </Select>
           </Field>
           <Field label="Expression">
             <textarea className="input w-full h-32 py-2 font-mono text-xs" placeholder='{"score": input.amount * 0.1}' value={data.expression || ''} onChange={(e) => set({ expression: e.target.value })} />
@@ -130,7 +131,7 @@ function RuleCallEditor({ projectId, data, set }: { projectId: string; data: any
   });
   return (
     <Field label="Rule">
-      <select
+      <Select
         className="input w-full"
         value={data.ruleId || ''}
         onChange={(e) => {
@@ -142,7 +143,7 @@ function RuleCallEditor({ projectId, data, set }: { projectId: string; data: any
         {rules.map((r: any) => (
           <option key={r.id} value={r.id}>{r.name} ({r.slug})</option>
         ))}
-      </select>
+      </Select>
     </Field>
   );
 }

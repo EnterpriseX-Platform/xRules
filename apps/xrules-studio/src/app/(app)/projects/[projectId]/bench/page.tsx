@@ -9,6 +9,7 @@ import { Gauge, Play, AlertCircle } from 'lucide-react';
 import { PageContent, PageHeader } from '@/components/layout/AppShell';
 import { TestNav } from '@/components/layout/TestNav';
 import { rulesApi, executeApi } from '@/lib/api';
+import { Select } from '@/components/ui/Select';
 
 interface Result { ms: number; ok: boolean; error?: string }
 
@@ -83,7 +84,7 @@ export default function BenchPage() {
 
           <div>
             <label className="label-section block mb-1.5">Rule</label>
-            <select
+            <Select
               className="input w-full"
               value={ruleId}
               onChange={(e) => setRuleId(e.target.value)}
@@ -94,7 +95,7 @@ export default function BenchPage() {
                   [{r.type.replace('_', ' ').toLowerCase()}] {r.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-2">

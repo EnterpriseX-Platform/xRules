@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Plus, Trash2, ChevronRight, ChevronDown } from 'lucide-react';
 import { OPERATORS, formatCellExpression } from './operators';
 import { cn } from '@/lib/cn';
+import { Select } from '@/components/ui/Select';
 
 interface Cond { field: string; op: string; value?: any; value2?: any }
 interface IfBlock { type: 'if'; conditions: Cond[]; orGroups: Cond[][]; then: TreeNode | null; else: TreeNode | null }
@@ -142,20 +143,20 @@ function CondList({ conds, fields, onChange }: { conds: Cond[]; fields: string[]
       {conds.map((c, i) => (
         <div key={i} className="flex items-center gap-1.5 font-mono text-[11px]">
           {fields.length > 0 ? (
-            <select
+            <Select
               className="input h-7 text-[11px] py-0 px-1.5 flex-1 min-w-0"
               value={c.field}
               onChange={(e) => set(i, { field: e.target.value })}
             >
               <option value="">field…</option>
               {fields.map(f => <option key={f} value={f}>{f}</option>)}
-            </select>
+            </Select>
           ) : (
             <input className="input h-7 text-[11px] py-0 px-1.5 flex-1" placeholder="field" value={c.field} onChange={(e) => set(i, { field: e.target.value })} />
           )}
-          <select className="input h-7 text-[11px] py-0 px-1 w-16" value={c.op} onChange={(e) => set(i, { op: e.target.value })}>
+          <Select className="input h-7 text-[11px] py-0 px-1 w-16" value={c.op} onChange={(e) => set(i, { op: e.target.value })}>
             {OPERATORS.map(o => <option key={o.code} value={o.code}>{o.code}</option>)}
-          </select>
+          </Select>
           <input className="input h-7 text-[11px] py-0 px-1.5 flex-1 min-w-0" placeholder="value" value={c.value ?? ''} onChange={(e) => set(i, { value: e.target.value })} />
           <button className="btn-ghost p-0.5 text-danger" onClick={() => onChange(conds.filter((_, x) => x !== i))}>
             <Trash2 className="h-3 w-3" />
