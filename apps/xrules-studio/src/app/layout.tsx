@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import { Providers } from '@/components/Providers';
-import '@carbon/styles/css/styles.min.css';
 import './globals.css';
 
 const inter = Inter({
@@ -40,7 +39,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="font-sans antialiased cds--g10">
+      <body className="font-sans antialiased">
         <Providers>{children}</Providers>
       </body>
     </html>

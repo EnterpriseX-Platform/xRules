@@ -109,9 +109,12 @@ export default function FlowsPage() {
               const tone = isInt ? 'text-warn bg-warn/10 border-warn/30' : 'text-accent bg-accent/10 border-accent/30';
               return (
                 <div className="flex items-center gap-3">
+                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center border ${tone}`}>
+                    <Icon className="h-4 w-4" strokeWidth={1.8} />
+                  </div>
                   <div>
-                    <div className="text-[14px] text-[#161616]">{f.name}</div>
-                    <div className="text-[12px] text-[#6f6f6f] font-mono">{f.slug}</div>
+                    <div className="text-sm font-medium">{f.name}</div>
+                    <div className="text-xs text-subtle">{f.slug}</div>
                   </div>
                 </div>
               );

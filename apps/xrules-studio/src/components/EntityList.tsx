@@ -30,6 +30,7 @@ export function EntityTable<T extends { id: string }>({
       <table className="w-full min-w-[640px]">
         <thead className="bg-muted/30 border-b border-border">
           <tr className="text-left">
+            <th className="py-3 px-4 label-section w-12">#</th>
             {columns.map((c, i) => (
               <th key={i} className={`py-3 px-4 label-section ${c.align === 'right' ? 'text-right' : ''}`} style={c.width ? { width: c.width } : undefined}>
                 {c.header}
@@ -60,6 +61,7 @@ export function EntityTable<T extends { id: string }>({
             const href = hrefFor?.(row);
             const Cells = (
               <>
+                <td className="py-3 px-4 row-index">{String(i + 1).padStart(2, '0')}</td>
                 {columns.map((c, ci) => (
                   <td key={ci} className={`py-3 px-4 ${c.align === 'right' ? 'text-right' : ''}`}>
                     {c.cell(row, i)}
