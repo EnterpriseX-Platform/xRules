@@ -21,6 +21,12 @@ app.use(helmet());
 app.use(cors({ origin: true, credentials: true }));
 app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
+// Clients behind firewalls that refuse PUT/PATCH/DELETE send POST + X-HTTP-Method-Override (Studio always does).
+app.use((req, _res, next) => {
+  const o = String(req.headers['x-http-method-override'] || '').toUpperCase();
+  if (req.method === 'POST' && (o === 'PUT' || o === 'PATCH' || o === 'DELETE')) req.method = o;
+  next();
+});
 
 // Health check
 app.get('/health', (_req, res) => {

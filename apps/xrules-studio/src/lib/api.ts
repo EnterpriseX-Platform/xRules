@@ -84,7 +84,15 @@ async function request<T>(path: string, init?: RequestInit, _retried = false): P
   const tenant = activeTenant();
   if (tenant && !headers['X-Tenant']) headers['X-Tenant'] = tenant;
 
-  const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
+  // Web firewalls in front of customer deployments often refuse PUT/PATCH/DELETE (UAT's does: 403).
+  // Send them as POST + X-HTTP-Method-Override; the API restores the method before routing.
+  let sendInit = init;
+  const method = (init?.method || 'GET').toUpperCase();
+  if (method === 'PUT' || method === 'PATCH' || method === 'DELETE') {
+    headers['X-HTTP-Method-Override'] = method;
+    sendInit = { ...init, method: 'POST' };
+  }
+  const res = await fetch(`${BASE_URL}${path}`, { ...sendInit, headers });
 
   // 401 — try a single refresh + retry. If refresh fails, redirect to /login.
   if (res.status === 401 && !_retried && !path.startsWith('/auth/')) {
