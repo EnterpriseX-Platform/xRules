@@ -25,8 +25,8 @@ const Area = ({ id, value, onChange, rows = 5 }: any) => (
   <textarea id={id} rows={rows} className="w-full bg-[#f4f4f4] border-b border-[#8d8d8d] px-3 py-2 font-mono text-[13px] focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2" value={value ?? ''} onChange={e => onChange(e.target.value)} />
 );
 
-export function StepInspector({ node, projectId, onChange, onRemove, onClose }: {
-  node: Node; projectId: string; onChange: (id: string, data: any) => void; onRemove: (id: string) => void; onClose: () => void;
+export function StepInspector({ node, nodes = [], projectId, onChange, onRemove, onClose }: {
+  node: Node; nodes?: Node[]; projectId: string; onChange: (id: string, data: any) => void; onRemove: (id: string) => void; onClose: () => void;
 }) {
   const m = metaFor(node.type);
   const d = node.data || {};
@@ -37,7 +37,8 @@ export function StepInspector({ node, projectId, onChange, onRemove, onClose }: 
   const { data: conns } = useQuery({ queryKey: ['connections', projectId], queryFn: () => api.get<any[]>(`/connections?project_id=${projectId}`), enabled: needsConns });
   const { data: sets } = useQuery({ queryKey: ['datasets', projectId], queryFn: () => api.get<any[]>(`/datasets?project_id=${projectId}`), enabled: needsSets });
   // rules from every project the user can see; another project's rule is referenced as <project>/<slug>
-  const { data: rules } = useQuery({ queryKey: ['rules', '_all'], queryFn: () => rulesApi.list('_all'), enabled: k === 'ruleCall' || k === 'rulecall' });
+  const isResponse = k === 'apiResponse' || k === 'apiresponse';
+  const { data: rules } = useQuery({ queryKey: ['rules', '_all'], queryFn: () => rulesApi.list('_all'), enabled: k === 'ruleCall' || k === 'rulecall' || isResponse });
   const ruleList: any[] = Array.isArray(rules) ? rules : ((rules as any)?.data || (rules as any)?.items || []);
   const ruleRef = (r: any) => (r.project?.slug && r.project.slug !== projectId && r.projectId !== projectId ? `${r.project.slug}/${r.slug}` : r.slug);
   const setOpts = (sets || []).map((s: any) => ({ value: s.slug, label: s.slug, hint: s.rowCount ? `${s.rowCount} rows` : undefined }));
@@ -124,10 +125,7 @@ export function StepInspector({ node, projectId, onChange, onRemove, onClose }: 
           <Field label="Store result as" htmlFor="st-oa"><Text id="st-oa" mono value={d.outputAs} onChange={(v: string) => set({ outputAs: v })} /></Field>
         </>}
 
-        {(k === 'apiResponse' || k === 'apiresponse') && <>
-          <Field label="Status code" htmlFor="st-sc"><Text id="st-sc" mono value={d.status ?? 200} onChange={(v: string) => set({ status: Number(v) || 200 })} /></Field>
-          <Field label="Body (JSON or {{variable}})" htmlFor="st-body"><Area id="st-body" rows={8} value={typeof d.body === 'string' ? d.body : JSON.stringify(d.body ?? '', null, 2)} onChange={(v: string) => { try { set({ body: JSON.parse(v) }); } catch { set({ body: v }); } }} /></Field>
-        </>}
+        {isResponse && <ResponseFields d={d} set={set} nodes={nodes} self={node.id} ruleList={ruleList} ruleRef={ruleRef} />}
         {(k === 'callDecisionFlow' || k === 'calldecisionflow') && <>
           <Field label="Decision Flow (slug)" htmlFor="st-df"><Text id="st-df" mono value={d.flow} onChange={(v: string) => set({ flow: v })} placeholder="neb-prescreen" /></Field>
           <Field label="Input" htmlFor="st-im"><Text id="st-im" mono value={typeof d.inputMap === 'string' ? d.inputMap : JSON.stringify(d.inputMap ?? '')} onChange={(v: string) => set({ inputMap: v })} placeholder="{{input.body}}" /></Field>
@@ -192,4 +190,46 @@ function Checks({ value, onChange }: { value: any[]; onChange: (v: any[]) => voi
       <button className="h-8 px-2 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8] flex items-center gap-1" onClick={() => onChange([...value, { name: '', expression: '', onFail: 'reject_row' }])}><Plus className="h-4 w-4" /> Add check</button>
     </div>
   );
+}
+
+// API Response: what the caller gets back, picked from the earlier steps — no templates to type.
+function ResponseFields({ d, set, nodes, self, ruleList, ruleRef }: { d: any; set: (p: any) => void; nodes: Node[]; self: string; ruleList: any[]; ruleRef: (r: any) => string }) {
+  const mode: string = d.mode || (Array.isArray(d.fields) && d.fields.length ? 'fields' : d.body !== undefined && d.body !== '' ? 'custom' : 'all');
+  // values the earlier steps produce
+  const sources: { value: string; label: string; hint?: string }[] = [{ value: 'input.body', label: 'The request body', hint: 'request' }];
+  for (const n of nodes) {
+    if (n.id === self) continue;
+    const t = String(n.type).toLowerCase();
+    const nd: any = n.data || {};
+    if (t === 'rulecall' && nd.ruleSlug) {
+      const key = nd.outputAs || String(nd.ruleSlug).split('/').pop()!.replace(/-/g, '_');
+      const rule = ruleList.find(r => ruleRef(r) === nd.ruleSlug || r.slug === nd.ruleSlug);
+      const outs: string[] = ((rule?.definition as any)?.outputs || []).map((o: any) => o.name).filter(Boolean);
+      const step = nd.label || 'Rule';
+      sources.push({ value: key, label: `${step}: whole result`, hint: rule?.name });
+      outs.forEach(o => sources.push({ value: `${key}.${o}`, label: `${step}: ${o}`, hint: rule?.name }));
+    } else if (nd.outputAs) {
+      sources.push({ value: nd.outputAs, label: `${nd.label || t}: result` });
+    }
+  }
+  const fields: { name: string; from: string }[] = Array.isArray(d.fields) && d.fields.length ? d.fields : [{ name: '', from: '' }];
+  const setFields = (f: { name: string; from: string }[]) => set({ fields: f, mode: 'fields' });
+  return <>
+    <Field label="Status code" htmlFor="st-sc"><Text id="st-sc" mono value={d.status ?? 200} onChange={(v: string) => set({ status: Number(v) || 200 })} /></Field>
+    <Field label="Respond with"><Dropdown value={mode} onChange={v => set({ mode: v, ...(v === 'all' ? { fields: [], body: '' } : v === 'fields' ? { body: '' } : { fields: [] }) })}
+      options={[{ value: 'all', label: 'Everything the steps produced' }, { value: 'fields', label: 'Fields I choose' }, { value: 'custom', label: 'Custom JSON' }]} /></Field>
+    {mode === 'fields' && <div className="space-y-2">
+      <div className="grid grid-cols-[1fr_1.4fr_32px] gap-2 text-[12px] text-[#525252]"><span>Field name</span><span>Value</span><span /></div>
+      {fields.map((f, i) => (
+        <div key={i} className="grid grid-cols-[1fr_1.4fr_32px] gap-2 items-center">
+          <input aria-label={`Field ${i + 1} name`} className="h-10 px-3 bg-[#f4f4f4] border-b border-[#8d8d8d] font-mono text-[13px] min-w-0 focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2"
+            value={f.name} placeholder="decision" onChange={e => setFields(fields.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
+          <Dropdown value={f.from} options={sources} onChange={v => setFields(fields.map((x, j) => j === i ? { from: v, name: x.name || v.split('.').pop()! } : x))} />
+          <button aria-label={`Remove field ${i + 1}`} className="h-8 w-8 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={() => setFields(fields.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></button>
+        </div>
+      ))}
+      <button className="h-8 px-2 inline-flex items-center gap-1 text-[13px] text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => setFields([...fields, { name: '', from: '' }])}><Plus className="h-4 w-4" />Add field</button>
+    </div>}
+    {mode === 'custom' && <Field label="Body (JSON; a value can be $result.decision)" htmlFor="st-body"><Area id="st-body" rows={8} value={typeof d.body === 'string' ? d.body : JSON.stringify(d.body ?? '', null, 2)} onChange={(v: string) => { try { set({ body: JSON.parse(v), mode: 'custom' }); } catch { set({ body: v, mode: 'custom' }); } }} /></Field>}
+  </>;
 }

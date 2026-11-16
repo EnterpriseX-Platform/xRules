@@ -264,7 +264,7 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
           </div>
         </div>
 
-        {selected && <StepInspector node={selected} projectId={flow.projectId} onChange={updateNode} onRemove={removeNode} onClose={() => setSelectedId(null)} />}
+        {selected && <StepInspector node={selected} nodes={nodes} projectId={flow.projectId} onChange={updateNode} onRemove={removeNode} onClose={() => setSelectedId(null)} />}
       </div>
 
       {preview && <PreviewDrawer result={preview} onClose={() => setPreview(null)} />}
