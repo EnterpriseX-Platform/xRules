@@ -153,7 +153,9 @@ export async function executeRule(ruleId: string, input: any, context: any, user
     let output: any;
 
     // 1) In-process executors for non-Rust rule kinds (AI Agent / Scorecard / Script / Lookup)
-    const local = await tryLocalExecutor(rule, input, context);
+    const local = rule.type === 'DECISION_TABLE' && String((rule.definition as any)?.hitPolicy).toUpperCase() === 'EVALUATE_ALL'
+      ? executeDmnLocally(rule, input)
+      : await tryLocalExecutor(rule, input, context);
     if (local !== null) {
       output = local;
     } else
@@ -178,7 +180,7 @@ export async function executeRule(ruleId: string, input: any, context: any, user
         },
       );
 
-      output = engineResponse.data.output ?? engineResponse.data;
+      output = shapeByHitPolicy(rule, engineResponse.data.output ?? engineResponse.data);
     } catch (engineError: any) {
       // Only fallback to local DMN for connection errors, not for all errors
       const isConnectionError = engineError?.code === 'ECONNREFUSED' || engineError?.code === 'ENOTFOUND' || engineError?.code === 'ETIMEDOUT';
@@ -252,6 +254,25 @@ export async function executeRule(ruleId: string, input: any, context: any, user
  * Prisma stores: { hitPolicy, inputs: [{id,name,label,type}], outputs, rules }
  * Engine expects: { nodes: [], edges: [], dmn: { hit_policy, inputs: [{name,expression,type}], outputs: [{name,label,type}], rules: [{id,inputs,outputs}] } }
  */
+// Studio hit policies → DMN names the Rust engine knows (UNIQUE | FIRST | COLLECT | ANY).
+//   STANDARD     all matches in rule order        → COLLECT
+//   FIRST_MATCH  first match only                  → FIRST
+//   ARRAY        matches folded into column arrays → COLLECT, then reshaped here
+//   EVALUATE_ALL every row with a _match flag      → evaluated in the API (no engine policy)
+const HIT_POLICY_TO_DMN: Record<string, string> = { STANDARD: 'COLLECT', FIRST_MATCH: 'FIRST', ARRAY: 'COLLECT' };
+function engineHitPolicy(p?: string): string {
+  const k = String(p || 'FIRST').toUpperCase();
+  return HIT_POLICY_TO_DMN[k] ?? k;
+}
+function shapeByHitPolicy(rule: any, out: any): any {
+  const p = String((rule.definition as any)?.hitPolicy || '').toUpperCase();
+  if (p !== 'ARRAY') return out;
+  const rows: any[] = Array.isArray(out) ? out : out && typeof out === 'object' ? [out] : [];
+  const cols: Record<string, unknown[]> = {};
+  for (const row of rows) for (const [k, v] of Object.entries(row)) (cols[k] ||= []).push(v);
+  return cols;
+}
+
 function transformDefinitionForEngine(rule: any): any {
   const def = rule.definition as any;
 
@@ -270,7 +291,7 @@ function transformDefinitionForEngine(rule: any): any {
       nodes: [],
       edges: [],
       dmn: {
-        hit_policy: (def?.hitPolicy || 'FIRST').toUpperCase(),
+        hit_policy: engineHitPolicy(def?.hitPolicy),
         inputs: inputs.map((i: any) => ({
           name: i.name, expression: i.name, type: i.type || 'string',
         })),
@@ -343,6 +364,7 @@ function executeDmnLocally(rule: any, input: any): any {
   const outputKeys = definition.outputs?.map((o) => o.name) || [];
 
   const results: Record<string, unknown>[] = [];
+  const evaluated: Record<string, unknown>[] = [];
 
   for (const r of rules) {
     let matches = true;
@@ -365,11 +387,14 @@ function executeDmnLocally(rule: any, input: any): any {
       }
       results.push(result);
 
-      if (definition.hitPolicy === 'FIRST' || !definition.hitPolicy) {
-        break;
-      }
+      if (['FIRST', 'FIRST_MATCH', 'UNIQUE'].includes(String(definition.hitPolicy || 'FIRST').toUpperCase())) break;
+    }
+    if (String(definition.hitPolicy).toUpperCase() === 'EVALUATE_ALL') {
+      const row: Record<string, unknown> = { _match: matches };
+      outputKeys.forEach((k, i) => { row[k] = r.outputs[i]; });
+      evaluated.push(row);
     }
   }
-
-  return results.length === 1 ? results[0] : results;
+  if (String(definition.hitPolicy).toUpperCase() === 'EVALUATE_ALL') return evaluated;
+  return shapeByHitPolicy(rule, results.length === 1 && ['FIRST', 'FIRST_MATCH', 'UNIQUE', 'ANY', undefined, ''].includes(String(definition.hitPolicy || '').toUpperCase() || undefined) ? results[0] : results);
 }

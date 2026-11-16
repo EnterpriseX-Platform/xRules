@@ -38,7 +38,7 @@ export default function SignupPage() {
       <div className="card w-full max-w-md p-8 space-y-6">
         <div className="flex items-center gap-2.5">
           <Logo className="h-8 w-8" />
-          <span className="font-bold text-lg">XRules</span>
+          <span className="font-bold text-lg">xRules</span>
         </div>
 
         <div className="space-y-1">

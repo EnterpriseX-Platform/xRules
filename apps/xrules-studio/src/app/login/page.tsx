@@ -45,10 +45,7 @@ export default function LoginPage() {
       <div className="card w-full max-w-md p-8 space-y-6 relative">
         <div className="flex items-center gap-2.5">
           <Logo className="h-8 w-8" />
-          <span className="text-lg font-semibold tracking-tight">
-            XRULES<span className="text-accent">.io</span>
-          </span>
-          <span className="ml-auto pill pill-info text-[9px]">BETA</span>
+          <span className="text-lg font-semibold tracking-tight">xRules</span>
         </div>
 
         <div className="space-y-1">
