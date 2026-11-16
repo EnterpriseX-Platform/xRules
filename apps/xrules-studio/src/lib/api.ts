@@ -92,14 +92,6 @@ async function request<T>(path: string, init?: RequestInit, _retried = false): P
     headers['X-HTTP-Method-Override'] = method;
     sendInit = { ...init, method: 'POST' };
   }
-  // Rule and flow content (templates like {{result}}, scripts, SQL) trips web-firewall injection rules.
-  // Send write bodies base64-wrapped; the API unwraps them before routing.
-  if (typeof sendInit?.body === 'string' && sendInit.body.length) {
-    const bytes = new TextEncoder().encode(sendInit.body);
-    let bin = ''; bytes.forEach(b => { bin += String.fromCharCode(b); });
-    headers['X-Body-Encoding'] = 'base64';
-    sendInit = { ...sendInit, body: JSON.stringify({ __b64: btoa(bin) }) };
-  }
   const res = await fetch(`${BASE_URL}${path}`, { ...sendInit, headers });
 
   // 401 — try a single refresh + retry. If refresh fails, redirect to /login.

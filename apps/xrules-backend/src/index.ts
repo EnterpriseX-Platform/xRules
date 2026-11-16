@@ -22,11 +22,7 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
 // Clients behind firewalls that refuse PUT/PATCH/DELETE send POST + X-HTTP-Method-Override (Studio always does).
-app.use((req, res, next) => {
-  if (req.headers['x-body-encoding'] === 'base64' && typeof req.body?.__b64 === 'string') {
-    try { req.body = JSON.parse(Buffer.from(req.body.__b64, 'base64').toString('utf8')); }
-    catch { res.status(400).json({ success: false, error: { code: 'BAD_BODY', message: 'Body could not be decoded' } }); return; }
-  }
+app.use((req, _res, next) => {
   const o = String(req.headers['x-http-method-override'] || '').toUpperCase();
   if (req.method === 'POST' && (o === 'PUT' || o === 'PATCH' || o === 'DELETE')) req.method = o;
   next();
