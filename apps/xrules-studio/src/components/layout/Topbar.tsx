@@ -1,189 +1,88 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Search, Plus, Sun, Moon, ChevronRight } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import { Search, Sun, Moon, ChevronDown, Settings, LogOut } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme, useAuth, useProject } from '@/lib/store';
-import { api } from '@/lib/api';
+import { api, projectsApi } from '@/lib/api';
+import { Logo } from '@/components/ui/Logo';
+import { ProjectPicker } from './Sidebar';
 import { TenantSwitcher } from './TenantSwitcher';
 import { usePerms } from '@/lib/perms';
 
-interface Crumb { label: string; href?: string; mono?: boolean }
-
-// Parse pathname into a human-friendly trail. Falls back to raw segments
-// only when name lookups don't apply.
-function useBreadcrumbs(pathname: string): Crumb[] {
-  const parts = pathname.split('/').filter(Boolean);
-  // Routes look like: projects / [projectId] / [section] / [maybeId] / [maybeSubsection]
-  const projectId = parts[0] === 'projects' ? parts[1] : undefined;
-  const section = parts[0] === 'projects' ? parts[2] : undefined;
-  const subId = parts[0] === 'projects' ? parts[3] : undefined;
-
-  // Fetch project name (works with id or slug — backend resolves either)
-  const { data: project } = useQuery({
-    queryKey: ['project', projectId],
-    queryFn: () => projectId ? api.get<any>(`/projects/${projectId}`) : null,
-    enabled: !!projectId && projectId !== '_all',
-    staleTime: 60_000,
-    retry: false,
-  });
-
-  // Fetch rule name when on /rules/[ruleId-or-slug]
-  const isRule = section === 'rules' && !!subId;
-  const { data: rule } = useQuery({
-    queryKey: ['rule-crumb', subId],
-    queryFn: () => api.get<any>(`/rules/${subId}`),
-    enabled: isRule,
-    staleTime: 60_000,
-    retry: false,
-  });
-
-  // Flow / Data Set names for their detail pages
-  const isFlow = (section === 'flows' || section === 'data-flows') && !!subId;
-  const isSet = section === 'data-sets' && !!subId;
-  const isSpec = section === 'apis' && !!subId;
-  const isModel = section === 'models' && !!subId;
-  const { data: entity } = useQuery({
-    queryKey: ['crumb', section, subId],
-    queryFn: () => api.get<any>(isFlow ? `/flows/${subId}` : isSpec ? `/platform/specs/${subId}` : isModel ? `/models/${subId}` : `/data/datasets/${subId}`),
-    enabled: isFlow || isSet || isSpec || isModel,
-    staleTime: 60_000,
-    retry: false,
-  });
-
-  // Build crumbs
-  const out: Crumb[] = [{ label: 'Home', href: `/`, mono: false }];
-  if (parts[0] === 'projects' && !projectId) {
-    out.push({ label: 'Projects', href: `/projects` });
-  }
-  if (projectId === '_all') {
-    out.push({ label: 'All projects' });
-  } else if (project) {
-    out.push({ label: project.name, href: project.kind === 'INTEGRATION' ? undefined : `/projects/${project.slug || projectId}` });
-  } else if (projectId) {
-    const looksLikeId = /^[a-z0-9]{20,}$/i.test(projectId) && !projectId.includes('-');
-    out.push({ label: looksLikeId ? projectId.slice(0, 8) + '…' : projectId, mono: looksLikeId });
-  }
-  if (parts[0] === 'settings') {
-    out.push({ label: 'Settings', href: parts[1] ? '/settings' : undefined });
-    if (parts[1]) out.push({ label: ({ tenant: 'Tenant', 'api-keys': 'API Keys', webhooks: 'Webhooks' } as Record<string, string>)[parts[1]] || parts[1] });
-  }
-  if (section) {
-    const human: Record<string, string> = {
-      rules: 'Rules', flows: 'Flows', models: 'Models', datasets: 'Datasets',
-      'test-suites': 'Test Suites', simulations: 'Simulations', releases: 'Releases',
-      environments: 'Environments', executions: 'Executions', jobs: 'Jobs',
-      audit: 'Audit Log', tools: 'Tools', bench: 'Bench', drd: 'DRD',
-      templates: 'Templates', integrations: 'Integrations', connections: 'Connections',
-      'data-flows': 'Data Flows', 'data-sets': 'Data Sets', apis: 'REST APIs', triggers: 'Triggers', bulk: 'Bulk Runs',
-      approvals: 'Approvals', access: 'Members & Access', vocabulary: 'Vocabulary', tests: 'Test Suites', 'test-runs': 'Test Runs', monitor: 'Monitor',
-    };
-    const sectionLabel = human[section] || section;
-    if (subId) {
-      out.push({ label: sectionLabel, href: `/projects/${projectId}/${section}` });
-    } else {
-      out.push({ label: sectionLabel });
-    }
-  }
-  // Add subId as an entity (rule, flow, etc) — but not for integrations,
-  // where the sub-path is a sub-section, not an entity.
-  const isIntegrationsSub = section === 'integrations';
-  const isMonitorSub = section === 'monitor';
-  if (rule) {
-    out.push({ label: rule.name });
-  } else if (entity && (isFlow || isSet || isSpec || isModel)) {
-    out.push({ label: entity.name || entity.slug });
-  } else if (subId && !isIntegrationsSub && !isMonitorSub) {
-    const looksLikeId = /^[a-z0-9]{20,}$/i.test(subId) && !subId.includes('-');
-    out.push({ label: looksLikeId ? subId.slice(0, 8) + '…' : subId, mono: looksLikeId });
-  }
-  // Integrations sub-section (api-keys, webhooks, endpoints, connections, api-docs)
-  if (section === 'monitor' && subId) {
-    out.pop();
-    out.push({ label: 'Monitor', href: `/projects/${projectId}/monitor` });
-    out.push({ label: ({ traffic: 'API Traffic', decisions: 'Decisions', 'data-health': 'Data Health', alerts: 'Alerts' } as Record<string, string>)[subId] || subId });
-  }
-  if (isIntegrationsSub && subId) {
-    const human: Record<string, string> = {
-      'api-keys': 'API Keys', webhooks: 'Webhooks', endpoints: 'Endpoints',
-      connections: 'Connections', 'api-docs': 'API Docs',
-    };
-    out.push({ label: human[subId] || subId });
-  }
-
-  return out;
-}
-
 export function Topbar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const qc = useQueryClient();
   const theme = useTheme((s) => s.theme);
   const toggle = useTheme((s) => s.toggle);
   const user = useAuth((s) => s.user);
+  const clear = useAuth((s) => s.clear);
   const projectId = useProject((s) => s.currentProjectId);
-
-  const crumbs = useBreadcrumbs(pathname);
+  const setProject = useProject((s) => s.setCurrentProject);
   const perms = usePerms();
-  const isRulesContext = pathname.includes('/rules');
-  const onProjectsList = pathname.endsWith('/projects');
+  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: projectsApi.list, retry: false });
+  const current = (projects as any[]).find((p: any) => p.id === projectId);
+  const [menu, setMenu] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as any)) setMenu(false); };
+    document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h);
+  }, []);
+  const name = user?.name || user?.email?.split('@')[0] || '';
+  const initials = name.slice(0, 2).toUpperCase() || 'A';
+  const role = perms.role ? perms.role[0] + perms.role.slice(1).toLowerCase() : '';
+  const tenantWide = /^\/projects\/(_all|_integration)\b/.test(pathname) || pathname.startsWith('/settings');
 
   return (
-    <header className="h-[48px] shrink-0 bg-[#161616] text-[#c6c6c6] flex items-center pl-2 pr-5 gap-4">
-      <TenantSwitcher />
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-1.5 text-sm min-w-0">
-        {crumbs.map((c, i) => (
-          <span key={i} className="flex items-center gap-1.5 min-w-0">
-            {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-[#6f6f6f] flex-shrink-0" />}
-            {c.href ? (
-              <Link
-                href={c.href}
-                className="text-[#c6c6c6] hover:text-white transition-colors truncate"
-              >
-                {c.label}
-              </Link>
-            ) : (
-              <span className="text-white font-medium truncate">
-                {c.label}
-              </span>
-            )}
-          </span>
-        ))}
-      </nav>
+    <header className="h-[48px] shrink-0 bg-[#161616] text-[#c6c6c6] flex items-center pr-2">
+      <Link href="/" className="w-[52px] h-full flex items-center justify-center text-white hover:bg-[#393939]" aria-label="xRules home"><Logo className="h-5 w-5" /></Link>
+      <span className="text-[14px] font-semibold text-white pr-4">xRules</span>
+      <div className="h-full flex items-center border-l border-[#393939] pl-1 pr-2 gap-0.5 min-w-0">
+        <TenantSwitcher />
+        {!tenantWide && current && <>
+          <span className="text-[#6f6f6f]">/</span>
+          <div className="w-56 [&>div>button]:h-8 [&>div>button]:border-0 [&>div>button]:bg-transparent [&>div>button]:text-white [&>div>button:hover]:bg-[#393939] [&>div>button]:rounded-none">
+            <ProjectPicker projects={projects as any[]} current={current} onPick={(p) => setProject(p.id)} />
+          </div>
+        </>}
+      </div>
 
-      {/* Search palette */}
       <button
-        className="ml-auto relative w-72 max-w-full hidden lg:flex items-center pl-9 pr-14 text-left h-8 bg-[#393939] hover:bg-[#474747]"
+        className="ml-4 mr-auto relative w-80 max-w-full hidden md:flex items-center pl-9 pr-14 text-left h-8 bg-[#393939] hover:bg-[#474747]"
         onClick={() => window.dispatchEvent(new CustomEvent('xrules:open-palette'))}
       >
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#c6c6c6]" />
-        <span className="text-[#c6c6c6] text-[13px]">Search…</span>
+        <span className="text-[#c6c6c6] text-[13px]">Search rules, flows, APIs</span>
         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-[#a8a8a8]">⌘K</span>
       </button>
 
-      {/* Context-aware primary action */}
-      {!onProjectsList && projectId && perms.write && (
-        <Link
-          href={isRulesContext
-            ? `/projects/${projectId}/rules?new=1`
-            : `/projects/${projectId}/rules`}
-          className="btn-primary"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          New Rule
-        </Link>
-      )}
-
-      <button className="btn-ghost" onClick={toggle} aria-label="Toggle theme">
+      <button className="h-10 w-10 flex items-center justify-center hover:bg-[#393939] text-[#c6c6c6]" onClick={toggle} aria-label="Toggle theme">
         {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </button>
 
-      <div
-        className="h-8 w-8 rounded-full text-accent-fg flex items-center justify-center text-sm font-medium ring-1 ring-accent/30"
-        style={{ background: 'linear-gradient(135deg, rgb(var(--c-accent-2)) 0%, rgb(var(--c-accent)) 100%)' }}
-        title={user?.email}
-      >
-        {user?.email?.[0]?.toUpperCase() || 'A'}
+      <div className="relative h-full border-l border-[#393939]" ref={ref}>
+        <button type="button" onClick={() => setMenu(m => !m)} aria-haspopup="menu" aria-expanded={menu}
+          className="h-full flex items-center gap-2 px-3 hover:bg-[#393939] text-left">
+          <span className="h-7 w-7 rounded-full bg-[#4589ff] text-white text-[11px] font-semibold flex items-center justify-center">{initials}</span>
+          <span className="hidden sm:block leading-tight">
+            <span className="block text-[13px] text-white max-w-[140px] truncate">{name}</span>
+            {role && <span className="block text-[11px] text-[#a8a8a8]">{role}</span>}
+          </span>
+          <ChevronDown className="h-3.5 w-3.5" />
+        </button>
+        {menu && (
+          <div role="menu" className="absolute right-0 top-[48px] z-50 w-64 bg-[#262626] text-[#f4f4f4] border border-[#393939] shadow-xl">
+            <div className="px-3 py-2.5 border-b border-[#393939]">
+              <div className="text-[14px] truncate">{name}</div>
+              <div className="text-[12px] text-[#a8a8a8] truncate">{user?.email}</div>
+            </div>
+            <button role="menuitem" type="button" onClick={() => { setMenu(false); router.push('/settings/tenant'); }} className="w-full flex items-center gap-2 px-3 h-10 text-[14px] hover:bg-[#393939]"><Settings className="h-4 w-4" />Tenant settings</button>
+            <button role="menuitem" type="button" onClick={() => { clear(); qc.clear(); router.push('/login'); }} className="w-full flex items-center gap-2 px-3 h-10 text-[14px] hover:bg-[#393939]"><LogOut className="h-4 w-4" />Sign out</button>
+          </div>
+        )}
       </div>
     </header>
   );

@@ -8,10 +8,10 @@ import { ScopeBar } from './ScopeBar';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen overflow-hidden bg-bg">
-      <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0">
-        <Topbar />
+    <div className="flex flex-col h-screen overflow-hidden bg-bg">
+      <Topbar />
+      <div className="flex-1 flex min-h-0">
+        <Sidebar />
         <main className="flex-1 overflow-y-auto bg-bg relative">
           <ScopeBar />
           {children}

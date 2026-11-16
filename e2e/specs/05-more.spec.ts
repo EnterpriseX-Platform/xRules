@@ -177,17 +177,24 @@ test('Tenant-level testing reaches a rule in another project; scope filter narro
   await shot(page, '05-cross-project-testing');
 });
 
-test('Sidebar: Decision Engine first; Integration/Testing/Monitor tenant-level; Admin for admins', async ({ page }) => {
+test('Shell: area rail + area menu; header context, search and user menu', async ({ page }) => {
   await page.goto(`projects/${PROJECT}/rules`);
   const nav = page.locator('aside');
+  await expect(nav.getByRole('button', { name: 'Decision Engine' })).toHaveAttribute('aria-pressed', 'true');   // area follows the page
   await expect(nav.getByRole('link', { name: 'Rules' })).toHaveAttribute('href', new RegExp(`/projects/[^/]+/rules$`));
+  await expect(nav.getByRole('link', { name: 'REST APIs' })).toHaveCount(0);                                  // only one area listed
+  await nav.getByRole('button', { name: 'Integration' }).click();
   await expect(nav.getByRole('link', { name: 'REST APIs' })).toHaveAttribute('href', /\/projects\/_integration\/apis$/);
+  await nav.getByRole('button', { name: 'Testing' }).click();
   await expect(nav.getByRole('link', { name: 'Test Suites' })).toHaveAttribute('href', /\/projects\/_all\/tests$/);
-  await expect(nav.getByRole('link', { name: 'Members & Roles' })).toBeVisible();          // admin section
-  const order = await nav.locator('a').allInnerTexts();
-  expect(order.indexOf('Rules')).toBeLessThan(order.indexOf('REST APIs'));                  // daily work first
-  await nav.getByRole('button', { name: 'Monitor' }).click();                                // collapse
-  await expect(nav.getByRole('link', { name: 'API Traffic' })).toHaveCount(0);
-  await nav.getByRole('button', { name: 'Monitor' }).click();
+  await nav.getByRole('button', { name: 'Admin' }).click();
+  await nav.getByRole('link', { name: 'Members & Roles' }).click();
+  await expect(page).toHaveURL(/settings\/tenant/);
+  await expect(nav.getByRole('button', { name: 'Admin' })).toHaveAttribute('aria-pressed', 'true');
+  await page.goto(`projects/${PROJECT}/rules`);
+  const header = page.locator('header');
+  await expect(header.getByText('NEB Pre-screening', { exact: false })).toBeVisible();                     // tenant / project context
+  await header.getByRole('button', { name: /Owner/ }).click();
+  await expect(page.getByRole('menuitem', { name: 'Sign out' })).toBeVisible();
   await shot(page, '05-sidebar');
 });
