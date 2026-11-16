@@ -180,13 +180,13 @@ export async function executeRule(ruleId: string, input: any, context: any, user
         },
       );
 
-      output = shapeByHitPolicy(rule, engineResponse.data.output ?? engineResponse.data);
+      output = shapeByHitPolicy(rule, applyElseRow(rule, engineResponse.data.output ?? engineResponse.data));
     } catch (engineError: any) {
       // Only fallback to local DMN for connection errors, not for all errors
       const isConnectionError = engineError?.code === 'ECONNREFUSED' || engineError?.code === 'ENOTFOUND' || engineError?.code === 'ETIMEDOUT';
       if (isConnectionError && rule.type === 'DECISION_TABLE') {
         console.log('[Execute] Engine Hub unavailable, using local DMN fallback');
-        output = executeDmnLocally(rule, input);
+        output = applyElseRow(rule, executeDmnLocally(rule, input));
       } else {
         // Re-throw engine errors (validation, execution errors)
         const message = engineError?.response?.data?.message || engineError?.message || 'Engine execution failed';
@@ -264,6 +264,20 @@ function engineHitPolicy(p?: string): string {
   const k = String(p || 'FIRST').toUpperCase();
   return HIT_POLICY_TO_DMN[k] ?? k;
 }
+const isElseCell = (c: any) => typeof c === 'string' && ['else', '_else_'].includes(c.trim().toLowerCase());
+function isElseRow(r: any): boolean { return Array.isArray(r?.inputs) && r.inputs.length > 0 && r.inputs.some(isElseCell); }
+// Decision Table Else row: its results are the answer when no other row matched.
+function applyElseRow(rule: any, out: any): any {
+  if (rule.type !== 'DECISION_TABLE') return out;
+  const def = rule.definition as any;
+  const row = (def?.rules || []).find(isElseRow);
+  const empty = out == null || (Array.isArray(out) && out.length === 0) || (typeof out === 'object' && !Array.isArray(out) && Object.keys(out).length === 0);
+  if (!row || !empty) return out;
+  const names: string[] = (def?.outputs || []).map((o: any) => o.name);
+  const value: Record<string, unknown> = {};
+  names.forEach((n, i) => { value[n] = row.outputs?.[i] ?? null; });
+  return engineHitPolicy(def?.hitPolicy) === 'COLLECT' || Array.isArray(out) ? [value] : value;
+}
 function shapeByHitPolicy(rule: any, out: any): any {
   const p = String((rule.definition as any)?.hitPolicy || '').toUpperCase();
   if (p !== 'ARRAY') return out;
@@ -298,7 +312,8 @@ function transformDefinitionForEngine(rule: any): any {
         outputs: outputs.map((o: any) => ({
           name: o.name, label: o.label || o.name, type: o.type || 'string',
         })),
-        rules: (def?.rules || []).map((r: any) => ({
+        // the Else row is not a condition the engine knows — it is applied after, when nothing matched
+        rules: (def?.rules || []).filter((r: any) => !isElseRow(r)).map((r: any) => ({
           id: r.id, inputs: r.inputs || [], outputs: r.outputs || [],
         })),
       },
