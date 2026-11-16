@@ -283,7 +283,15 @@ function SchemasTab({ rule }: { rule: any }) {
 }
 
 function TestTab({ rule }: { rule: any }) {
-  const sampleInput = useMemo(() => sampleFromSchema(rule.inputSchema) ?? {}, [rule.inputSchema]);
+  // sample from the input schema; a Decision Table without one gets its condition columns
+  const sampleInput = useMemo(() => {
+    const fromSchema = sampleFromSchema(rule.inputSchema);
+    if (fromSchema && Object.keys(fromSchema).length) return fromSchema;
+    const cols: any[] = (rule.definition as any)?.inputs || [];
+    const out: Record<string, any> = {};
+    cols.forEach((c: any) => { if (c?.name) out[c.name] = c.type === 'number' ? 0 : c.type === 'boolean' ? false : ''; });
+    return out;
+  }, [rule.inputSchema, rule.definition]);
   const [input, setInput] = useState(() => JSON.stringify(sampleInput, null, 2));
   const [output, setOutput] = useState<any>(null);
   const [duration, setDuration] = useState<number | null>(null);
@@ -366,14 +374,7 @@ function TestTab({ rule }: { rule: any }) {
               <pre className="text-text whitespace-pre-wrap leading-relaxed">{JSON.stringify(output, null, 2)}</pre>
             </>
           )}
-          {output === null && !error && !running && (
-            <div className="text-subtle">
-              Click <span className="font-medium text-text">Run</span> to execute the rule with the input on the left.
-              <div className="text-[10px] mt-2 opacity-70">
-                Sample input is pre-filled from the rule's input schema.
-              </div>
-            </div>
-          )}
+
         </div>
       </div>
     </div>
