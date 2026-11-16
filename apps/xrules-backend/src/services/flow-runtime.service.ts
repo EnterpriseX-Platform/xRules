@@ -161,6 +161,9 @@ function renderTemplate(tpl: any, ctx: Record<string, any>): any {
   // If the entire string is one expression, return the typed value (number, object, …)
   const m = tpl.match(/^\{\{\s*([^{}]+?)\s*\}\}$/);
   if (m) return readPath(ctx, m[1].trim());
+  // "$result.decision" — the whole value is one reference (same as "{{result.decision}}")
+  const d = tpl.match(/^\$([A-Za-z_][\w]*(?:\.[\w]+)*)$/);
+  if (d) return readPath(ctx, d[1]);
   // Otherwise interpolate into a string
   return tpl.replace(TEMPLATE_RE, (_, path) => {
     const v = readPath(ctx, path.trim());
@@ -173,7 +176,10 @@ function readPath(obj: any, path: string): any {
   let cur = obj;
   for (const p of parts) {
     if (cur == null) return undefined;
-    cur = cur[p];
+    // a rule that returns one matching row gives [ {…} ] — "result.decision" reads into that row
+    if (Array.isArray(cur) && !/^\d+$/.test(p)) cur = cur.length === 1 ? cur[0] : cur.map((x: any) => x?.[p]);
+    if (Array.isArray(cur) && !/^\d+$/.test(p)) return cur;
+    cur = cur?.[p];
   }
   return cur;
 }
@@ -244,7 +250,12 @@ export async function runFlow(graph: FlowGraph, input: any, solve: SolveFn, opts
         break;
 
       case 'apiresponse': {
-        const body = data.body !== undefined && data.body !== '' ? renderObject(data.body, ctx) : (ctx.__data ? findingsOutput(ctx) : (() => { const { input: _i, ...rest } = ctx; return rest; })());
+        // fields picked on screen: [{ name: "decision", from: "result.decision" }]
+        const everything = data.mode === 'all';
+        const picked = !everything && Array.isArray(data.fields) && data.fields.some((f: any) => f?.name && f?.from)
+          ? Object.fromEntries(data.fields.filter((f: any) => f?.name && f?.from).map((f: any) => [f.name, readPath(ctx, String(f.from))]))
+          : undefined;
+        const body = picked ?? (!everything && data.body !== undefined && data.body !== '' ? renderObject(data.body, ctx) : (ctx.__data ? findingsOutput(ctx) : (() => { const { input: _i, ...rest } = ctx; return rest; })()));
         const resp: ApiResponse = { __apiResponse: true, status: Number(data.status || 200), body, headers: data.headers };
         pushTrace(opts, cur, kind, t0, 'ok', { output: { status: resp.status } });
         return resp;
