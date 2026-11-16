@@ -80,7 +80,7 @@ async function runEnrich(data: any, ctx: any, opts: FlowOptions) {
   const dc = dataCtx(ctx);
   if (!opts.projectId) throw new Error('enrich needs a project');
   const items: any[] = data.forEach ? (readPath(ctx, String(data.forEach)) || []) : [null];
-  const timeoutMs = Number(data.timeoutMs || 500);
+  const timeoutMs = Number(data.timeoutMs || process.env.XRULES_LOOKUP_TIMEOUT_MS || 2000);   // per lookup; a miss becomes a SKIPPED finding
   try {
     await withTimeout(Promise.all(items.map(async (item) => {
       const scope = item === null ? ctx : { ...ctx, item };

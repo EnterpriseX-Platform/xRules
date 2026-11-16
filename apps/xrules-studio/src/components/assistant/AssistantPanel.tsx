@@ -93,7 +93,7 @@ export function AssistantPanel() {
         <div className="fixed bottom-20 right-5 z-40 w-[380px] max-h-[70vh] card flex flex-col border !border-[#e0e0e0] shadow-[0_2px_6px_rgba(0,0,0,.2)]">
           <div className="px-3 py-2 border-b border-border flex items-center gap-2">
             <Sparkles className="h-3.5 w-3.5 text-accent" />
-            <span className="label-section">XRules Assistant</span>
+            <span className="label-section">xRules Assistant</span>
             {!projectId && <span className="font-mono text-[9px] text-warn ml-auto">no project context</span>}
           </div>
 

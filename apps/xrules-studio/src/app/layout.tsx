@@ -14,7 +14,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'XRules Studio - Rule Management Platform',
+  title: 'xRules',
   description: 'Design, manage, and execute business rules with powerful visual tools',
 };
 
