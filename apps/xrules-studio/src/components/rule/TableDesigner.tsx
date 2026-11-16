@@ -318,9 +318,6 @@ export function TableDesigner({
         </table>
       </div>
 
-      <div className="text-[11px] font-mono text-subtle px-1">
-        💡 Yellow cells = conditions (LHS) · Green cells = results (RHS) · ELSE row stays at the bottom regardless of order
-      </div>
     </div>
   );
 }
