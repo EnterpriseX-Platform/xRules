@@ -20,7 +20,7 @@ export default function DataFlowsPage() {
         edges: [{ id: 'e1', source: 'trigger', target: 'source' }, { id: 'e2', source: 'source', target: 'write' }] } }),
     onSuccess: f => router.push(`/projects/${projectId}/data-flows/${f.id}`),
   });
-  const run = useMutation({ mutationFn: (id: string) => api.post(`/data/flows/${id}/run`), onSettled: () => qc.invalidateQueries({ queryKey: ['data-flows', projectId] }) });
+  const run = useMutation({ meta: { failLabel: "Couldn't run" }, mutationFn: (id: string) => api.post(`/data/flows/${id}/run`), onSettled: () => qc.invalidateQueries({ queryKey: ['data-flows', projectId] }) });
   const failed = (flows || []).filter(f => f.lastRun?.state === 'ERROR').length;
 
   return (

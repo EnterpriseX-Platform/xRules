@@ -16,7 +16,7 @@ export default function TriggersPage() {
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ name: '', type: 'schedule', cron: '0 23 * * *' });
   const { data: rows = [] } = useQuery({ queryKey: ['triggers', projectId], queryFn: () => api.get<any[]>(`/platform/triggers?project_id=${projectId}`), refetchInterval: 10000 });
-  const run = useMutation({ mutationFn: (id: string) => api.post(`/platform/triggers/${id}/run`), onSettled: () => setTimeout(() => qc.invalidateQueries({ queryKey: ['triggers', projectId] }), 2500) });
+  const run = useMutation({ meta: { failLabel: "Couldn't run" }, mutationFn: (id: string) => api.post(`/platform/triggers/${id}/run`), onSettled: () => setTimeout(() => qc.invalidateQueries({ queryKey: ['triggers', projectId] }), 2500) });
   const create = useMutation({
     mutationFn: async () => {
       if (f.type === 'data_sync') { router.push(`/projects/${projectId}/data-flows`); return null; }
