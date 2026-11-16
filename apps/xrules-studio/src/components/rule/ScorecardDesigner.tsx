@@ -8,6 +8,7 @@
 // Engine equivalent in apps/xrules-backend/src/services/execute.service.ts::runScorecard.
 import { useMemo, useState } from 'react';
 import { Plus, Trash2, BarChart3, Play } from 'lucide-react';
+import { Select } from '@/components/ui/Select';
 
 type Op = 'eq' | 'lt' | 'lte' | 'gt' | 'gte' | 'btw' | 'in';
 interface Band {
@@ -332,7 +333,7 @@ function BandRow({ band, onChange, onRemove }: {
 }) {
   return (
     <div className="flex items-center gap-1 font-mono text-xs">
-      <select
+      <Select
         className="input h-7 text-xs w-16"
         value={band.op}
         onChange={(e) => onChange({ op: e.target.value as Op })}
@@ -344,7 +345,7 @@ function BandRow({ band, onChange, onRemove }: {
         <option value="gte">≥</option>
         <option value="btw">between</option>
         <option value="in">in</option>
-      </select>
+      </Select>
       {band.op === 'btw' ? (
         <>
           <input

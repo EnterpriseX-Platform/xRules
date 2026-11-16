@@ -12,6 +12,7 @@ let lastTrace: Record<string, any> | null = null;
 import { Plus, Trash2, Copy, Check, AlertTriangle, Search, ArrowDown } from 'lucide-react';
 import { OPERATORS, HIT_POLICIES, formatCellExpression, parseCellExpression } from './operators';
 import { cn } from '@/lib/cn';
+import { Select } from '@/components/ui/Select';
 
 type ColumnSide = 'condition' | 'result';
 interface Column { name: string; type: string; label?: string; side: ColumnSide }
@@ -182,13 +183,13 @@ export function TableDesigner({
       {/* Toolbar — hit policy + search + duplicate badge */}
       <div className="card p-3 flex items-center gap-3 flex-wrap">
         <span className="label-section">Hit Policy</span>
-        <select
+        <Select
           className="input h-8 text-xs"
           value={hitPolicy}
           onChange={(e) => { setHitPolicy(e.target.value); emit({ hitPolicy: e.target.value }); }}
         >
           {HIT_POLICIES.map(p => <option key={p.code} value={p.code}>{p.label} — {p.description}</option>)}
-        </select>
+        </Select>
 
         <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-subtle" />
@@ -334,14 +335,14 @@ function ColumnHeader({ col, side, inputSchema, onUpdate, onRemove }: {
       <div className="flex items-start gap-1">
         <div className="flex-1 min-w-0">
           {fields.length > 0 ? (
-            <select
+            <Select
               className="bg-transparent border-0 outline-none text-text font-mono text-xs w-full p-0 cursor-pointer"
               value={col.name}
               onChange={(e) => onUpdate({ ...col, name: e.target.value })}
             >
               {!fields.includes(col.name) && <option value={col.name}>{col.name} (custom)</option>}
               {fields.map(f => <option key={f} value={f}>{f}</option>)}
-            </select>
+            </Select>
           ) : (
             <input
               className="bg-transparent border-0 outline-none text-text font-mono text-xs w-full p-0"
@@ -380,13 +381,13 @@ function Cell({ side, value, onChange }: { side: ColumnSide; value: any; onChang
 
   return (
     <div className="flex items-center gap-1 px-1 py-1">
-      <select
+      <Select
         className="bg-transparent border-0 outline-none text-[11px] font-mono text-text cursor-pointer"
         value={parsed.operator}
         onChange={(e) => setOp(e.target.value)}
       >
         {OPERATORS.map(op => <option key={op.code} value={op.code}>{op.code}</option>)}
-      </select>
+      </Select>
       {opSpec.argCount >= 1 && (
         <input
           className="bg-transparent border-0 outline-none text-[11px] font-mono text-text flex-1 min-w-0"

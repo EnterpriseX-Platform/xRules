@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import { connectionsApi } from '@/lib/api';
 import { cn } from '@/lib/cn';
+import { Select } from '@/components/ui/Select';
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
@@ -69,14 +70,14 @@ export function AIAgentDesigner({
         </div>
         <div>
           <div className="label-section mb-1.5">Connector</div>
-          <select
+          <Select
             className="input w-full text-xs"
             value={modelConnectorId}
             onChange={(e) => setPart('modelConnectorId', e.target.value, () => setModelConnectorId(e.target.value))}
           >
             <option value="">— select connector —</option>
             {aiConnectors.map((c: any) => <option key={c.id} value={c.id}>{c.name} ({c.type})</option>)}
-          </select>
+          </Select>
           {aiConnectors.length === 0 && (
             <div className="text-[10px] text-subtle mt-1">Add a connection (Connections page) of type HTTP / AI Model first.</div>
           )}
@@ -188,14 +189,14 @@ function AnnotationsTab({ annotations, outputFields, onChange }: { annotations: 
       {annotations.map((a, i) => (
         <div key={i} className="grid grid-cols-[140px_120px_1fr_30px] gap-2">
           <input className="input h-8 text-xs font-mono" placeholder="field name" value={a.field} onChange={(e) => set(i, { field: e.target.value })} />
-          <select className="input h-8 text-xs" value={a.type} onChange={(e) => set(i, { type: e.target.value as any })}>
+          <Select className="input h-8 text-xs" value={a.type} onChange={(e) => set(i, { type: e.target.value as any })}>
             <option value="auto">Auto</option>
             <option value="text">Text</option>
             <option value="number">Number</option>
             <option value="boolean">Boolean</option>
             <option value="object">Object</option>
             <option value="array">Array</option>
-          </select>
+          </Select>
           <input className="input h-8 text-xs" placeholder="description for the model" value={a.description} onChange={(e) => set(i, { description: e.target.value })} />
           <button className="btn-ghost text-danger p-0.5" onClick={() => onChange(annotations.filter((_, idx) => idx !== i))}>
             <Trash2 className="h-3 w-3" />

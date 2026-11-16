@@ -3,6 +3,7 @@
 // Definition shape: { primaryKey: 'colName', columns: [{name,type}], rows: [{col1,col2,...}] }
 import { useMemo, useState } from 'react';
 import { Plus, Trash2, Upload, Search } from 'lucide-react';
+import { Select } from '@/components/ui/Select';
 
 interface Col { name: string; type: 'string' | 'number' | 'boolean' }
 
@@ -95,9 +96,9 @@ export function LookupDesigner({ definition, onChange }: { definition: any; onCh
     <div className="space-y-3">
       <div className="card p-3 flex items-center gap-3 flex-wrap">
         <span className="label-section">Primary Key</span>
-        <select className="input h-8 text-xs" value={primaryKey} onChange={(e) => { setPrimaryKey(e.target.value); emit({ primaryKey: e.target.value }); }}>
+        <Select className="input h-8 text-xs" value={primaryKey} onChange={(e) => { setPrimaryKey(e.target.value); emit({ primaryKey: e.target.value }); }}>
           {columns.map(c => <option key={c.name}>{c.name}</option>)}
-        </select>
+        </Select>
 
         <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-subtle" />

@@ -7,6 +7,8 @@ import { PageContent, PageHeader } from '@/components/layout/AppShell';
 import { TestNav } from '@/components/layout/TestNav';
 import { EntityTable, Pill } from '@/components/EntityList';
 import { datasetsApi, api } from '@/lib/api';
+import { Select } from '@/components/ui/Select';
+import { DropZone } from '@/components/pipeline/ui';
 
 export default function DatasetsPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -92,8 +94,7 @@ function UploadDialog({ projectId, onClose, onCreated }: { projectId: string; on
     onError: (e: any) => setError(e.message),
   });
 
-  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
+  async function onFile(f: File) {
     if (!f) return;
     if (!name) setName(f.name.replace(/\.[^.]+$/, ''));
     const ext = f.name.toLowerCase().split('.').pop();
@@ -119,16 +120,16 @@ function UploadDialog({ projectId, onClose, onCreated }: { projectId: string; on
             </div>
             <div>
               <label className="label-section block mb-1.5">Format</label>
-              <select className="input w-full" value={format} onChange={(e) => setFormat(e.target.value as any)}>
+              <Select className="input w-full" value={format} onChange={(e) => setFormat(e.target.value as any)}>
                 <option value="jsonl">JSONL (one JSON per line)</option>
                 <option value="json">JSON (array)</option>
                 <option value="csv">CSV (with header row)</option>
-              </select>
+              </Select>
             </div>
           </div>
           <div>
-            <label className="label-section block mb-1.5">Pick a file (optional)</label>
-            <input type="file" accept=".jsonl,.json,.csv,.txt" className="text-xs" onChange={onFile} />
+            <div className="label-section block mb-1.5">File (optional)</div>
+            <DropZone accept=".jsonl,.json,.csv,.txt" onFile={onFile} label="Drop a JSONL / JSON / CSV file here or click to choose" />
           </div>
           <div>
             <div className="flex items-center justify-between mb-1.5">

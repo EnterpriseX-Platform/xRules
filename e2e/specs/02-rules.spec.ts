@@ -13,6 +13,12 @@ for (const kind of ['Scripting', 'Decision Table', 'Formula']) {
     await page.waitForURL(/\/rules\/[^/?]+$/);
     await expect(page.getByRole('heading', { name })).toBeVisible();
     await noErrorOnScreen(page);
+    await expect(page.locator('select'), 'no native select in the designer').toHaveCount(0);
+    if (kind === 'Decision Table') {                       // the system dropdown works inside the designer
+      await page.locator('main button[aria-haspopup="listbox"]').first().click();
+      await page.getByRole('option').nth(1).click();
+      await expect(page.locator('main button[aria-haspopup="listbox"]').first()).toHaveText(/First Match/);
+    }
     await shot(page, `02-${kind}-definition`);
 
     // Test tab: run with the sample input
