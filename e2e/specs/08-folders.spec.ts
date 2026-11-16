@@ -32,9 +32,9 @@ test('Folders: create, nest, move rules in, rename, remove keeps rules', async (
   await expect(item(sub)).toBeVisible();
 
   // move with the folder picker in the row
-  await row.getByRole('combobox', { name: `Folder of ${rule}` }).click();
+  await row.getByRole('button', { name: `Folder of ${rule}` }).click();
   await page.getByRole('option', { name: `${pkg} / ${sub}` }).click();
-  await expect(row.getByRole('combobox', { name: `Folder of ${rule}` })).toHaveText(new RegExp(sub));
+  await expect(row.getByRole('button', { name: `Folder of ${rule}` })).toHaveText(new RegExp(sub));
   await expect(item(sub)).toContainText('1');
 
   // the parent folder lists the sub-folder's rules too
@@ -46,9 +46,9 @@ test('Folders: create, nest, move rules in, rename, remove keeps rules', async (
   // drag back to All rules
   await item('All rules').click();
   await row.dragTo(item('All rules'));
-  await expect(row.getByRole('combobox', { name: `Folder of ${rule}` })).toHaveText(/^—/);
+  await expect(row.getByRole('button', { name: `Folder of ${rule}` })).toHaveText('—');
   await row.dragTo(item(sub));
-  await expect(row.getByRole('combobox', { name: `Folder of ${rule}` })).toHaveText(new RegExp(sub));
+  await expect(row.getByRole('button', { name: `Folder of ${rule}` })).toHaveText(new RegExp(sub));
 
   // rename
   await item(pkg).hover();
@@ -67,6 +67,6 @@ test('Folders: create, nest, move rules in, rename, remove keeps rules', async (
   await expect(tree.getByText(sub)).toHaveCount(0);
   await item('All rules').click();
   await expect(row).toHaveCount(1);
-  await expect(row.getByRole('combobox', { name: `Folder of ${rule}` })).toHaveText(/^—/);
+  await expect(row.getByRole('button', { name: `Folder of ${rule}` })).toHaveText('—');
   await noErrorOnScreen(page);
 });

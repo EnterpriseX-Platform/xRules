@@ -38,6 +38,7 @@ export default function ProjectsPage() {
         <table className="w-full">
           <thead className="bg-muted/30 border-b border-border">
             <tr className="text-left">
+              <th className="py-3 px-4 label-section w-12">#</th>
               <th className="py-3 px-4 label-section">Project</th>
               <th className="py-3 px-4 label-section text-right">Rules</th>
               <th className="py-3 px-4 label-section">Access</th>
@@ -57,8 +58,12 @@ export default function ProjectsPage() {
             )}
             {projects.map((p: any, i: number) => (
               <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                <td className="py-3 px-4 row-index">{String(i + 1).padStart(2, '0')}</td>
                 <td className="py-3 px-4">
                   <Link href={`/projects/${p.slug || p.id}/rules`} className="flex items-center gap-3 group">
+                    <span className="h-8 w-8 rounded flex items-center justify-center" style={{ background: p.color ? `${p.color}33` : 'rgb(var(--c-mint) / 0.2)' }}>
+                      <FolderKanban className="h-4 w-4 text-text" />
+                    </span>
                     <div className="min-w-0">
                       <div className="text-sm font-medium group-hover:text-accent">{p.name}</div>
                       <div className="text-xs text-subtle font-mono truncate">{p.description || p.slug}</div>

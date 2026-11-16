@@ -42,14 +42,15 @@ export function TenantSwitcher() {
   const current = tenants.find((t: any) => t.slug === ws?.slug);
 
   return (
-    <div className="relative shrink-0 h-full" ref={ref}>
-      <button type="button" onClick={() => setOpen(o => !o)} aria-haspopup="listbox" aria-expanded={open} className="xr-header-select">
-        <span className="xr-header-select-label">Tenant</span>
-        <span className="truncate">{current?.name ?? ws?.name ?? '—'}</span>
-        <ChevronDown className="h-4 w-4 shrink-0" />
+    <div className="relative shrink-0" ref={ref}>
+      <button type="button" onClick={() => setOpen(o => !o)} aria-haspopup="listbox" aria-expanded={open}
+        className="h-8 flex items-center gap-2 px-2.5 text-[13px] text-white hover:bg-[#393939] max-w-[220px]">
+        <span className="text-[#8d8d8d]">Tenant</span>
+        <span className="font-medium truncate">{current?.name ?? ws?.name ?? '—'}</span>
+        <ChevronDown className="h-3.5 w-3.5 text-[#c6c6c6] shrink-0" />
       </button>
       {open && (
-        <div className="absolute right-0 top-12 z-[8001] w-72 bg-[#262626] text-[#f4f4f4] shadow-xl border border-[#393939]" role="listbox">
+        <div className="absolute left-0 top-9 z-50 w-72 bg-[#262626] text-[#f4f4f4] shadow-xl border border-[#393939]" role="listbox">
           <div className="px-3 pt-2.5 pb-1 text-[12px] text-[#a8a8a8]">Your tenants</div>
           {tenants.map((t: any) => (
             <button key={t.id} type="button" role="option" aria-selected={t.slug === ws?.slug} onClick={() => switchTo(t)}

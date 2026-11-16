@@ -1,0 +1,259 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import {
+  LayoutDashboard, FolderKanban, FileText, Brain, FlaskConical,
+  Activity, KeyRound, Plug, Webhook, ScrollText, Settings,
+  ChevronDown, Workflow, Briefcase, ListTree, Zap,
+  Database, Layers, Network, BookA, Rows3, GitCompare, BadgeCheck, Timer, ListChecks, Gauge, PieChart, HeartPulse, Bell, History,
+  UserCog, Lock,
+} from 'lucide-react';
+import { Logo } from '@/components/ui/Logo';
+import { useProject } from '@/lib/store';
+import { useQuery } from '@tanstack/react-query';
+import { projectsApi } from '@/lib/api';
+import { cn } from '@/lib/cn';
+import { usePerms } from '@/lib/perms';
+
+interface NavItem { href: string; label: string; icon: any }
+
+// Persisted collapse state — survives reloads.
+const COLLAPSE_KEY = 'xrules:sidebar:collapsed';
+function readCollapsed(): Record<string, boolean> {
+  if (typeof window === 'undefined') return {};
+  try { return JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '{}'); } catch { return {}; }
+}
+function writeCollapsed(v: Record<string, boolean>) {
+  try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(v)); } catch {}
+}
+
+export function Sidebar() {
+  const pathname = usePathname();
+  const project = useProject((s) => s.currentProjectId);
+  const setProject = useProject((s) => s.setCurrentProject);
+
+  const { data: projects } = useQuery({
+    queryKey: ['projects'],
+    queryFn: projectsApi.list,
+    retry: false,
+  });
+
+  // Follow the project in the URL; drop a stored project that no longer exists
+  useEffect(() => {
+    if (!projects?.length) return;
+    const fromUrl = pathname.match(/^\/projects\/([^/]+)/)?.[1];
+    const urlProject = fromUrl && projects.find((p: any) => p.id === fromUrl || p.slug === fromUrl);
+    if (urlProject && urlProject.id !== project) { setProject(urlProject.id); return; }
+    if (!project || !projects.some((p: any) => p.id === project)) setProject(projects[0].id);
+  }, [projects, project, setProject, pathname]);
+
+  const currentProject = projects?.find((p: any) => p.id === project);
+  const projBase = `/projects/${currentProject?.slug || project || '_'}`;   // slug, so it matches the URL
+
+  const perms = usePerms();
+  const HUB = '/projects/_integration';
+  const ALL = '/projects/_all';
+
+  // Project level — the daily work, so it sits first
+  const engine: NavItem[] = project ? [
+    { href: `${projBase}/rules`,               label: 'Rules',          icon: FileText },
+    { href: `${projBase}/flows?kind=DECISION`, label: 'Decision Flows', icon: Workflow },
+    { href: `${projBase}/vocabulary`,          label: 'Vocabulary',     icon: BookA },
+    { href: `${projBase}/bulk`,                label: 'Bulk Runs',      icon: Rows3 },
+    { href: `${projBase}/simulations`,         label: 'Simulations',    icon: GitCompare },
+    { href: `${projBase}/models`,              label: 'Models',         icon: Brain },
+    { href: `${projBase}/releases`,            label: 'Releases',       icon: ScrollText },
+  ] : [];
+  // Tenant level
+  const integration: NavItem[] = [
+    { href: `${HUB}/apis`,                     label: 'REST APIs',   icon: Zap },
+    { href: `${HUB}/triggers`,                 label: 'Triggers',    icon: Timer },
+    { href: `${HUB}/data-sets`,                label: 'Data Sets',   icon: Layers },
+    { href: `${HUB}/integrations/connections`, label: 'Connections', icon: Database },
+  ];
+  const testing: NavItem[] = [
+    { href: `${ALL}/tests`,     label: 'Test Suites', icon: FlaskConical },
+    { href: `${ALL}/test-runs`, label: 'Test Runs',   icon: ListChecks },
+    { href: `${ALL}/approvals`, label: 'Approvals',   icon: BadgeCheck },
+  ];
+  const monitor: NavItem[] = [
+    { href: `${ALL}/monitor`,             label: 'Overview',    icon: Gauge },
+    { href: `${ALL}/monitor/traffic`,     label: 'API Traffic', icon: Activity },
+    { href: `${ALL}/monitor/decisions`,   label: 'Decisions',   icon: PieChart },
+    { href: `${ALL}/monitor/data-health`, label: 'Data Health', icon: HeartPulse },
+    { href: `${ALL}/monitor/alerts`,      label: 'Alerts',      icon: Bell },
+    { href: `${ALL}/executions`,          label: 'Executions',  icon: History },
+  ];
+  // Admin — tenant owners and admins only
+  const admin: NavItem[] = perms.admin ? [
+    { href: '/settings/tenant?tab=Members',              label: 'Members & Roles', icon: UserCog },
+    { href: '/projects',                                  label: 'Projects',        icon: FolderKanban },
+    ...(project ? [{ href: `${projBase}/access`, label: 'Project Access', icon: Lock }] : []),
+    { href: `${HUB}/integrations/api-keys`,               label: 'API Keys',        icon: KeyRound },
+    { href: `${ALL}/audit`,                               label: 'Audit Log',       icon: ListTree },
+    { href: '/settings/tenant',                           label: 'Tenant',          icon: Settings },
+  ] : [];
+
+  const areas: { id: string; label: string; icon: any; items: NavItem[] }[] = [
+    { id: 'engine', label: 'Decision Engine', icon: Workflow, items: [{ href: '/', label: 'Dashboard', icon: LayoutDashboard }, ...engine] },
+    { id: 'integration', label: 'Integration', icon: Plug, items: integration },
+    { id: 'testing', label: 'Testing', icon: FlaskConical, items: testing },
+    { id: 'monitor', label: 'Monitor', icon: Activity, items: monitor },
+    ...(admin.length ? [{ id: 'admin', label: 'Admin', icon: Settings, items: admin }] : []),
+  ];
+  areas.forEach(a => a.items.forEach(it => { if (!ALL_ITEMS.some(i => i.href === it.href)) ALL_ITEMS.push(it); }));
+  const activeHref = bestHref(pathname);
+  const here = areas.find(a => a.items.some(it => it.href === activeHref))?.id ?? 'engine';
+  const [picked, setPicked] = useState<string | null>(null);
+  useEffect(() => { setPicked(null); }, [pathname]);
+  const area = areas.find(a => a.id === (picked ?? here)) ?? areas[0];
+
+  return (
+    <aside className="shrink-0 flex border-r border-[#e0e0e0]">
+      <nav aria-label="Areas" className="w-[52px] bg-white border-r border-[#e0e0e0] flex flex-col items-center py-2 gap-1">
+        {areas.map((a, i) => {
+          const on = a.id === area.id; const Icon = a.icon;
+          return (
+            <button key={a.id} type="button" title={a.label} aria-label={a.label} aria-pressed={on} onClick={() => setPicked(a.id)}
+              className={cn('h-10 w-10 flex items-center justify-center border-l-2', a.id === 'admin' && 'mt-auto',
+                on ? 'bg-[#edf5ff] text-[#0f62fe] border-[#0f62fe]' : 'border-transparent text-[#525252] hover:bg-[#e8e8e8] hover:text-[#161616]')}>
+              <Icon className="h-5 w-5" />
+            </button>
+          );
+        })}
+      </nav>
+      <div className="w-[196px] bg-[#f4f4f4] flex flex-col py-3 overflow-y-auto">
+        <div className="px-4 pb-2 text-[14px] font-semibold text-[#161616]">{area.label}</div>
+        {area.items.map(it => <NavRow key={it.href} item={it} pathname={pathname} />)}
+      </div>
+    </aside>
+  );
+}
+
+function NavSection({ id, label, items, pathname }: {
+  id: string; label: string; items: NavItem[]; pathname: string;
+}) {
+  const here = items.some(it => it.href.split('?')[0] !== '/' && pathname.startsWith(it.href.split('?')[0]));
+  const [open, setOpen] = useState<boolean>(() => {
+    try { const v = localStorage.getItem(`xrules-nav-${id}`); return v === null ? true : v === '1'; } catch { return true; }
+  });
+  useEffect(() => { if (here) setOpen(true); }, [here]);
+  if (!items.length) return null;
+  const toggle = () => setOpen(o => { try { localStorage.setItem(`xrules-nav-${id}`, o ? '0' : '1'); } catch {} return !o; });
+  return (
+    <div className="space-y-0.5">
+      <button type="button" onClick={toggle} aria-expanded={open}
+        className="w-full px-4 pt-1 pb-0.5 flex items-center justify-between text-[12px] font-semibold text-[#525252] hover:text-[#161616]">
+        <span>{label}</span>
+        <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', !open && '-rotate-90')} />
+      </button>
+      {open && <div className="px-2">{items.map((it) => <NavRow key={it.href} item={it} pathname={pathname} />)}</div>}
+    </div>
+  );
+}
+
+let ALL_ITEMS: NavItem[] = [];
+function bestHref(pathname: string): string | null {
+  const kind = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('kind') : null;
+  let best: NavItem | null = null; let bestScore = -1;
+  for (const it of ALL_ITEMS) {
+    const [path, qs] = it.href.split('?');
+    if (!(pathname === path || pathname.startsWith(path + '/'))) continue;
+    const itKind = qs ? new URLSearchParams(qs).get('kind') : null;
+    if (itKind && kind && itKind.toLowerCase() !== kind.toLowerCase()) continue;
+    const score = path.length * 2 + (itKind && kind ? 1 : 0);
+    if (score > bestScore) { best = it; bestScore = score; }
+  }
+  return best?.href ?? null;
+}
+
+function NavRow({ item, pathname }: { item: NavItem; pathname: string }) {
+  if (!ALL_ITEMS.includes(item) && !ALL_ITEMS.some(i => i.href === item.href)) ALL_ITEMS.push(item);
+  const active = bestHref(pathname) === item.href;
+  const Icon = item.icon;
+  return (
+    <Link href={item.href} className={cn('nav-row', active && 'nav-row-active')}>
+      <Icon className="h-4 w-4 shrink-0" />
+      <span className="flex-1 truncate">{item.label}</span>
+    </Link>
+  );
+}
+
+export function ProjectPicker({ projects, current, onPick }: {
+  projects: any[];
+  current: any;
+  onPick: (p: any) => void;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    if (open) document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  function pick(p: any) {
+    onPick(p);
+    setOpen(false);
+    router.push(`/projects/${p.slug || p.id}/rules`);
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        className="w-full flex items-center gap-2 h-8 px-2 rounded-md border border-border/60 bg-surface hover:border-accent/50 transition-colors text-left"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span
+          className="h-2.5 w-2.5 rounded shrink-0"
+          style={{ background: current?.color || 'rgb(var(--c-mint))' }}
+        />
+        <span className="font-medium text-[13px] truncate">{current?.name || 'No project'}</span>
+        <ChevronDown className={cn('ml-auto h-3 w-3 text-subtle transition-transform', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <div className="absolute z-30 left-0 right-0 mt-1 rounded-md border border-border/60 bg-surface shadow-lg max-h-72 overflow-y-auto">
+          {projects.length === 0 && (
+            <div className="px-3 py-2 text-xs text-subtle">No projects</div>
+          )}
+          {projects.map((p) => {
+            const active = p.id === current?.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => pick(p)}
+                className={cn(
+                  'w-full flex items-center gap-2 px-2 py-1.5 text-left text-sm',
+                  active ? 'bg-accent/10 text-accent' : 'hover:bg-muted/60',
+                )}
+              >
+                <span
+                  className="h-2.5 w-2.5 rounded-full shrink-0"
+                  style={{ background: p.color || 'rgb(var(--c-mint))' }}
+                />
+                <span className="font-medium truncate">{p.name}</span>
+                <span className="ml-auto font-mono text-[10px] text-subtle">{p.slug}</span>
+              </button>
+            );
+          })}
+          <div className="border-t border-border/60">
+            <Link
+              href={`/projects`}
+              className="block px-2 py-1.5 text-xs text-accent hover:bg-muted/60"
+              onClick={() => setOpen(false)}
+            >
+              Manage projects →
+            </Link>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
