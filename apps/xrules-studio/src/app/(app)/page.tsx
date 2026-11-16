@@ -84,7 +84,6 @@ function RecentTable({ rows, loading }: { rows: any[]; loading: boolean }) {
     <table className="w-full text-sm">
       <thead className="border-b border-border/60">
         <tr className="text-left">
-          <th className="py-2 pr-4 label-section">#</th>
           <th className="py-2 pr-4 label-section">Rule</th>
           <th className="py-2 pr-4 label-section">Status</th>
           <th className="py-2 pr-4 label-section text-right">Duration</th>
@@ -93,7 +92,6 @@ function RecentTable({ rows, loading }: { rows: any[]; loading: boolean }) {
       <tbody>
         {rows.slice(0, 5).map((r, i) => (
           <tr key={r.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
-            <td className="py-3 pr-4 row-index">{String(i + 1).padStart(2, '0')}</td>
             <td className="py-3 pr-4 truncate max-w-[260px] font-medium">{r.ruleName || r.rule?.name || r.flow?.name || '—'}</td>
             <td className="py-3 pr-4">
               <span className={`pill ${String(r.status).toUpperCase() === 'SUCCESS' ? 'pill-ok' : String(r.status).toUpperCase() === 'FAILED' ? 'pill-danger' : 'pill-warn'}`}>

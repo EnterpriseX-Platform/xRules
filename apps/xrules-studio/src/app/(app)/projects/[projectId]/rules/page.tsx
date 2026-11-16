@@ -14,7 +14,11 @@ import { StatusPill, Pill } from '@/components/ui/Pill';
 import { rulesApi, api } from '@/lib/api';
 import { NewRuleDialog } from '@/components/rule/NewRuleDialog';
 import { usePerms } from '@/lib/perms';
-import { Select } from '@/components/ui/Select';
+import {
+  Button, ContentSwitcher, Switch, Dropdown, Tag, Table as DataTable, TableHead, TableRow, TableHeader, TableBody, TableCell,
+  TableContainer, TableToolbar, TableToolbarContent, TableToolbarSearch,
+} from '@carbon/react';
+import { Add as Add16, Network_3 as Network16, Template as Template16 } from '@carbon/icons-react';
 import { FolderPanel, flatten, subtreeIds, DRAG_TYPE } from '@/components/rule/FolderPanel';
 
 const TYPE_TONE: Record<string, any> = {
@@ -95,159 +99,90 @@ export default function RulesPage() {
     total:     rules.length,
   };
 
+  const TYPES = Object.keys(TYPE_ICON).map(t => ({ id: t, text: label(t) }));
+  const STATUS = ['all', 'published', 'draft', 'archived'];
+  const folderItems = [{ id: '', text: '—' }, ...folderList.map(f => ({ id: f.id, text: f.path }))];
+  const open = (r: any) => router.push(`/projects/${projectId}/rules/${r.slug || r.id}`);
+
   return (
     <PageContent>
       <PageHeader
-        title={typeFilter ? typeFilter.replace('_', ' ').replace(/\b\w/g, m => m.toUpperCase()) + 's' : 'Rules'}
-        description={typeFilter ? 'Filtered by rule kind' : 'Atomic decision units — decision tables, trees, formulas, scripts'}
+        title={typeFilter ? label(typeFilter) + ' rules' : 'Rules'}
+        description="Atomic decision units — decision tables, trees, formulas, scripts"
         stats={[
           { label: 'Published', value: stats.published },
           { label: 'Draft',     value: stats.draft },
           { label: 'Total',     value: stats.total },
         ]}
-        actions={
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/projects/${projectId}/templates`}
-              className="btn-outline"
-              title="Browse pre-built starter rules"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Templates
-            </Link>
-            <Link
-              href={`/projects/${projectId}/drd`}
-              className="btn-ghost"
-              title="Decision Requirements Diagram — visualize rule dependencies"
-            >
-              <Network className="h-3.5 w-3.5" />
-              Graph
-            </Link>
-            {perms.write && (<button className="btn-primary" onClick={() => setShowCreate(true)}>
-              <Plus className="h-3.5 w-3.5" />
-              New Rule
-            </button>)}
-          </div>
-        }
+        actions={<>
+          <Button kind="ghost" as={Link} href={`/projects/${projectId}/drd`} renderIcon={Network16}>Graph</Button>
+          <Button kind="tertiary" as={Link} href={`/projects/${projectId}/templates`} renderIcon={Template16}>Templates</Button>
+          {perms.write && <Button kind="primary" renderIcon={Add16} onClick={() => setShowCreate(true)}>New rule</Button>}
+        </>}
       />
 
-      <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr] gap-3">
+      <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr] gap-4">
         <FolderPanel projectId={projectId} folders={folders} rules={rules} folderId={folderId} setFolderId={setFolderId} canWrite={!!perms.write} />
 
-        {/* Main */}
-        <div>
-          {/* Type filter chips — always visible regardless of ?type= URL param */}
-          <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <span className="label-section mr-1">Type</span>
-            <TypeChip current={typeFilter} value="" projectId={projectId}>All</TypeChip>
-            <TypeChip current={typeFilter} value="DECISION_TABLE" projectId={projectId} tone="info">Decision Table</TypeChip>
-            <TypeChip current={typeFilter} value="DECISION_TREE"  projectId={projectId} tone="mint">Decision Tree</TypeChip>
-            <TypeChip current={typeFilter} value="SCORECARD"      projectId={projectId} tone="accent">Scorecard</TypeChip>
-            <TypeChip current={typeFilter} value="FORMULA"        projectId={projectId} tone="warn">Formula</TypeChip>
-            <TypeChip current={typeFilter} value="SCRIPT"         projectId={projectId} tone="subtle">Scripting</TypeChip>
-            <TypeChip current={typeFilter} value="LOOKUP"         projectId={projectId} tone="subtle">Lookup</TypeChip>
-            <TypeChip current={typeFilter} value="AI_AGENT"       projectId={projectId} tone="accent">AI Agent</TypeChip>
-            <TypeChip current={typeFilter} value="MODEL_CALL"     projectId={projectId} tone="danger">Model Call</TypeChip>
-          </div>
-
-          <div className="flex items-center gap-3 mb-4">
-            <div className="tabs-row">
-              {['all', 'published', 'draft', 'archived'].map((t) => (
-                <button key={t} className={`tab ${filter === t ? 'tab-active' : ''}`} onClick={() => setFilter(t)}>
-                  {t}
-                </button>
-              ))}
-            </div>
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-subtle" />
-              <input
-                className="input w-full pl-9"
-                placeholder="search rules…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="card overflow-x-auto">
-        <table className="w-full min-w-[720px]">
-          <thead className="bg-muted/30 border-b border-border">
-            <tr className="text-left">
-              <th className="py-3 px-4 label-section w-12">#</th>
-              <th className="py-3 px-2 label-section w-10"></th>
-              <th className="py-3 px-4 label-section">Rule</th>
-              <th className="py-3 px-4 label-section">Type</th>
-              <th className="py-3 px-4 label-section">Folder</th>
-              <th className="py-3 px-4 label-section">Status</th>
-              <th className="py-3 px-4 label-section text-right">Version</th>
-              <th className="py-3 px-4 label-section w-12"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading && <tr><td colSpan={8} className="text-center py-12 text-subtle font-mono text-sm">Loading…</td></tr>}
-            {!isLoading && filtered.length === 0 && (
-              <tr><td colSpan={8} className="text-center py-16">
-                <div className="max-w-sm mx-auto">
-                  <div className="h-14 w-14 mx-auto rounded-full bg-accent/10 flex items-center justify-center mb-3">
-                    <FileText className="h-6 w-6 text-accent" />
+        <TableContainer>
+          <TableToolbar aria-label="Rules toolbar">
+            <TableToolbarContent className="xr-toolbar">
+              <ContentSwitcher size="lg" selectedIndex={STATUS.indexOf(filter)} onChange={(e: any) => setFilter(String(e.name))} className="xr-status-switch">
+                {STATUS.map(t => <Switch key={t} name={t} text={t[0].toUpperCase() + t.slice(1)} />)}
+              </ContentSwitcher>
+              <div className="xr-type-filter">
+                <Dropdown id="rule-type" titleText="Type" hideLabel label="All types" size="lg" type="inline"
+                  items={[{ id: '', text: 'All types' }, ...TYPES]} itemToString={(i: any) => i?.text ?? ''}
+                  selectedItem={[{ id: '', text: 'All types' }, ...TYPES].find(t => t.id === typeFilter)}
+                  onChange={({ selectedItem }: any) => router.push(`/projects/${projectId}/rules${selectedItem?.id ? `?type=${selectedItem.id}` : ''}`)} />
+              </div>
+              <TableToolbarSearch persistent placeholder="Search rules" labelText="Search rules" value={search} onChange={(e: any) => setSearch(e?.target?.value ?? '')} />
+            </TableToolbarContent>
+          </TableToolbar>
+          <DataTable size="lg" aria-label="Rules">
+            <TableHead>
+              <TableRow>
+                <TableHeader>Rule</TableHeader>
+                <TableHeader>Type</TableHeader>
+                <TableHeader>Folder</TableHeader>
+                <TableHeader>Status</TableHeader>
+                <TableHeader className="xr-num">Version</TableHeader>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {!isLoading && filtered.length === 0 && (
+                <TableRow><TableCell colSpan={5}>
+                  <div className="py-10">
+                    <div className="text-[16px] text-[#161616] mb-1">{rules.length ? 'No rules match' : 'Start your first rule'}</div>
+                    {perms.write && !rules.length && <Button kind="primary" size="md" renderIcon={Add16} onClick={() => setShowCreate(true)}>New rule</Button>}
                   </div>
-                  <div className="text-sm font-medium text-text mb-1">No rules yet</div>
-                  <div className="text-xs text-subtle leading-relaxed mb-4">
-                    Pick from 8 rule kinds — from simple decision tables to LLM-backed AI agents — to author your first decision.
-                  </div>
-                  {perms.write && (<button className="btn-primary text-sm" onClick={() => setShowCreate(true)}>
-                    <Plus className="h-3.5 w-3.5" />
-                    Create your first rule
-                  </button>)}
-                </div>
-              </td></tr>
-            )}
-            {filtered.map((r: any, i: number) => {
-              const T = String(r.type || '').toUpperCase();
-              const Icon = TYPE_ICON[T] || FileText;
-              const tone = TYPE_TONE[T] || 'subtle';
-              return (
-              <tr key={r.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors"
-                draggable={!!perms.write} onDragStart={e => { e.dataTransfer.setData(DRAG_TYPE, r.id); e.dataTransfer.effectAllowed = 'move'; }}>
-                <td className="py-3 px-4 row-index">{String(i + 1).padStart(2, '0')}</td>
-                <td className="py-3 px-2">
-                  <div className={`h-7 w-7 rounded flex items-center justify-center border ${TYPE_ICON_CLS[tone] || TYPE_ICON_CLS.subtle}`}>
-                    <Icon className="h-3.5 w-3.5" />
-                  </div>
-                </td>
-                <td className="py-3 px-4">
-                  <Link href={`/projects/${projectId}/rules/${r.slug || r.id}`} className="block group">
-                    <div className="text-sm font-medium group-hover:text-accent">{r.name}</div>
-                    <div className="text-xs text-subtle font-mono">{r.slug}</div>
-                  </Link>
-                </td>
-                <td className="py-3 px-4">
-                  <Pill tone={tone}>{T.replace('_', ' ')}</Pill>
-                </td>
-                <td className="py-3 px-4 w-48">
-                  {perms.write
-                    ? <Select aria-label={`Folder of ${r.name}`} value={r.folderId || ''} onChange={e => moveTo(r.id, e.target.value)} className="h-8 text-xs w-44">
-                        <option value="">—</option>
-                        {folderList.map(f => <option key={f.id} value={f.id}>{f.path}</option>)}
-                      </Select>
-                    : <span className="text-xs text-subtle">{folderList.find(f => f.id === r.folderId)?.path || '—'}</span>}
-                </td>
-                <td className="py-3 px-4"><StatusPill status={r.status} /></td>
-                <td className="py-3 px-4 text-right font-mono text-xs text-subtle tabular-nums">v{r.version}</td>
-                <td className="py-3 px-4 text-right">
-                  <Link href={`/projects/${projectId}/rules/${r.slug || r.id}`}>
-                    <ChevronRight className="h-4 w-4 text-subtle inline" />
-                  </Link>
-                </td>
-              </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-          {/* /closing card overflow-hidden */}
-        </div>
+                </TableCell></TableRow>
+              )}
+              {filtered.map((r: any) => {
+                const T = String(r.type || '').toUpperCase();
+                return (
+                  <TableRow key={r.id} draggable={!!perms.write}
+                    onDragStart={(e: React.DragEvent) => { e.dataTransfer.setData(DRAG_TYPE, r.id); e.dataTransfer.effectAllowed = 'move'; }}>
+                    <TableCell>
+                      <Link href={`/projects/${projectId}/rules/${r.slug || r.id}`} className="cds--link">{r.name}</Link>
+                      <div className="text-[12px] text-[#6f6f6f] font-mono">{r.slug}</div>
+                    </TableCell>
+                    <TableCell><Tag type={TYPE_TAG[T] || 'gray'} size="md">{label(T)}</Tag></TableCell>
+                    <TableCell className="xr-folder-cell">
+                      {perms.write
+                        ? <Dropdown id={`folder-${r.id}`} titleText={`Folder of ${r.name}`} hideLabel label="—" size="sm" type="inline"
+                            items={folderItems} itemToString={(i: any) => i?.text ?? ''} selectedItem={folderItems.find(f => f.id === (r.folderId || ''))}
+                            onChange={({ selectedItem }: any) => moveTo(r.id, selectedItem?.id ?? '')} />
+                        : folderList.find(f => f.id === r.folderId)?.path || '—'}
+                    </TableCell>
+                    <TableCell><Tag type={STATUS_TAG[r.status] || 'gray'} size="md">{r.status}</Tag></TableCell>
+                    <TableCell className="xr-num">v{r.version}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </DataTable>
+        </TableContainer>
       </div>
 
       {showCreate && (
@@ -262,24 +197,6 @@ export default function RulesPage() {
   );
 }
 
-function TypeChip({ current, value, projectId, tone, children }: {
-  current: string; value: string; projectId: string;
-  tone?: 'info' | 'mint' | 'accent' | 'warn' | 'danger' | 'subtle';
-  children: React.ReactNode;
-}) {
-  const active = current === value;
-  const href = value
-    ? `/projects/${projectId}/rules?type=${value}`
-    : `/projects/${projectId}/rules`;
-  const toneCls = active
-    ? tone === 'info'   ? 'bg-info/15 text-info border-info/40'
-    : tone === 'mint'   ? 'bg-mint/15 text-mint border-mint/40'
-    : tone === 'accent' ? 'bg-accent/15 text-accent border-accent/40'
-    : tone === 'warn'   ? 'bg-warn/15 text-warn border-warn/40'
-    : tone === 'danger' ? 'bg-danger/15 text-danger border-danger/40'
-    : 'bg-text/10 text-text border-border'
-    : 'bg-transparent text-subtle border-border hover:border-text/40';
-  return (
-    <Link href={href} className={`pill border ${toneCls}`}>{children}</Link>
-  );
-}
+const label = (t: string) => t.charAt(0) + t.slice(1).toLowerCase().replace(/_/g, ' ');
+const TYPE_TAG: Record<string, any> = { DECISION_TABLE: 'blue', DECISION_TREE: 'teal', SCORECARD: 'cyan', FORMULA: 'purple', SCRIPT: 'gray', LOOKUP: 'cool-gray', MODEL_CALL: 'magenta', AI_AGENT: 'warm-gray' };
+const STATUS_TAG: Record<string, any> = { published: 'green', draft: 'warm-gray', archived: 'gray' };

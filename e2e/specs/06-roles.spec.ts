@@ -47,7 +47,7 @@ test('Viewer: reads everything, creates nothing, no Admin', async ({ page, reque
   await p.goto(`projects/${PROJECT}/rules`);
   await expect(p.locator('main h1')).toHaveText('Rules');
   await expect(p.getByRole('button', { name: 'New Rule' })).toBeHidden();
-  await expect(p.locator('aside').getByRole('button', { name: 'Admin' })).toHaveCount(0);
+  await expect(p.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: 'Admin', exact: true })).toHaveCount(0);
   await p.goto('projects/_integration/apis');
   await expect(p.getByRole('button', { name: 'New API' })).toHaveCount(0);
   await p.screenshot({ path: 'shots/06-viewer.png', fullPage: true });
@@ -78,7 +78,7 @@ test('Integrator: changes Integration, no Admin', async ({ page, request, browse
   await p.locator('#sp-base').fill(`e2e-int-${s}`);
   await p.getByRole('button', { name: 'Create' }).click();
   await p.waitForURL(/\/apis\/[^/]+$/);
-  await expect(p.locator('aside').getByRole('button', { name: 'Admin' })).toHaveCount(0);
+  await expect(p.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: 'Admin', exact: true })).toHaveCount(0);
   await p.screenshot({ path: 'shots/06-integrator.png', fullPage: true });
   await ctx.close();
 });

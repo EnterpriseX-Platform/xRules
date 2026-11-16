@@ -48,25 +48,26 @@
   }
 
   [data-theme="dark"] {
-    --c-bg:           9   9  11;   /* zinc-950 */
-    --c-surface:     24  24  27;   /* zinc-900 */
-    --c-elevated:    39  39  42;   /* zinc-800 */
-    --c-sidebar:      9   9  11;   /* match bg — no edge separation */
-    --c-border:      39  39  42;
-    --c-muted:       39  39  42;
+    /* Carbon g100 */
+    --c-bg:          22  22  22;   /* background #161616 */
+    --c-surface:     38  38  38;   /* layer-01 #262626 */
+    --c-elevated:    57  57  57;   /* layer-02 #393939 */
+    --c-sidebar:     38  38  38;
+    --c-border:      57  57  57;   /* border-subtle #393939 */
+    --c-muted:       57  57  57;   /* field #393939 */
 
-    --c-text:       244 244 245;   /* zinc-100 */
-    --c-subtle:     161 161 170;   /* zinc-400 */
+    --c-text:       244 244 244;   /* text-primary #f4f4f4 */
+    --c-subtle:     198 198 198;   /* text-secondary #c6c6c6 */
 
-    --c-accent:     167 139 250;   /* violet-400 — brighter on dark */
-    --c-accent-2:   196 181 253;   /* violet-300 */
-    --c-accent-fg:   24  24  27;
+    --c-accent:     120 169 255;   /* link-primary #78a9ff */
+    --c-accent-2:   120 169 255;
+    --c-accent-fg:  255 255 255;
 
-    --c-ok:          52 211 153;   /* emerald-400 */
-    --c-warn:       251 191  36;   /* amber-400 */
-    --c-danger:     248 113 113;   /* red-400 */
-    --c-info:       147 197 253;   /* blue-300 */
-    --c-mint:        45 212 191;   /* teal-400 */
+    --c-ok:          66 190 101;   /* support-success #42be65 */
+    --c-warn:       255 131  43;   /* orange-40 */
+    --c-danger:     250  77  86;   /* support-error #fa4d56 */
+    --c-info:       120 169 255;
+    --c-mint:        66 190 101;
 
     --c-eng-rules:  167 139 250;
     --c-eng-pmml:   161 161 170;
@@ -315,3 +316,87 @@ html body, body.font-sans { font-family: var(--font-plex); background-image: non
 .nav-row { border-radius: 0 !important; margin: 0; padding-left: 16px; border-left: 3px solid transparent; }
 .nav-row-active { background: #e0e0e0 !important; border-left-color: #0f62fe !important; color: #161616 !important; font-weight: 600; box-shadow: none !important; }
 .nav-row { height: 32px; padding-top: 0 !important; padding-bottom: 0 !important; }
+
+/* ==============================================================
+   Carbon v11 component specs (g10, productive). One place, every page.
+   ============================================================== */
+/* type: label-01 12/16 · body-compact-01 14/18 · heading-compact-01 14/18 600 */
+.label-section { font-size: 12px !important; line-height: 16px; font-weight: 400 !important; color: rgb(var(--c-subtle)) !important; letter-spacing: .32px; }
+
+/* Button — md 40px, 14px label left, icon right, padding 0 63px 0 15px when it has an icon */
+.btn { height: 40px !important; padding: 0 15px !important; font-size: 14px !important; line-height: 18px; letter-spacing: .16px; gap: 32px !important; justify-content: space-between !important; }
+.btn:has(> svg) { padding-right: 15px !important; min-width: 0; }
+.btn > svg { order: 2; flex-shrink: 0; width: 16px !important; height: 16px !important; }
+.btn-ghost { justify-content: flex-start !important; gap: 8px !important; }
+.btn-ghost:hover { background: #e8e8e8 !important; color: #0043ce !important; }
+.btn:disabled, .btn[aria-disabled="true"] { background: #c6c6c6 !important; color: #8d8d8d !important; border-color: #c6c6c6 !important; cursor: not-allowed; }
+.btn-outline:hover { background: #0353e9 !important; border-color: #0353e9 !important; }
+.btn.text-sm, .btn.text-xs { height: 32px !important; }   /* sm, where callers ask for small */
+
+/* Content switcher (status filter) — 40px, outlined, selected = inverse */
+.tabs-row { padding: 0 !important; gap: 0 !important; border: 0 !important; background: transparent !important; }
+.tab { height: 40px; display: inline-flex; align-items: center; padding: 0 16px !important; font-size: 14px !important; font-weight: 400 !important; color: rgb(var(--c-subtle)) !important;
+  background: transparent; border: 1px solid #8d8d8d; box-shadow: none !important; }
+.tab + .tab { border-left: 0; }
+.tab:hover { background: #e8e8e8; color: #161616 !important; }
+.tab-active, .tab-active:hover { background: #161616 !important; border-color: #161616 !important; color: #fff !important; }
+
+/* Tag — 24px, 12px, full radius, no dot */
+.pill { height: 24px; font-size: 12px !important; line-height: 16px !important; padding: 0 8px !important; letter-spacing: .32px; }
+.pill .dot { display: none; }
+
+/* Data table — header #e0e0e0 48px heading-compact-01, rows 48px on layer, hover #e8e8e8 */
+main table:not(.raw) { border-collapse: collapse; }
+main table:not(.raw) > thead { background: #e0e0e0 !important; border: 0 !important; }
+main table:not(.raw) > thead th { height: 48px; padding-top: 0 !important; padding-bottom: 0 !important; font-size: 14px !important; line-height: 18px; font-weight: 600 !important;
+  color: #161616 !important; letter-spacing: .16px; text-transform: none !important; vertical-align: middle; }
+main table:not(.raw) > tbody > tr { border-bottom: 1px solid #e0e0e0 !important; background: rgb(var(--c-surface)); }
+main table:not(.raw) > tbody > tr:hover { background: #e8e8e8 !important; }
+main table:not(.raw) > tbody td { font-size: 14px; color: #525252; vertical-align: middle; }
+[data-theme="dark"] main table:not(.raw) > thead { background: #393939 !important; }
+[data-theme="dark"] main table:not(.raw) > thead th { color: #f4f4f4 !important; }
+[data-theme="dark"] main table:not(.raw) > tbody > tr { border-color: #393939 !important; }
+[data-theme="dark"] main table:not(.raw) > tbody > tr:hover { background: #333333 !important; }
+
+/* Search / text input — 40px field, bottom border, 14px */
+.input { font-size: 14px !important; padding-right: 16px !important; }
+.input:not([class*="pl-"]) { padding-left: 16px !important; }
+
+/* Tabs (line) — 48px, 14px, 2px bottom border; selected = interactive blue + 600 */
+.tabs-row { border-bottom: 2px solid #e0e0e0 !important; }
+.tabs-row .tab { height: 48px; border: 0 !important; border-bottom: 2px solid transparent !important; margin-bottom: -2px; background: transparent !important; color: #525252 !important; gap: 8px; }
+.tabs-row .tab:hover { border-bottom-color: #8d8d8d !important; color: #161616 !important; background: transparent !important; }
+.tabs-row .tab-active, .tabs-row .tab-active:hover { border-bottom-color: #0f62fe !important; color: #161616 !important; font-weight: 600 !important; background: transparent !important; }
+/* Content switcher — when a page asks for one */
+.cds-switcher { display: inline-flex; border-bottom: 0 !important; }
+.cds-switcher .tab { height: 40px; margin: 0; border: 1px solid #8d8d8d !important; color: #525252 !important; font-weight: 400 !important; }
+.cds-switcher .tab + .tab { border-left: 0 !important; }
+.cds-switcher .tab:hover { background: #e8e8e8 !important; color: #161616 !important; }
+.cds-switcher .tab-active, .cds-switcher .tab-active:hover { background: #161616 !important; border-color: #161616 !important; color: #fff !important; }
+
+/* ===== Carbon UI Shell (@carbon/react) — app-specific pieces ===== */
+.xr-content { margin-left: 16rem; padding-top: 3rem; height: 100vh; overflow-y: auto; position: relative; }
+@media (max-width: 1055px) { .xr-content { margin-left: 0; } }
+.xr-context { display: flex; align-items: stretch; height: 100%; margin-right: auto; }
+.cds--header__global { align-items: stretch; }
+.xr-header-select { height: 3rem; display: inline-flex; align-items: center; gap: .5rem; padding: 0 1rem; max-width: 16rem;
+  color: #f4f4f4; font-size: .875rem; background: transparent; border-left: 1px solid #393939; }
+.xr-header-select:hover { background: #353535; }
+.xr-header-select[aria-expanded="true"] { background: #393939; }
+.xr-header-select-label { color: #a8a8a8; }
+.xr-header-menu { position: absolute; right: 0; top: 3rem; z-index: 8001; width: 18rem; max-height: 22rem; overflow-y: auto; background: #262626; color: #f4f4f4; border: 1px solid #393939; }
+.xr-header-menu > button { width: 100%; height: 2.5rem; display: flex; align-items: center; gap: .5rem; padding: 0 1rem; font-size: .875rem; text-align: left; }
+.xr-header-menu > button:hover { background: #353535; }
+.xr-header-menu-foot { display: block; padding: .75rem 1rem; font-size: .875rem; color: #78a9ff; border-top: 1px solid #393939; }
+.xr-sidenav-title { padding: 1rem 1rem .5rem; font-size: .875rem; font-weight: 600; color: #161616; letter-spacing: .16px; }
+.xr-user { padding: 1rem; color: #f4f4f4; }
+.xr-user-name { font-size: 1rem; }
+.xr-user-meta { font-size: .75rem; color: #c6c6c6; margin-top: .25rem; }
+.cds--header-panel--expanded { width: 16rem; }
+/* Carbon owns typography; keep Thai glyphs via Plex Sans Thai */
+body, .cds--header, .cds--side-nav { font-family: var(--font-plex) !important; }
+.xr-status-switch { width: 28rem; flex: none; }
+.xr-toolbar { align-items: stretch; }
+.xr-type-filter { width: 11rem; }
+.xr-num { text-align: right !important; }
+.xr-folder-cell .cds--dropdown { width: 12rem; }

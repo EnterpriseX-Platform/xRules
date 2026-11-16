@@ -575,7 +575,6 @@ function VersionsTab({ ruleId }: { ruleId: string }) {
       <table className="w-full">
         <thead className="bg-muted/30 border-b border-border">
           <tr className="text-left">
-            <th className="py-3 px-4 label-section w-12">#</th>
             <th className="py-3 px-4 label-section">Version</th>
             <th className="py-3 px-4 label-section">Status</th>
             <th className="py-3 px-4 label-section">Message</th>
@@ -585,7 +584,6 @@ function VersionsTab({ ruleId }: { ruleId: string }) {
         <tbody>
           {versions.map((v: any, i: number) => (
             <tr key={v.id} className="border-b border-border/50">
-              <td className="py-3 px-4 row-index">{String(i + 1).padStart(2, '0')}</td>
               <td className="py-3 px-4 font-mono">v{v.version}</td>
               <td className="py-3 px-4"><StatusPill status={v.status} /></td>
               <td className="py-3 px-4 text-sm text-subtle">{v.message || '—'}</td>

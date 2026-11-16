@@ -177,24 +177,25 @@ test('Tenant-level testing reaches a rule in another project; scope filter narro
   await shot(page, '05-cross-project-testing');
 });
 
-test('Shell: area rail + area menu; header context, search and user menu', async ({ page }) => {
+test('Shell: Carbon header areas + side nav of the area; header context and user panel', async ({ page }) => {
   await page.goto(`projects/${PROJECT}/rules`);
-  const nav = page.locator('aside');
-  await expect(nav.getByRole('button', { name: 'Decision Engine' })).toHaveAttribute('aria-pressed', 'true');   // area follows the page
-  await expect(nav.getByRole('link', { name: 'Rules' })).toHaveAttribute('href', new RegExp(`/projects/[^/]+/rules$`));
-  await expect(nav.getByRole('link', { name: 'REST APIs' })).toHaveCount(0);                                  // only one area listed
-  await nav.getByRole('button', { name: 'Integration' }).click();
-  await expect(nav.getByRole('link', { name: 'REST APIs' })).toHaveAttribute('href', /\/projects\/_integration\/apis$/);
-  await nav.getByRole('button', { name: 'Testing' }).click();
-  await expect(nav.getByRole('link', { name: 'Test Suites' })).toHaveAttribute('href', /\/projects\/_all\/tests$/);
-  await nav.getByRole('button', { name: 'Admin' }).click();
-  await nav.getByRole('link', { name: 'Members & Roles' }).click();
+  const areas = page.getByRole('navigation', { name: 'Areas' });
+  const side = page.locator('nav.cds--side-nav__navigation');
+  await expect(areas.getByRole('link', { name: 'Decision Engine', exact: true })).toHaveAttribute('aria-current', /page|true/);
+  await expect(side.getByRole('link', { name: 'Rules' })).toHaveAttribute('href', new RegExp(`/projects/[^/]+/rules$`));
+  await expect(side.getByRole('link', { name: 'REST APIs' })).toHaveCount(0);                            // only the area's pages
+  await areas.getByRole('link', { name: 'Integration', exact: true }).click();
+  await expect(page).toHaveURL(/_integration\/apis/);
+  await expect(side.getByRole('link', { name: 'REST APIs' })).toHaveClass(/side-nav__link--current/);
+  await areas.getByRole('link', { name: 'Testing', exact: true }).click();
+  await expect(side.getByRole('link', { name: 'Test Suites' })).toHaveAttribute('href', /\/projects\/_all\/tests$/);
+  await areas.getByRole('link', { name: 'Admin', exact: true }).click();
+  await side.getByRole('link', { name: 'Members & Roles' }).click();
   await expect(page).toHaveURL(/settings\/tenant/);
-  await expect(nav.getByRole('button', { name: 'Admin' })).toHaveAttribute('aria-pressed', 'true');
   await page.goto(`projects/${PROJECT}/rules`);
-  const header = page.locator('header');
-  await expect(header.getByText('NEB Pre-screening', { exact: false })).toBeVisible();                     // tenant / project context
+  const header = page.getByRole('banner');
+  await expect(header.getByText('NEB Pre-screening', { exact: false })).toBeVisible();
   await header.getByRole('button', { name: /Owner/ }).click();
-  await expect(page.getByRole('menuitem', { name: 'Sign out' })).toBeVisible();
+  await expect(page.getByText('Sign out')).toBeVisible();
   await shot(page, '05-sidebar');
 });
