@@ -53,7 +53,6 @@ export function Sidebar() {
   const projBase = `/projects/${currentProject?.slug || project || '_'}`;   // slug, so it matches the URL
 
   const perms = usePerms();
-  const single = (projects?.length ?? 0) <= 1;
   const HUB = '/projects/_integration';
   const ALL = '/projects/_all';
 
@@ -97,48 +96,37 @@ export function Sidebar() {
     { href: '/settings/tenant',                           label: 'Tenant',          icon: Settings },
   ] : [];
 
+  const areas: { id: string; label: string; icon: any; items: NavItem[] }[] = [
+    { id: 'engine', label: 'Decision Engine', icon: Workflow, items: [{ href: '/', label: 'Dashboard', icon: LayoutDashboard }, ...engine] },
+    { id: 'integration', label: 'Integration', icon: Plug, items: integration },
+    { id: 'testing', label: 'Testing', icon: FlaskConical, items: testing },
+    { id: 'monitor', label: 'Monitor', icon: Activity, items: monitor },
+    ...(admin.length ? [{ id: 'admin', label: 'Admin', icon: Settings, items: admin }] : []),
+  ];
+  areas.forEach(a => a.items.forEach(it => { if (!ALL_ITEMS.some(i => i.href === it.href)) ALL_ITEMS.push(it); }));
+  const activeHref = bestHref(pathname);
+  const here = areas.find(a => a.items.some(it => it.href === activeHref))?.id ?? 'engine';
+  const [picked, setPicked] = useState<string | null>(null);
+  useEffect(() => { setPicked(null); }, [pathname]);
+  const area = areas.find(a => a.id === (picked ?? here)) ?? areas[0];
+
   return (
-    <aside className="w-[228px] shrink-0 border-r border-border/40 bg-sidebar flex flex-col">
-      {/* Brand */}
-      <div className="h-[48px] -mr-px relative z-10 px-4 flex items-center gap-2.5 bg-[#161616] text-white">
-        <Logo className="h-5 w-5" />
-        <span className="text-[14px] font-semibold tracking-tight">
-          xRules
-        </span>
-      </div>
-
-      <div className="flex-1 overflow-y-auto py-3 space-y-2">
-        <div className="px-2">
-          <NavRow item={{ href: '/', label: 'Dashboard', icon: LayoutDashboard }} pathname={pathname} />
-        </div>
-
-        {/* Decision Engine — project picker only when there is a choice */}
-        <div>
-          <div className="px-4 pt-1 pb-1 text-[12px] font-semibold text-[#525252]">Decision Engine</div>
-          {!single && (
-            <div className="px-3 pb-1">
-              <ProjectPicker projects={projects || []} current={currentProject} onPick={(p) => setProject(p.id)} />
-            </div>
-          )}
-          {project && <div className="px-2">{engine.map(it => <NavRow key={it.href} item={it} pathname={pathname} />)}</div>}
-        </div>
-
-        <NavSection id="integration" label="Integration" items={integration} pathname={pathname} />
-        <NavSection id="testing"     label="Testing"     items={testing}     pathname={pathname} />
-        <NavSection id="monitor"     label="Monitor"     items={monitor}     pathname={pathname} />
-        {admin.length > 0 && <>
-          <div className="hr mx-3" />
-          <NavSection id="admin" label="Admin" items={admin} pathname={pathname} />
-        </>}
-      </div>
-
-      {/* Status footer — hairline divider, low-key */}
-      <div className="px-4 py-2.5 flex items-center justify-between text-[11px] text-subtle border-t border-border/40">
-        <div className="flex items-center gap-1.5">
-          <span className="dot bg-ok shadow-[0_0_8px_rgb(var(--c-ok)/0.5)]" />
-          <span>Engine online</span>
-        </div>
-        <span className="opacity-50 font-mono text-[10px]">v0.2</span>
+    <aside className="shrink-0 flex border-r border-[#e0e0e0]">
+      <nav aria-label="Areas" className="w-[52px] bg-white border-r border-[#e0e0e0] flex flex-col items-center py-2 gap-1">
+        {areas.map((a, i) => {
+          const on = a.id === area.id; const Icon = a.icon;
+          return (
+            <button key={a.id} type="button" title={a.label} aria-label={a.label} aria-pressed={on} onClick={() => setPicked(a.id)}
+              className={cn('h-10 w-10 flex items-center justify-center border-l-2', a.id === 'admin' && 'mt-auto',
+                on ? 'bg-[#edf5ff] text-[#0f62fe] border-[#0f62fe]' : 'border-transparent text-[#525252] hover:bg-[#e8e8e8] hover:text-[#161616]')}>
+              <Icon className="h-5 w-5" />
+            </button>
+          );
+        })}
+      </nav>
+      <div className="w-[196px] bg-[#f4f4f4] flex flex-col py-3 overflow-y-auto">
+        <div className="px-4 pb-2 text-[14px] font-semibold text-[#161616]">{area.label}</div>
+        {area.items.map(it => <NavRow key={it.href} item={it} pathname={pathname} />)}
       </div>
     </aside>
   );
@@ -193,7 +181,7 @@ function NavRow({ item, pathname }: { item: NavItem; pathname: string }) {
   );
 }
 
-function ProjectPicker({ projects, current, onPick }: {
+export function ProjectPicker({ projects, current, onPick }: {
   projects: any[];
   current: any;
   onPick: (p: any) => void;
