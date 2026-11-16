@@ -244,7 +244,7 @@ export async function runFlow(graph: FlowGraph, input: any, solve: SolveFn, opts
         break;
 
       case 'apiresponse': {
-        const body = data.body !== undefined ? renderObject(data.body, ctx) : (ctx.__data ? findingsOutput(ctx) : (() => { const { input: _i, ...rest } = ctx; return rest; })());
+        const body = data.body !== undefined && data.body !== '' ? renderObject(data.body, ctx) : (ctx.__data ? findingsOutput(ctx) : (() => { const { input: _i, ...rest } = ctx; return rest; })());
         const resp: ApiResponse = { __apiResponse: true, status: Number(data.status || 200), body, headers: data.headers };
         pushTrace(opts, cur, kind, t0, 'ok', { output: { status: resp.status } });
         return resp;
