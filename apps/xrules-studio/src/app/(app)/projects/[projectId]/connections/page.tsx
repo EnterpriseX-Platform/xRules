@@ -24,7 +24,7 @@ export default function ConnectionsPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const { data: rows = [] } = useQuery({ queryKey: ['connections', projectId], queryFn: () => api.get<any[]>(`/connections?project_id=${projectId}`) });
-  const test = useMutation({ mutationFn: (id: string) => api.post<any>(`/data/connections/${id}/test`), onSettled: () => qc.invalidateQueries({ queryKey: ['connections', projectId] }) });
+  const test = useMutation({ meta: { failLabel: 'Connection test failed' }, mutationFn: (id: string) => api.post<any>(`/data/connections/${id}/test`), onSettled: () => qc.invalidateQueries({ queryKey: ['connections', projectId] }) });
   const remove = useMutation({ mutationFn: (id: string) => api.del(`/connections/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ['connections', projectId] }) });
 
   return (

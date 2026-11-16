@@ -29,8 +29,8 @@ export default function TestsPage() {
     : (flows as any[]).filter(x => x.kind === 'decision').map(x => ({ value: x.id, label: x.name }));
   const names: Record<string, string> = Object.fromEntries([...targetOpts, ...(flows as any[]).map(x => ({ value: x.id, label: x.name })), ...ruleList.map(r => ({ value: r.id, label: r.name }))].map(o => [o.value, o.label]));
   const inv = () => qc.invalidateQueries({ queryKey: ['tests', projectId] });
-  const run = useMutation({ mutationFn: (id: string) => api.post(`/platform/tests/${id}/run`), onSettled: inv });
-  const runSuite = useMutation({ mutationFn: () => api.post(`/platform/suites/${suite}/run`), onSettled: inv });
+  const run = useMutation({ meta: { failLabel: "Couldn't run" }, mutationFn: (id: string) => api.post(`/platform/tests/${id}/run`), onSettled: inv });
+  const runSuite = useMutation({ meta: { failLabel: "Couldn't run" }, mutationFn: () => api.post(`/platform/suites/${suite}/run`), onSettled: inv });
   const newSuite = useMutation({ mutationFn: (name: string) => api.post<any>('/platform/suites', { projectId, name }), onSuccess: s => { qc.invalidateQueries({ queryKey: ['suites', projectId] }); setSuite(s.id); } });
   const create = useMutation({ mutationFn: () => api.post('/platform/tests', { projectId, name: f.name, targetType: f.targetType, targetId: f.targetId, input: JSON.parse(f.input), expectations: JSON.parse(f.expectations), suiteIds: suite ? [suite] : [] }), onSuccess: () => { setOpen(false); inv(); } });
   const passed = (cases as any[]).filter(c => c.lastStatus === 'PASS').length;

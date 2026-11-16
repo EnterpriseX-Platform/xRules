@@ -77,7 +77,7 @@ function TryIt({ spec }: any) {
   const [pv, setPv] = useState<Record<string, string>>({});
   const [query, setQuery] = useState('');
   const [body, setBody] = useState('{\n  \n}');
-  const run = useMutation({ mutationFn: () => api.post<any>(`/platform/operations/${opId}/try`, { params: pv, query: Object.fromEntries(new URLSearchParams(query)), body: body.trim() ? JSON.parse(body) : {} }) });
+  const run = useMutation({ mutationFn: () => api.post<any>(`/platform/operations/${opId}/try`, { params: pv, query: Object.fromEntries(new URLSearchParams(query)), body: body.trim() ? JSON.parse(body) : {} }), meta: { silent: true } });
   return (
     <div className="grid grid-cols-2 gap-4 items-start">
       <Panel title="Request (runs against the latest draft)">

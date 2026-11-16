@@ -144,7 +144,7 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
     mutationFn: async () => { if (dirty) await save.mutateAsync(); return api.post(`/flows/${flowId}/publish`, {}); },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['flow', flowId] }),
   });
-  const runNow = useMutation({ mutationFn: () => api.post<any>(`/data/flows/${flowId}/run`), onSuccess: r => setPreview({ ...r, mode: 'run' }) });
+  const runNow = useMutation({ meta: { failLabel: "Couldn't run" }, mutationFn: () => api.post<any>(`/data/flows/${flowId}/run`), onSuccess: r => setPreview({ ...r, mode: 'run' }) });
   const runTrigger = useMutation({ mutationFn: () => api.post<any>(`/platform/triggers/${flowId}/run-now`, {}), onSuccess: r => setPreview({ ok: !r.error, mode: 'run', rowCount: undefined, error: r.error, trace: undefined, traceSteps: r.trace }), onError: (e: any) => setPreview({ ok: false, mode: 'run', error: e.message }) });
   const doPreview = useMutation({ mutationFn: async () => { if (dirty) await save.mutateAsync(); return api.post<any>(`/data/flows/${flowId}/preview`); }, onSuccess: r => setPreview({ ...r, mode: 'preview' }) });
 

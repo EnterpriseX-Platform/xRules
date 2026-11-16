@@ -14,9 +14,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
     defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false } },
     mutationCache: new MutationCache({
       onError: (err: any, _v, _c, mutation) => {
-        if (mutation.options.onError) return;
+        if (mutation.options.onError || mutation.meta?.silent) return;
+        const lead = (mutation.meta?.failLabel as string) || 'Not saved';
         const id = Date.now() + Math.random();
-        const message = err?.status === 403 && !err?.code ? 'Not saved — the request was blocked (403).' : `Not saved — ${err?.message || 'request failed'}`;
+        const message = err?.status === 403 && !err?.code ? `${lead} — the request was blocked (403).` : `${lead} — ${err?.message || 'request failed'}`;
         setFailures(f => [...f.slice(-2), { id, message }]);
         setTimeout(() => setFailures(f => f.filter(x => x.id !== id)), 10_000);
       },
