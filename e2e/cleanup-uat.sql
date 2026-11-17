@@ -25,3 +25,5 @@ DELETE FROM workspaces w WHERE EXISTS (SELECT 1 FROM workspace_members m WHERE m
   AND NOT EXISTS (SELECT 1 FROM workspace_members m WHERE m."workspaceId" = w.id AND m."userId" NOT IN (SELECT id FROM u));
 DELETE FROM users WHERE id IN (SELECT id FROM u);
 COMMIT;
+-- keys the API smoke scripts create on every run (smoke, smoke-bulk, smoke-ch)
+DELETE FROM api_keys WHERE name IN ('smoke', 'smoke-bulk', 'smoke-ch');
