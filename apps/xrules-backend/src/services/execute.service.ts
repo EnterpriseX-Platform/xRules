@@ -234,6 +234,10 @@ export async function executeRule(ruleId: string, input: any, context: any, user
       } else {
         // Re-throw engine errors (validation, execution errors)
         const message = engineError?.response?.data?.message || engineError?.message || 'Engine execution failed';
+        // a missing input field is the caller's mistake: say which field, as a 400, not "Internal server error"
+        const missing = /Path not found: ([\w.\[\]]+)/.exec(message);
+        if (missing) throw new ValidationError(`Input is missing field "${missing[1]}"`);
+        if (/Validation error/i.test(message)) throw new ValidationError(message.replace(/^.*Validation error:\s*/i, ''));
         throw new Error(message);
       }
     }

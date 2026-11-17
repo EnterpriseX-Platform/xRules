@@ -48,5 +48,5 @@ export function PageHeader({
 }
 
 export function PageContent({ children }: { children: React.ReactNode }) {
-  return <div className="px-8 py-6 max-w-[1600px]">{children}</div>;
+  return <div className="px-8 pt-6 pb-24 max-w-[1600px]">{children}</div>;
 }

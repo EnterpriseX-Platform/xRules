@@ -26,7 +26,7 @@ const None = () => <span className="pt-1 text-[13px] text-[#6f6f6f]">—</span>;
 /** For a rule: the flows and APIs that use it. */
 export function RuleRelations({ ruleId, home }: { ruleId: string; home?: string }) {
   const { data } = useQuery({ queryKey: ['used-by', 'rule', ruleId], queryFn: () => api.get<any>(`/rules/${ruleId}/used-by`), enabled: !!ruleId });
-  if (!data) return null;
+  if (!data || (!data.flows.length && !data.operations.length)) return null;
   return (
     <div className="bg-white border border-[#e0e0e0] px-4 py-3 mb-4 space-y-2" data-testid="relations">
       <Row title="Used in">{data.flows.length ? data.flows.map((f: any) => <Chip key={f.id} href={flowHref(f)}>{label(f, home)}</Chip>) : <None />}</Row>

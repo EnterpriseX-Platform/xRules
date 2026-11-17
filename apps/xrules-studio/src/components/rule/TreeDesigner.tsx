@@ -34,12 +34,14 @@ export function TreeDesigner({
     setRoot(next); onChange({ root: next });
   }
 
+  // every outcome offers the same fields: the output schema plus any name already used in the tree
+  const names = new Set<string>(outputSchema?.properties ? Object.keys(outputSchema.properties) : []);
+  (function walk(n: any) { if (!n) return; if (n.type === 'then') Object.keys(n.outputs || {}).forEach(k => names.add(k)); else { walk(n.then); walk(n.else); } })(root);
+  const fieldsSchema = { properties: Object.fromEntries(Array.from(names).map(k => [k, {}])) };
+
   return (
     <div className="card p-4 space-y-3">
-      <div className="text-[11px] font-mono text-subtle">
-        Build conditions on the left, outcomes on the right. Nest IF blocks inside THEN/ELSE for branching.
-      </div>
-      <NodeView node={root} onChange={update} inputSchema={inputSchema} outputSchema={outputSchema} depth={0} />
+      <NodeView node={root} onChange={update} inputSchema={inputSchema} outputSchema={fieldsSchema} depth={0} />
     </div>
   );
 }
@@ -173,7 +175,8 @@ function CondList({ conds, fields, onChange }: { conds: Cond[]; fields: string[]
 function ThenView({ node, onChange, outputSchema }: {
   node: ThenBlock; onChange: (n: TreeNode | null) => void; outputSchema?: any;
 }) {
-  const fields: string[] = outputSchema?.properties ? Object.keys(outputSchema.properties) : Object.keys(node.outputs);
+  const fields: string[] = Array.from(new Set([...(outputSchema?.properties ? Object.keys(outputSchema.properties) : []), ...Object.keys(node.outputs)]));
+  const [newField, setNewField] = useState('');
   function set(field: string, value: string) {
     let coerced: any = value;
     if (value === 'true') coerced = true;
@@ -190,7 +193,6 @@ function ThenView({ node, onChange, outputSchema }: {
         </button>
       </div>
       <div className="space-y-1.5">
-        {fields.length === 0 && <div className="text-[10px] text-subtle">No output fields. Define an Output Schema first.</div>}
         {fields.map(f => (
           <div key={f} className="flex items-center gap-1.5 font-mono text-[11px]">
             <span className="text-subtle min-w-[80px] truncate">{f}</span>
@@ -202,6 +204,16 @@ function ThenView({ node, onChange, outputSchema }: {
             />
           </div>
         ))}
+        <div className="flex items-center gap-1.5 font-mono text-[11px]">
+          <input
+            className="input h-7 text-[11px] py-0 px-1.5 min-w-[80px] w-[120px]"
+            placeholder="+ field"
+            value={newField}
+            onChange={(e) => setNewField(e.target.value.replace(/[^A-Za-z0-9_]/g, ''))}
+            onKeyDown={(e) => { if (e.key === 'Enter' && newField) { set(newField, ''); setNewField(''); } }}
+            onBlur={() => { if (newField) { set(newField, ''); setNewField(''); } }}
+          />
+        </div>
       </div>
     </div>
   );

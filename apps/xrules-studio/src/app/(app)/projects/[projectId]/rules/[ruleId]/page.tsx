@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Send, Sparkles, BookOpen, History, Settings, Code2, ListChecks, Save, Rocket, Lock, Unlock, GitCompare, Check, X } from 'lucide-react';
 import dynamic from 'next/dynamic';
@@ -60,15 +60,16 @@ export default function RuleDetailPage() {
             <Link href={`/projects/${projectId}/rules`} className="text-xs text-subtle font-mono hover:text-text">RULES</Link>
             <span className="text-subtle/50">/</span>
             <span className="font-mono text-xs text-subtle">{rule.slug}</span>
+            <span className="text-subtle/50">·</span>
+            <span className="text-xs text-subtle">{String(rule.type || '').replace(/_/g, ' ').toLowerCase()}</span>
+            {rule.alias && rule.alias !== rule.slug && <span className="font-mono text-xs text-subtle">@{rule.alias}</span>}
+            {rule.strategy && rule.strategy !== 'standard' && <span className="text-xs text-subtle">· {rule.strategy}</span>}
           </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold tracking-tight truncate">{rule.name}</h1>
+          <div className="flex items-center gap-2 min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight truncate min-w-0">{rule.name}</h1>
             <StatusPill status={rule.status} />
-            <Pill tone="info">v{rule.version}</Pill>
-            <Pill tone="subtle">{rule.type?.replace('_', ' ')}</Pill>
-            {rule.alias && <Pill tone="mint">@{rule.alias}</Pill>}
+            <span className="text-xs text-subtle font-mono shrink-0">v{rule.version}</span>
             {rule.locked && <Pill tone="warn"><Lock className="h-2.5 w-2.5 inline mr-0.5" />locked</Pill>}
-            <Pill tone="subtle">strategy: {rule.strategy || 'standard'}</Pill>
           </div>
           {rule.description && <p className="text-sm text-subtle mt-1">{rule.description}</p>}
         </div>
@@ -97,7 +98,7 @@ export default function RuleDetailPage() {
       <RuleRelations ruleId={rule.id} home={projectId} />
 
       {/* Tabs */}
-      <div className="tabs-row mb-6">
+      <div className="tabs-row mb-6 max-w-full overflow-x-auto">
         {TABS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -126,10 +127,16 @@ export default function RuleDetailPage() {
 
 function DefinitionTab({ rule, projectId }: { rule: any; projectId: string }) {
   const qc = useQueryClient();
-  const mut = useMutation({
+  const save = useMutation({
     mutationFn: (patch: any) => rulesApi.update(rule.id, patch),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['rule', rule.id] }),
   });
+  // every keystroke used to PUT straight away; replies could land out of order and leave an older definition saved
+  const pending = useRef<any>({});
+  const timer = useRef<any>(null);
+  const flush = () => { clearTimeout(timer.current); const p = pending.current; pending.current = {}; if (Object.keys(p).length) save.mutate(p); };
+  useEffect(() => () => flush(), []);   // leaving the tab saves what is pending
+  const mut = { mutate: (patch: any) => { Object.assign(pending.current, patch); clearTimeout(timer.current); timer.current = setTimeout(flush, 500); } };
   const t = String(rule.type || '').toUpperCase();
 
   if (t === 'DECISION_TABLE') {
@@ -198,7 +205,7 @@ function DefinitionTab({ rule, projectId }: { rule: any; projectId: string }) {
     );
   }
 
-  if (t === 'MODEL_CALL') return <ModelCallDefinition rule={rule} projectId={projectId} onSave={(d) => mut.mutate({ definition: d })} saving={mut.isPending} />;
+  if (t === 'MODEL_CALL') return <ModelCallDefinition rule={rule} projectId={projectId} onSave={(d) => mut.mutate({ definition: d })} saving={save.isPending} />;
 
   // Fallback raw JSON for any other type
   return <RawJsonDefinition rule={rule} onSave={(d) => mut.mutate({ definition: d })} />;
@@ -293,6 +300,8 @@ function TestTab({ rule }: { rule: any }) {
     return out;
   }, [rule.inputSchema, rule.definition]);
   const [input, setInput] = useState(() => JSON.stringify(sampleInput, null, 2));
+  const edited = useRef(false);
+  useEffect(() => { if (!edited.current) setInput(JSON.stringify(sampleInput, null, 2)); }, [sampleInput]);
   const [output, setOutput] = useState<any>(null);
   const [duration, setDuration] = useState<number | null>(null);
   const [executionId, setExecutionId] = useState<string | null>(null);
@@ -300,13 +309,16 @@ function TestTab({ rule }: { rule: any }) {
   const [running, setRunning] = useState(false);
 
   async function run() {
-    setRunning(true); setError(null); setOutput(null); setExecutionId(null);
+    setError(null); setOutput(null); setExecutionId(null); setDuration(null);
+    let parsed: any;
+    try { parsed = JSON.parse(input); } catch (e: any) { setError(`Input is not valid JSON — ${e.message}`); return; }
+    setRunning(true);
     try {
       const t0 = Date.now();
       const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}/execute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('xrules_token')}` },
-        body: JSON.stringify({ rule_id: rule.id, input: JSON.parse(input), context: {} }),
+        body: JSON.stringify({ rule_id: rule.id, input: parsed, context: {} }),
       });
       const json = await res.json();
       setDuration(Date.now() - t0);
@@ -318,10 +330,10 @@ function TestTab({ rule }: { rule: any }) {
         setExecutionId(data.id || null);
         // Persist trace globally so TableDesigner picks it up on remount.
         try {
-          (window as any).__xrulesLastTrace = { ruleId: rule.id, input: JSON.parse(input), output: data.output };
+          (window as any).__xrulesLastTrace = { ruleId: rule.id, input: parsed, output: data.output };
         } catch {}
         window.dispatchEvent(new CustomEvent('xrules:test-trace', {
-          detail: { ruleId: rule.id, output: data.output, input: JSON.parse(input) }
+          detail: { ruleId: rule.id, output: data.output, input: parsed }
         }));
       }
     } catch (e: any) {
@@ -332,6 +344,7 @@ function TestTab({ rule }: { rule: any }) {
   }
 
   function reset() {
+    edited.current = false;
     setInput(JSON.stringify(sampleInput, null, 2));
     setOutput(null); setError(null); setDuration(null); setExecutionId(null);
   }
@@ -349,7 +362,7 @@ function TestTab({ rule }: { rule: any }) {
             {running ? 'Running…' : 'Run'}
           </button>
         </div>
-        <MonacoEditor height="450px" language="json" value={input} onChange={(v) => setInput(v || '{}')}
+        <MonacoEditor height="450px" language="json" value={input} onChange={(v) => { edited.current = true; setInput(v ?? ''); }}
           options={{ minimap: { enabled: false }, fontSize: 13 }} />
       </div>
       <div className="card overflow-hidden">

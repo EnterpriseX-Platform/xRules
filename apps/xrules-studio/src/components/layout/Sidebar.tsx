@@ -106,28 +106,23 @@ export function Sidebar() {
   areas.forEach(a => a.items.forEach(it => { if (!ALL_ITEMS.some(i => i.href === it.href)) ALL_ITEMS.push(it); }));
   const activeHref = bestHref(pathname);
   const here = areas.find(a => a.items.some(it => it.href === activeHref))?.id ?? 'engine';
-  const [picked, setPicked] = useState<string | null>(null);
-  useEffect(() => { setPicked(null); }, [pathname]);
-  const area = areas.find(a => a.id === (picked ?? here)) ?? areas[0];
-
+  // one menu with every area as a section: the old icon rail swapped the menu away from the page you were on
+  const main = areas.filter(a => a.id !== 'admin'), adminArea = areas.find(a => a.id === 'admin');
   return (
-    <aside className="shrink-0 flex border-r border-[#e0e0e0]">
-      <nav aria-label="Areas" className="w-[52px] bg-white border-r border-[#e0e0e0] flex flex-col items-center py-2 gap-1">
-        {areas.map((a, i) => {
-          const on = a.id === area.id; const Icon = a.icon;
-          return (
-            <button key={a.id} type="button" title={a.label} aria-label={a.label} aria-pressed={on} onClick={() => setPicked(a.id)}
-              className={cn('h-10 w-10 flex items-center justify-center border-l-2', a.id === 'admin' && 'mt-auto',
-                on ? 'bg-[#edf5ff] text-[#0f62fe] border-[#0f62fe]' : 'border-transparent text-[#525252] hover:bg-[#e8e8e8] hover:text-[#161616]')}>
-              <Icon className="h-5 w-5" />
-            </button>
-          );
-        })}
-      </nav>
-      <div className="w-[196px] bg-[#f4f4f4] flex flex-col py-3 overflow-y-auto">
-        <div className="px-4 pb-2 text-[14px] font-semibold text-[#161616]">{area.label}</div>
-        {area.items.map(it => <NavRow key={it.href} item={it} pathname={pathname} />)}
+    <aside className="shrink-0 w-[220px] bg-[#f4f4f4] border-r border-[#e0e0e0] flex flex-col overflow-y-auto">
+      <div className="flex-1 py-3">
+        {main.map((a, i) => (
+          <div key={a.id} className={cn(i > 0 && 'mt-4')}>
+            <div className="px-4 pb-1 text-[12px] text-[#6f6f6f]">{a.label}</div>
+            {a.items.map(it => <NavRow key={it.href} item={it} pathname={pathname} />)}
+          </div>
+        ))}
       </div>
+      {adminArea && (
+        <div className="py-2 border-t border-[#e0e0e0]">
+          {adminArea.items.map(it => <NavRow key={it.href} item={it} pathname={pathname} />)}
+        </div>
+      )}
     </aside>
   );
 }
