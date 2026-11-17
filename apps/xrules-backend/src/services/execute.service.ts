@@ -40,6 +40,7 @@ export async function tryLocalExecutor(rule: any, input: any, context: any): Pro
       input, ruleVariables: rule.ruleVariables, outputSchema: rule.outputSchema,
     });
     case 'SCORECARD': return runScorecard(rule.definition, input);
+    case 'DECISION_TREE': return rule.definition?.root ? runDecisionTree(rule.definition.root, input) : null;
     case 'SCRIPT':    return runScripting(rule.definition, input, rule.ruleVariables);
     case 'FORMULA':   return runFormula(rule.definition, input, rule.ruleVariables);
     case 'LOOKUP':    return runLookup(rule.definition, input);
@@ -99,8 +100,51 @@ function matchBand(value: any, m: any): boolean {
 // Formula: { source: '<expression>' } — single expression returning a value.
 // Distinguished from SCRIPT in that the source is an EXPRESSION (no braces, no return).
 function runFormula(def: any, input: any, vars?: any): any {
-  if (!def?.source) throw new Error('Formula rule has no source');
-  return evalExpression(def.source, { input, ruleVariables: vars || {}, Math, Date, JSON, parseInt, parseFloat, isNaN, isFinite });
+  const src = def?.source ?? def?.expression;
+  if (!src) throw new Error('Formula rule has no source');
+  // fields are reachable both as input.x and as bare x
+  return evalExpression(String(src), { ...(input || {}), input, ruleVariables: vars || {}, Math, Date, JSON, parseInt, parseFloat, isNaN, isFinite });
+}
+
+// Decision Tree as the studio designs it: { root: { type:'if', conditions, orGroups, then, else } | { type:'then', outputs } }.
+// A node's conditions are ANDed; each OR group is another ANDed set — the node matches if any set matches.
+function runDecisionTree(node: any, input: any): any {
+  for (let depth = 0; node && depth < 100; depth++) {
+    if (node.type !== 'if') return { ...(node.outputs || {}) };
+    const sets = [node.conditions || [], ...(node.orGroups || [])].filter((g: any[]) => g.length);
+    const hit = sets.length === 0 || sets.some((g: any[]) => g.every((c: any) => treeCondition(c, input)));
+    node = hit ? node.then : node.else;
+  }
+  return {};
+}
+function treeCondition(c: any, input: any): boolean {
+  const v = String(c.field || '').split('.').reduce((o: any, k: string) => o?.[k], input);
+  const num = (x: any) => (x === '' || x == null || isNaN(Number(x)) ? NaN : Number(x));
+  const list = (x: any) => (Array.isArray(x) ? x : String(x ?? '').split(',')).map((s: any) => String(s).trim());
+  const eq = (a: any, b: any) => (!isNaN(num(a)) && !isNaN(num(b)) ? num(a) === num(b) : String(a ?? '') === String(b ?? ''));
+  const lo = num(c.value), hi = num(c.value2), n = num(v);
+  switch (String(c.op || '=').toUpperCase()) {
+    case 'ANY': case 'ELSE': return true;
+    case '=': return eq(v, c.value);
+    case '!=': return !eq(v, c.value);
+    case 'IN': return list(c.value).some(x => eq(v, x));
+    case '!IN': return !list(c.value).some(x => eq(v, x));
+    case '>': return n > lo;
+    case '>=': return n >= lo;
+    case '<': return n < lo;
+    case '<=': return n <= lo;
+    case 'BTW': return n >= lo && n <= hi;
+    case 'BTW LO': return n > lo && n <= hi;
+    case 'BTW RO': return n >= lo && n < hi;
+    case '!BTW': return !(n >= lo && n <= hi);
+    case 'NULL': return v == null || v === '';
+    case '!NULL': return !(v == null || v === '');
+    case 'C TXT': return String(v ?? '').includes(String(c.value ?? ''));
+    case 'C IN': return Array.isArray(v) && v.some(x => eq(x, c.value));
+    case '!C IN': return !(Array.isArray(v) && v.some(x => eq(x, c.value)));
+    case 'EQ ARR': return Array.isArray(v) && JSON.stringify(v.map(String)) === JSON.stringify(list(c.value));
+    default: throw new Error(`Decision Tree: unknown operator '${c.op}'`);
+  }
 }
 
 // Lookup: { primaryKey, columns, rows: [{...}] } — exact match by primaryKey

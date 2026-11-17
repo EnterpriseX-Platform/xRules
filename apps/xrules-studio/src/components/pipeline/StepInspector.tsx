@@ -142,7 +142,12 @@ export function StepInspector({ node, nodes = [], projectId, onChange, onRemove,
           <Field label="Store as" htmlFor="st-tt"><Text id="st-tt" mono value={d.target} onChange={(v: string) => set({ target: v })} /></Field>
           <Field label="Expression" htmlFor="st-te"><Text id="st-te" mono value={d.expression} onChange={(v: string) => set({ expression: v })} /></Field>
         </>}
-        {k === 'http' && <Field label="URL" htmlFor="st-hu"><Text id="st-hu" mono value={d.url} onChange={(v: string) => set({ url: v })} /></Field>}
+        {k === 'http' && <>
+          <Field label="Method"><Dropdown value={d.method || 'GET'} onChange={v => set({ method: v })} options={['GET', 'POST'].map(x => ({ value: x, label: x }))} /></Field>
+          <Field label="URL" htmlFor="st-hu"><Text id="st-hu" mono value={d.url} onChange={(v: string) => set({ url: v })} /></Field>
+          {d.method === 'POST' && <Field label="Body" htmlFor="st-hb"><Text id="st-hb" mono value={d.body} onChange={(v: string) => set({ body: v })} /></Field>}
+          <Field label="Store result as" htmlFor="st-ho"><Text id="st-ho" mono value={d.outputAs} onChange={(v: string) => set({ outputAs: v })} /></Field>
+        </>}
       </div>
       {!m.locked && (
         <div className="p-4 border-t border-[#e0e0e0]">

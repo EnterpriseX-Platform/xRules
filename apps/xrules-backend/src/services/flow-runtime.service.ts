@@ -317,6 +317,27 @@ export async function runFlow(graph: FlowGraph, input: any, solve: SolveFn, opts
         break;
       }
 
+      case 'http': {
+        // { method, url, body?, outputAs } — url and body may use {{...}} from the flow; the JSON reply is kept
+        if (!data.url) throw new Error(`HTTP step '${cur.id}' has no URL`);
+        const method = String(data.method || 'GET').toUpperCase();
+        const url = renderTemplate(String(data.url), ctx);
+        const body = method === 'GET' || data.body == null ? undefined
+          : typeof data.body === 'string' ? renderTemplate(data.body, ctx) : JSON.stringify(renderObject(data.body, ctx));
+        const ac = new AbortController(); const timer = setTimeout(() => ac.abort(), Number(data.timeoutMs) || 10_000);
+        try {
+          const r = await fetch(url, { method, body, signal: ac.signal, headers: { 'Content-Type': 'application/json', ...(data.headers || {}) } });
+          const text = await r.text();
+          let parsed: any = text; try { parsed = JSON.parse(text); } catch {}
+          if (!r.ok) throw new Error(`HTTP step '${cur.id}': ${method} ${url} answered ${r.status}`);
+          ctx[data.outputAs || 'http'] = parsed;
+          stepOut = { status: r.status };
+        } catch (e: any) {
+          throw e?.name === 'AbortError' ? new Error(`HTTP step '${cur.id}': ${method} ${url} timed out`) : e;
+        } finally { clearTimeout(timer); }
+        break;
+      }
+
       case 'assign':
       case 'transform': {
         if (!data.target || !data.expression) break;

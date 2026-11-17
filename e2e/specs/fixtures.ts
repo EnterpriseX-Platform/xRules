@@ -45,3 +45,17 @@ export async function pick(page: Page, caption: string | RegExp, option: string 
   await box.getByRole('button', { name: option }).first().click();
 }
 export const stamp = () => Date.now().toString(36);
+
+/** Calls the API as the signed-in user (same token and tenant the studio uses). */
+export async function api(page: Page, method: string, path: string, body?: any) {
+  if (!page.url().startsWith('http')) await page.goto(`projects/${PROJECT}/rules`);
+  const r = await page.evaluate(async ({ method, path, body }) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('xrules_token')}` };
+    try { const ws = JSON.parse(localStorage.getItem('xrules-auth') || '{}')?.state?.workspace?.slug; if (ws) headers['X-Tenant'] = ws; } catch {}
+    if (method !== 'GET' && method !== 'POST') { headers['X-HTTP-Method-Override'] = method; method = 'POST'; }
+    const res = await fetch(`${location.origin}/xrules-api${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    return { status: res.status, json: await res.json().catch(() => null) };
+  }, { method, path, body });
+  return r;
+}
+
