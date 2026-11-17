@@ -95,7 +95,7 @@ function VersionsTab({ model, versions }: { model: any; versions: any[] }) {
   const [gate, setGate] = useState({ metric: gate0?.metric || '', min: gate0?.min !== undefined ? String(gate0.min) : '' });
   const inv = () => { qc.invalidateQueries({ queryKey: ['model-versions', model.id] }); qc.invalidateQueries({ queryKey: ['model', model.id] }); };
   const saveGate = useMutation({ mutationFn: () => api.put(`/models/${model.id}/gate`, { metric: gate.metric || undefined, min: gate.min === '' ? null : Number(gate.min) }), onSuccess: inv });
-  const publish = useMutation({ mutationFn: (vid: string) => api.post(`/models/versions/${vid}/publish`), onSuccess: inv });
+  const publish = useMutation({ meta: { silent: true }, mutationFn: (vid: string) => api.post(`/models/versions/${vid}/publish`), onSuccess: inv });
   const sel = versions.find(v => v.id === (open ?? versions[0]?.id));   // newest version by default
   const openReport = async (vid: string) => {
     const token = localStorage.getItem('xrules_token');
@@ -166,7 +166,7 @@ function TryTab({ versions }: { versions: any[] }) {
   const example = v ? JSON.stringify([Object.fromEntries((v.config.features || []).map((f: string) => [f, '']))], null, 2) : '[]';
   const [rows, setRows] = useState(example);
   useEffect(() => setRows(example), [vid]); // eslint-disable-line
-  const run = useMutation({ mutationFn: () => api.post<any>(`/models/versions/${vid}/predict`, { rows: JSON.parse(rows) }) });
+  const run = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>(`/models/versions/${vid}/predict`, { rows: JSON.parse(rows) }) });
   if (!usable.length) return <div className="text-[14px] text-[#525252]">Train a version first</div>;
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">

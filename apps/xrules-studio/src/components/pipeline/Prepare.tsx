@@ -41,9 +41,9 @@ export function PreparePanel({ datasetId, columns, onApplied }: { datasetId: str
   const [target, setTarget] = useState('');
   const [steps, setSteps] = useState<any[]>([]);
   const [draft, setDraft] = useState<any>({ op: 'outliers', columns: [], method: 'iqr', action: 'remove' });
-  const profile = useMutation({ mutationFn: () => api.post<any>(`/data/datasets/${datasetId}/profile`, { target: target || undefined }) });
-  const preview = useMutation({ mutationFn: () => api.post<any>(`/data/datasets/${datasetId}/prepare`, { steps, preview: true }) });
-  const apply = useMutation({ mutationFn: () => api.post<any>(`/data/datasets/${datasetId}/prepare`, { steps }), onSuccess: (r: any) => { onApplied?.(r); qc.invalidateQueries({ queryKey: ['dataset-snaps', datasetId] }); setSteps([]); preview.reset(); } });
+  const profile = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>(`/data/datasets/${datasetId}/profile`, { target: target || undefined }) });
+  const preview = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>(`/data/datasets/${datasetId}/prepare`, { steps, preview: true }) });
+  const apply = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>(`/data/datasets/${datasetId}/prepare`, { steps }), onSuccess: (r: any) => { onApplied?.(r); qc.invalidateQueries({ queryKey: ['dataset-snaps', datasetId] }); setSteps([]); preview.reset(); } });
   const p = profile.data;
   const cols = preview.data?.columns ?? columns;
   const needsCols = !['derive'].includes(draft.op);

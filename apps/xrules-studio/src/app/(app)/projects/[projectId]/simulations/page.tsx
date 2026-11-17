@@ -18,7 +18,7 @@ export default function SimulationsPage() {
   const { data: runs = [] } = useQuery({ queryKey: ['bulk', projectId], queryFn: () => api.get<any[]>(`/platform/bulk?project_id=${projectId}`), refetchInterval: 3000 });
   const pairs = (runs as any[]).filter(r => r.compareToId);
   const { data: ch } = useQuery({ queryKey: ['challenger', flow], queryFn: () => api.get<any>(`/platform/flows/${flow}/challenger`), enabled: !!flow });
-  const backtest = useMutation({ meta: { failLabel: "Couldn't run" }, mutationFn: () => api.post<any>('/platform/simulations/backtest', { projectId, flow, limit: Number(limit) || 1000 }), onSuccess: () => qc.invalidateQueries({ queryKey: ['bulk', projectId] }) });
+  const backtest = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>('/platform/simulations/backtest', { projectId, flow, limit: Number(limit) || 1000 }), onSuccess: () => qc.invalidateQueries({ queryKey: ['bulk', projectId] }) });
   const setCh = useMutation({ mutationFn: (off: boolean) => api.put(`/platform/flows/${flow}/challenger`, off ? { off: true } : { sampleRate: (Number(rate) || 20) / 100, until: until || null }), onSuccess: () => qc.invalidateQueries({ queryKey: ['challenger', flow] }) });
   const s = ch?.summary;
   return (

@@ -23,7 +23,7 @@ export default function ApiKeysPage() {
   const { data: specs = [] } = useQuery({ queryKey: ['specs', projectId], queryFn: () => api.get<any[]>(`/platform/specs?project_id=${projectId}`) });
   const specName: Record<string, string> = Object.fromEntries((specs as any[]).map(s => [s.id, `${s.name} (${s.url})`]));
   const inv = () => qc.invalidateQueries({ queryKey: ['keys', wsSlug] });
-  const create = useMutation({ mutationFn: () => api.post<any>('/api-keys', { name: f.name, systemName: f.systemName, specIds: f.specIds, rateLimitPerMin: Number(f.rate) || 600, expiresInDays: f.days ? Number(f.days) : undefined, workspaceSlug: wsSlug }), onSuccess: k => { setCreated(k); setOpen(false); inv(); } });
+  const create = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>('/api-keys', { name: f.name, systemName: f.systemName, specIds: f.specIds, rateLimitPerMin: Number(f.rate) || 600, expiresInDays: f.days ? Number(f.days) : undefined, workspaceSlug: wsSlug }), onSuccess: k => { setCreated(k); setOpen(false); inv(); } });
   const upd = useMutation({ mutationFn: ({ id, body }: any) => api.put(`/api-keys/${id}`, body), onSuccess: inv });
   const toggleSpec = (id: string) => setF({ ...f, specIds: f.specIds.includes(id) ? f.specIds.filter((x: string) => x !== id) : [...f.specIds, id] });
   return (

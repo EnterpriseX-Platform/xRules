@@ -68,7 +68,7 @@ function PrepareTab({ datasetId, snapshotId }: { datasetId: string; snapshotId?:
 
 function LookupTab({ datasetId, keyFields }: { datasetId: string; keyFields: string[] }) {
   const [vals, setVals] = useState<string[]>(keyFields.map(() => ''));
-  const look = useMutation({ mutationFn: () => api.get<any>(`/data/datasets/${datasetId}/lookup?key=${encodeURIComponent(vals.join('|'))}`) });
+  const look = useMutation({ meta: { silent: true }, mutationFn: () => api.get<any>(`/data/datasets/${datasetId}/lookup?key=${encodeURIComponent(vals.join('|'))}`) });
   return (
     <div className="bg-white p-4 max-w-2xl">
       <div className="flex gap-2 items-end">
