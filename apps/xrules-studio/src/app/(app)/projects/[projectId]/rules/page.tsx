@@ -132,7 +132,7 @@ export default function RulesPage() {
       />
 
       <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr] gap-3">
-        <FolderPanel projectId={projectId} folders={folders} rules={rules} folderId={folderId} setFolderId={setFolderId} canWrite={!!perms.write} />
+        <FolderPanel projectId={projectId} folders={folders} items={rules} folderId={folderId} setFolderId={setFolderId} canWrite={!!perms.write} />
 
         {/* Main */}
         <div>

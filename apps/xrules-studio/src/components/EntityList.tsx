@@ -13,7 +13,7 @@ export interface Column<T> {
 }
 
 export function EntityTable<T extends { id: string }>({
-  rows, columns, isLoading, emptyText, emptyIcon: EmptyIcon, emptyBody, emptyCta, hrefFor,
+  rows, columns, isLoading, emptyText, emptyIcon: EmptyIcon, emptyBody, emptyCta, hrefFor, rowProps,
 }: {
   rows: T[];
   columns: Column<T>[];
@@ -23,6 +23,7 @@ export function EntityTable<T extends { id: string }>({
   emptyBody?: string;
   emptyCta?: React.ReactNode;
   hrefFor?: (row: T) => string | undefined;
+  rowProps?: (row: T) => React.HTMLAttributes<HTMLTableRowElement> & { draggable?: boolean };
 }) {
   const router = useRouter();
   return (
@@ -72,12 +73,12 @@ export function EntityTable<T extends { id: string }>({
             );
             if (href) {
               return (
-                <tr key={row.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => router.push(href)}>
+                <tr key={row.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => router.push(href)} {...rowProps?.(row)}>
                   {Cells}
                 </tr>
               );
             }
-            return <tr key={row.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">{Cells}</tr>;
+            return <tr key={row.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors" {...rowProps?.(row)}>{Cells}</tr>;
           })}
         </tbody>
       </table>
