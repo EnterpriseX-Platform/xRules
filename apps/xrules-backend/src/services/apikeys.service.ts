@@ -101,6 +101,7 @@ export async function createApiKey(
 
 /** Change which APIs a key may call, its limit, expiry, or switch it on/off. */
 export async function updateApiKey(id: string, data: { specIds?: string[]; rateLimitPerMin?: number; active?: boolean; systemName?: string; expiresAt?: string | null; name?: string }, user: AuthUser) {
+  forgetApiKeys();
   const apiKey = await prisma.apiKey.findUnique({ where: { id } });
   if (!apiKey) throw new NotFoundError('API Key');
   const membership = await prisma.workspaceMember.findFirst({ where: { workspaceId: apiKey.workspaceId, userId: user.userId } });
@@ -113,6 +114,7 @@ export async function updateApiKey(id: string, data: { specIds?: string[]; rateL
 }
 
 export async function revokeApiKey(id: string, user: AuthUser) {
+  forgetApiKeys();
   const apiKey = await prisma.apiKey.findUnique({
     where: { id },
     include: { workspace: true },
@@ -132,14 +134,26 @@ export async function revokeApiKey(id: string, user: AuthUser) {
 /**
  * Validate an API key from request header. Returns workspace info if valid.
  */
+// Every call used to read the key and then UPDATE its lastUsedAt. Concurrent calls on one key all wait on that
+// same row lock, which capped a key at ~40 calls/s. The key is now kept in memory for a short while and
+// lastUsedAt is written at most once a minute, off the request path.
+const KEY_TTL_MS = 15_000, LAST_USED_EVERY_MS = 60_000;
+const keyCache = new Map<string, { at: number; key: any }>();
+const lastUsedWritten = new Map<string, number>();
+export function forgetApiKeys() { keyCache.clear(); }
+
 export async function validateApiKey(rawKey: string) {
   if (!rawKey.startsWith(KEY_PREFIX)) return null;
 
   const keyHash = hashKey(rawKey);
-  const apiKey = await prisma.apiKey.findUnique({
-    where: { keyHash },
-    include: { workspace: true },
-  });
+  const now = Date.now();
+  let hit = keyCache.get(keyHash);
+  if (!hit || now - hit.at > KEY_TTL_MS) {
+    const found = await prisma.apiKey.findUnique({ where: { keyHash }, include: { workspace: true } });
+    hit = { at: now, key: found };
+    keyCache.set(keyHash, hit);
+  }
+  const apiKey = hit.key;
 
   if (!apiKey) return null;
   if (apiKey.active === false) return null;
@@ -147,11 +161,10 @@ export async function validateApiKey(rawKey: string) {
   // Check expiration
   if (apiKey.expiresAt && apiKey.expiresAt < new Date()) return null;
 
-  // Update lastUsedAt
-  await prisma.apiKey.update({
-    where: { id: apiKey.id },
-    data: { lastUsedAt: new Date() },
-  });
+  if (now - (lastUsedWritten.get(apiKey.id) || 0) > LAST_USED_EVERY_MS) {
+    lastUsedWritten.set(apiKey.id, now);
+    prisma.apiKey.update({ where: { id: apiKey.id }, data: { lastUsedAt: new Date(now) } }).catch(() => lastUsedWritten.delete(apiKey.id));
+  }
 
   return {
     keyId: apiKey.id,
