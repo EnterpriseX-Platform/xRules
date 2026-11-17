@@ -1,0 +1,117 @@
+// xRules → QA (kt1-qa, namespace xrules) · https://xrules.oneweb.tech
+// Jenkins: Pipeline job FactoryX/xrules, "Pipeline script from SCM", Script Path deploy/qa/Jenkinsfile.
+// Credentials (all in Jenkins, never in this repo):
+//   docker-credential   Docker Hub login with push access to avalantoneweb/*
+//   kubeconfig-kt1-qa   Secret file: kubeconfig for kt1-qa (shared with FactoryX); this job only touches namespace xrules
+// First run: applies deploy/qa/k8s.yaml and creates Secret xrules-secret with random passwords if it does not exist.
+// Later runs: build → push → set image → rollout (rolled back if it fails) → check the public URLs.
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        timeout(time: 60, unit: 'MINUTES')
+    }
+
+    parameters {
+        choice(name: 'COMPONENT', choices: ['all', 'both', 'api', 'web', 'engine', 'ml'], description: 'all = api + web + engine + ml · both = api + web')
+        booleanParam(name: 'DEPLOY',             defaultValue: true,                  description: 'Deploy after the images are pushed')
+        string(name: 'IMAGE_REPO',               defaultValue: 'avalantoneweb',       description: 'Docker Hub namespace; images become <repo>/xrules-<part>:<tag>')
+        string(name: 'KUBE_NAMESPACE',           defaultValue: 'xrules',              description: 'Kubernetes namespace')
+        string(name: 'KUBECONFIG_CREDENTIAL_ID', defaultValue: 'kubeconfig-kt1-qa',   description: 'Jenkins secret-file credential with the kubeconfig')
+        string(name: 'PUBLIC_URL',               defaultValue: 'https://xrules.oneweb.tech', description: 'Checked after the rollout')
+    }
+
+    environment { DOCKER_CREDENTIALS_ID = 'docker-credential' }
+
+    stages {
+        stage('Version') {
+            steps {
+                script {
+                    def sha = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    def ts  = new Date().format('yyyyMMdd.HHmm', TimeZone.getTimeZone('Asia/Bangkok'))
+                    env.TAG   = "v1.${ts}-${sha}"
+                    env.PARTS = params.COMPONENT == 'all' ? 'api web engine ml' : params.COMPONENT == 'both' ? 'api web' : params.COMPONENT
+                    currentBuild.displayName = "#${env.BUILD_NUMBER} ${env.TAG} ${params.COMPONENT}"
+                }
+            }
+        }
+
+        stage('Build & push') {
+            steps {
+                script {
+                    docker.withRegistry('', env.DOCKER_CREDENTIALS_ID) {
+                        env.PARTS.split(' ').each { p ->
+                            def img = "${params.IMAGE_REPO}/xrules-${p}:${env.TAG}"
+                            // Studio is served at the site root on QA (UAT uses /xrules)
+                            def args = p == 'web' ? '--build-arg NEXT_PUBLIC_BASE_PATH= --build-arg NEXT_PUBLIC_BACKEND_URL=/xrules-api' : ''
+                            sh "docker build --pull --platform=linux/amd64 ${args} -f deploy/uat/${p}.Dockerfile -t ${img} ."
+                            sh "docker push ${img}"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            when { expression { params.DEPLOY } }
+            steps {
+                withCredentials([file(credentialsId: params.KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG')]) {
+                    sh '''
+                    set -e
+                    NS="$KUBE_NAMESPACE"
+                    kubectl get namespace "$NS" >/dev/null 2>&1 || kubectl create namespace "$NS"
+                    if ! kubectl -n "$NS" get secret xrules-secret >/dev/null 2>&1; then
+                        PG=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \\n')
+                        kubectl -n "$NS" create secret generic xrules-secret \
+                          --from-literal=POSTGRES_PASSWORD="$PG" \
+                          --from-literal=DATABASE_URL="postgresql://xrules:$PG@xrules-postgres-svc:5432/xrulesdb" \
+                          --from-literal=JWT_SECRET="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \\n')" \
+                          --from-literal=JWT_REFRESH_SECRET="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \\n')" \
+                          --from-literal=CONNECTION_ENC_KEY="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \\n')"
+                    fi
+                    # first install only: a later apply would put the placeholder images back
+                    if ! kubectl -n "$NS" get deployment xrules-api >/dev/null 2>&1; then
+                        echo "First install into $NS"
+                        kubectl apply -f deploy/qa/k8s.yaml
+                    fi
+                    for p in $PARTS; do
+                        kubectl -n "$NS" set image deployment/xrules-$p "xrules-$p=docker.io/$IMAGE_REPO/xrules-$p:$TAG"
+                    done
+                    for p in $PARTS; do
+                        if ! kubectl -n "$NS" rollout status deployment/xrules-$p --timeout=8m; then
+                            echo "Rollout of xrules-$p failed — rolling back"
+                            kubectl -n "$NS" rollout undo deployment/xrules-$p || true
+                            exit 1
+                        fi
+                    done
+                    kubectl -n "$NS" get pods -o wide
+                    '''
+                }
+            }
+        }
+
+        stage('Verify') {
+            when { expression { params.DEPLOY } }
+            steps {
+                sh '''
+                for i in $(seq 1 12); do
+                    w=$(curl -s -o /dev/null -w "%{http_code}" "$PUBLIC_URL/login" || true)
+                    a=$(curl -s -o /dev/null -w "%{http_code}" "$PUBLIC_URL/xrules-api/health" || true)
+                    echo "studio $w · api $a"
+                    [ "$w" = "200" ] && [ "$a" = "200" ] && exit 0
+                    sleep 10
+                done
+                exit 1
+                '''
+            }
+        }
+    }
+
+    post {
+        success { echo "xRules ${env.TAG} (${params.COMPONENT}) " + (params.DEPLOY ? "deployed to ${params.PUBLIC_URL}" : 'pushed') }
+        failure { echo "xRules ${env.TAG} failed — check the stage above" }
+    }
+}
