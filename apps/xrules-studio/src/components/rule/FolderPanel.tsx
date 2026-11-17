@@ -1,5 +1,5 @@
 'use client';
-// Rule folders, used like packages: nested up to 5 levels, a folder shows the rules in it and in its
+// Folders, used like packages (one tree per project, shared by rules and flows): nested up to 5 levels, a folder shows the rules in it and in its
 // sub-folders, rules are dragged onto a folder (or "All rules" to take them out), and removing a folder
 // moves its rules up to the parent — never deletes them.
 import { useEffect, useRef, useState } from 'react';
@@ -21,10 +21,11 @@ export const subtreeIds = (nodes: FolderNode[], id: string): Set<string> => {
 
 export const DRAG_TYPE = 'application/x-xrules-rule';
 
-export function FolderPanel({ projectId, folders, rules, folderId, setFolderId, canWrite }: {
-  projectId: string; folders: FolderNode[]; rules: any[]; folderId: string | null;
+export function FolderPanel({ projectId, folders, items, kind = 'rule', folderId, setFolderId, canWrite }: {
+  projectId: string; folders: FolderNode[]; items: any[]; kind?: 'rule' | 'flow'; folderId: string | null;
   setFolderId: (id: string | null) => void; canWrite: boolean;
 }) {
+  const rules = items;
   const qc = useQueryClient();
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState<{ parentId: string | null } | null>(null);
@@ -33,7 +34,7 @@ export function FolderPanel({ projectId, folders, rules, folderId, setFolderId, 
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
   const [err, setErr] = useState('');
-  const refresh = () => { qc.invalidateQueries({ queryKey: ['folders', projectId] }); qc.invalidateQueries({ queryKey: ['rules', projectId] }); };
+  const refresh = () => { qc.invalidateQueries({ queryKey: ['folders', projectId] }); qc.invalidateQueries({ queryKey: [kind === 'flow' ? 'flows' : 'rules', projectId] }); };
   const count = (id: string) => { const ids = subtreeIds(folders, id); return rules.filter(r => r.folderId && ids.has(r.folderId)).length; };
 
   useEffect(() => {   // keep the selected folder's parents expanded
@@ -53,7 +54,7 @@ export function FolderPanel({ projectId, folders, rules, folderId, setFolderId, 
   const drop = (target: string | null) => (e: React.DragEvent) => {
     e.preventDefault(); setOver(null);
     const id = e.dataTransfer.getData(DRAG_TYPE);
-    if (id) run(() => api.post('/folders/move-item', { kind: 'rule', itemId: id, folderId: target }));
+    if (id) run(() => api.post('/folders/move-item', { kind, itemId: id, folderId: target }));
   };
   const dropProps = (target: string | null, key: string) => canWrite ? {
     onDragOver: (e: React.DragEvent) => { if (e.dataTransfer.types.includes(DRAG_TYPE)) { e.preventDefault(); setOver(key); } },
@@ -89,7 +90,7 @@ export function FolderPanel({ projectId, folders, rules, folderId, setFolderId, 
               </button>
               {menu === f.id && <Menu onClose={() => { setMenu(null); setConfirmDel(null); }}>
                 {confirmDel === f.id ? <>
-                  <div className="px-3 py-2 text-[13px] text-[#525252] max-w-[220px] whitespace-normal">Remove “{f.name}”? Its rules move to {f.parentId ? 'the parent folder' : 'All rules'}.</div>
+                  <div className="px-3 py-2 text-[13px] text-[#525252] max-w-[220px] whitespace-normal">Remove “{f.name}”? Its rules and flows move to {f.parentId ? 'the parent folder' : 'All rules'}.</div>
                   <MenuItem danger onClick={() => run(async () => { await api.del(`/folders/${f.id}`); setMenu(null); if (folderId && subtreeIds(folders, f.id).has(folderId)) setFolderId(f.parentId); })}>Remove folder</MenuItem>
                 </> : <>
                   {depth < 4 && <MenuItem onClick={() => { setMenu(null); setCreating({ parentId: f.id }); setOpen(new Set(open).add(f.id)); }}>New sub-folder</MenuItem>}
@@ -116,7 +117,7 @@ export function FolderPanel({ projectId, folders, rules, folderId, setFolderId, 
       </div>
       <div className="py-1">
         <div className={row(folderId === null, '_root')} style={{ paddingLeft: 8 }} onClick={() => setFolderId(null)} {...dropProps(null, '_root')} role="treeitem" aria-selected={folderId === null}>
-          <FileText className="h-4 w-4 mr-2 shrink-0" /><span className="flex-1">All rules</span>
+          <FileText className="h-4 w-4 mr-2 shrink-0" /><span className="flex-1">{kind === 'flow' ? 'All flows' : 'All rules'}</span>
           <span className="text-[12px] text-[#6f6f6f] tabular-nums px-2 font-normal">{rules.length}</span>
         </div>
         {folders.map(f => node(f, 0))}

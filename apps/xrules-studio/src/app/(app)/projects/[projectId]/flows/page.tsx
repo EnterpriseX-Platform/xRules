@@ -5,7 +5,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Workflow, Zap, GitBranch } from 'lucide-react';
 import { PageContent, PageHeader } from '@/components/layout/AppShell';
 import { EntityTable, StatusPill, Pill } from '@/components/EntityList';
-import { flowsApi } from '@/lib/api';
+import { flowsApi, api } from '@/lib/api';
+import { Select } from '@/components/ui/Select';
+import { FolderPanel, flatten, subtreeIds, DRAG_TYPE } from '@/components/rule/FolderPanel';
 import { usePerms } from '@/lib/perms';
 
 type Kind = 'DECISION' | 'INTEGRATION' | 'ALL';
@@ -47,15 +49,27 @@ export default function FlowsPage() {
   const meta = kind !== 'ALL' ? KIND_META[kind] : null;
 
   const [showCreate, setShowCreate] = useState(false);
+  const [folderId, setFolderId] = useState<string | null>(null);
+  const { data: folders = [] } = useQuery({
+    queryKey: ['folders', projectId],
+    queryFn: () => api.get<any[]>(`/folders?project_id=${projectId}`),
+  });
+  const folderList = flatten(folders);
+  const inFolder = folderId ? subtreeIds(folders, folderId) : new Set<string>();
+  const moveTo = async (flowId: string, to: string) => {
+    await api.post('/folders/move-item', { kind: 'flow', itemId: flowId, folderId: to || null });
+    qc.invalidateQueries({ queryKey: ['flows', projectId] }); qc.invalidateQueries({ queryKey: ['folders', projectId] });
+  };
 
   const { data: flows = [], isLoading } = useQuery({
     queryKey: ['flows', projectId],
     queryFn: () => flowsApi.list(projectId),
   });
 
-  const filtered = (flows as any[]).filter((f) =>
+  const ofKind = (flows as any[]).filter((f) =>
     kind === 'ALL' ? true : String(f.kind || 'DECISION').toUpperCase() === kind,
   );
+  const filtered = ofKind.filter(f => folderId === null || (!!f.folderId && inFolder.has(f.folderId)));
 
   const stats = {
     published: filtered.filter((f: any) => f.status === 'published').length,
@@ -87,7 +101,13 @@ export default function FlowsPage() {
         </div>
       )}
 
+      <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr] gap-3">
+      <FolderPanel projectId={projectId} folders={folders} items={ofKind} kind="flow" folderId={folderId} setFolderId={setFolderId} canWrite={!!perms.write} />
       <EntityTable
+        rowProps={(f: any) => perms.write ? {
+          draggable: true,
+          onDragStart: (e: React.DragEvent<HTMLTableRowElement>) => { e.dataTransfer.setData(DRAG_TYPE, f.id); e.dataTransfer.effectAllowed = 'move'; },
+        } : {}}
         rows={filtered}
         isLoading={isLoading}
         emptyText={meta?.emptyText || 'No flows yet'}
@@ -127,11 +147,23 @@ export default function FlowsPage() {
               return <Pill tone={isInt ? 'warn' : 'info'}>{isInt ? 'integration' : 'decision'}</Pill>;
             },
           },
+          {
+            header: 'Folder',
+            cell: (f: any) => perms.write
+              ? <span onClick={e => e.stopPropagation()}>
+                  <Select aria-label={`Folder of ${f.name}`} value={f.folderId || ''} onChange={e => moveTo(f.id, e.target.value)} className="h-8 text-xs w-44">
+                    <option value="">—</option>
+                    {folderList.map(x => <option key={x.id} value={x.id}>{x.path}</option>)}
+                  </Select>
+                </span>
+              : <span className="text-xs text-subtle">{folderList.find(x => x.id === f.folderId)?.path || '—'}</span>,
+          },
           { header: 'Status', cell: (f: any) => <StatusPill status={f.status} /> },
           { header: 'Nodes', cell: (f: any) => <span className="text-xs text-subtle tabular-nums">{(f.graph?.nodes?.length ?? 0)}</span>, align: 'right' },
           { header: 'Version', cell: (f: any) => <span className="text-xs text-subtle tabular-nums">v{f.version}</span>, align: 'right' },
         ]}
       />
+      </div>
 
       {showCreate && (
         <CreateFlowDialog
