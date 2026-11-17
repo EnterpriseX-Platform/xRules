@@ -49,6 +49,8 @@ function parseLooseValue(v: string): any {
   if (v === 'false') return false;
   if (v === 'null') return null;
   if (/^-?\d+(\.\d+)?$/.test(v)) return Number(v);
+  const t = v.trim();
+  if ((t.startsWith('{') && t.endsWith('}')) || (t.startsWith('"') && t.endsWith('"'))) { try { return JSON.parse(t); } catch {} }
   return v;
 }
 function decodeAttr(a: any): Attr {
@@ -103,7 +105,7 @@ export function ScorecardDesigner({
       ? definition.thresholds.map((t: any) => ({ score: Number(t.score) || 0, decision: typeof t.decision === 'string' ? t.decision : JSON.stringify(t.decision) }))
       : [],
   );
-  const [testInput, setTestInput] = useState<string>('{\n  \n}');
+  const [testValues, setTestValues] = useState<Record<string, string>>({});
 
   function emit(patch: { attributes?: Attr[]; thresholds?: Threshold[] } = {}) {
     const next = {
@@ -151,7 +153,7 @@ export function ScorecardDesigner({
   }
 
   function addThreshold() {
-    const next = [...thresholds, { score: 0, decision: '"approve"' }];
+    const next = [...thresholds, { score: 0, decision: '' }];
     setThresholds(next); emit({ thresholds: next });
   }
   function patchThreshold(idx: number, p: Partial<Threshold>) {
@@ -171,13 +173,13 @@ export function ScorecardDesigner({
 
   // Live preview
   const preview = useMemo(() => {
-    let parsed: any = {};
-    try { parsed = JSON.parse(testInput); } catch { return null; }
+    const parsed: any = {};
+    attributes.forEach(a => { if (a.name && testValues[a.name] !== undefined && testValues[a.name] !== '') parsed[a.name] = parseLooseValue(testValues[a.name]); });
     return previewScore({ attributes, thresholds }, parsed);
-  }, [attributes, thresholds, testInput]);
+  }, [attributes, thresholds, testValues]);
 
   return (
-    <div className="grid grid-cols-[1fr_300px] gap-3">
+    <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-3">
       <div className="space-y-3">
         {/* ATTRIBUTES */}
         <div className="card p-3">
@@ -193,7 +195,7 @@ export function ScorecardDesigner({
           <div className="space-y-2">
             {attributes.length === 0 && (
               <div className="py-8 text-center text-subtle text-xs">
-                No attributes — add one to start scoring inputs.
+                —
               </div>
             )}
             {attributes.map((a, ai) => (
@@ -251,7 +253,7 @@ export function ScorecardDesigner({
             <tbody>
               {thresholds.length === 0 && (
                 <tr><td colSpan={3} className="py-6 text-center text-subtle">
-                  No thresholds — total score will return as `decision: null`
+                  —
                 </td></tr>
               )}
               {thresholds
@@ -270,7 +272,7 @@ export function ScorecardDesigner({
                     <td className="px-2 py-1">
                       <input
                         className="bg-transparent border-0 outline-none w-full text-xs"
-                        placeholder='"approve" or {"action":"queue"}'
+                        placeholder='approve'
                         value={t.decision}
                         onChange={(e) => patchThreshold(originalIdx, { decision: e.target.value })}
                       />
@@ -294,12 +296,15 @@ export function ScorecardDesigner({
             <span className="label-section flex items-center gap-1.5"><Play className="h-3 w-3" /> Live Test</span>
             <span className="font-mono text-[10px] text-subtle">max {maxScore}</span>
           </div>
-          <textarea
-            className="input w-full font-mono text-xs h-40"
-            placeholder='{"income": 50000, "age": 35}'
-            value={testInput}
-            onChange={(e) => setTestInput(e.target.value)}
-          />
+          <div className="space-y-1.5">
+            {attributes.filter(a => a.name).map(a => (
+              <label key={a.name} className="flex items-center gap-2 text-xs">
+                <span className="font-mono text-subtle w-28 truncate">{a.name}</span>
+                <input className="input h-8 flex-1 text-xs" value={testValues[a.name] ?? ''}
+                  onChange={(e) => setTestValues(v => ({ ...v, [a.name]: e.target.value }))} />
+              </label>
+            ))}
+          </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <Stat label="score">
               {preview === null ? '–' : (
@@ -308,21 +313,12 @@ export function ScorecardDesigner({
             </Stat>
             <Stat label="decision">
               <span className="font-mono text-xs break-words">
-                {preview === null ? 'invalid json' : (preview.decision === null ? 'null' : JSON.stringify(preview.decision))}
+                {preview === null || preview.decision === null ? '–' : typeof preview.decision === 'string' ? preview.decision : JSON.stringify(preview.decision)}
               </span>
             </Stat>
           </div>
         </div>
 
-        <div className="card p-3">
-          <div className="label-section mb-2">How it works</div>
-          <ul className="text-[11px] text-subtle space-y-1.5 leading-snug">
-            <li>1. For each attribute, evaluate input field against bands top→bottom.</li>
-            <li>2. First matching band's points are added to total.</li>
-            <li>3. Highest threshold whose score ≤ total wins.</li>
-            <li>4. If no threshold matches, decision is null.</li>
-          </ul>
-        </div>
       </div>
     </div>
   );

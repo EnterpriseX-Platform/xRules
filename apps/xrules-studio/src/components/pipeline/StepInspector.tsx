@@ -119,7 +119,7 @@ export function StepInspector({ node, nodes = [], projectId, onChange, onRemove,
         </>}
 
         {(k === 'ruleCall' || k === 'rulecall') && <>
-          <Field label="Rule"><Dropdown value={d.ruleSlug} onChange={v => set({ ruleSlug: v })} options={ruleList.map((r: any) => ({ value: ruleRef(r), label: r.name || r.slug, hint: r.project?.name ? `${r.project.name} · ${r.type}` : r.type }))} /></Field>
+          <Field label="Rule"><Dropdown value={d.ruleSlug} onChange={v => { const r = ruleList.find((x: any) => ruleRef(x) === v); set({ ruleSlug: v, ...(!d.label || d.label === m.title ? { label: r?.name || d.label } : {}) }); }} options={ruleList.map((r: any) => ({ value: ruleRef(r), label: r.name || r.slug, hint: r.project?.name ? `${r.project.name} · ${r.type}` : r.type }))} /></Field>
           <Field label="Rule code (adds its results to Findings)" htmlFor="st-rcode"><Text id="st-rcode" mono value={d.ruleCode} onChange={(v: string) => set({ ruleCode: v })} placeholder="TOR-4.4.1.4" /></Field>
           <Field label="Level when failed"><Dropdown value={d.severity || 'ERROR'} onChange={v => set({ severity: v })} options={[{ value: 'ERROR', label: 'ERROR · blocks submission' }, { value: 'WARNING', label: 'WARNING · allows submission' }]} /></Field>
           <Field label="Store result as" htmlFor="st-oa"><Text id="st-oa" mono value={d.outputAs} onChange={(v: string) => set({ outputAs: v })} /></Field>

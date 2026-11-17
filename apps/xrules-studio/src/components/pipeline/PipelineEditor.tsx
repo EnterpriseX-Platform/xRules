@@ -68,6 +68,9 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
   const [aiText, setAiText] = useState('');
   const [aiMsg, setAiMsg] = useState<string | null>(null);
   const [preview, setPreview] = useState<any | null>(null);
+  const [testOpen, setTestOpen] = useState(false);
+  const [testInput, setTestInput] = useState('{\n  \n}');
+  const [testResult, setTestResult] = useState<any | null>(null);
   const past = useRef<Graph[]>([]); const future = useRef<Graph[]>([]);
 
   const load = useCallback((f: any) => {
@@ -144,6 +147,15 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
     mutationFn: async () => { if (dirty) await save.mutateAsync(); return api.post(`/flows/${flowId}/publish`, {}); },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['flow', flowId] }),
   });
+  const testRun = useMutation({
+    mutationFn: async () => {
+      let input: any;
+      try { input = JSON.parse(testInput || '{}'); } catch (e: any) { return { error: `Input is not valid JSON — ${e.message}` }; }
+      return api.post<any>(`/flows/${flowId}/run`, { graph: graphToSave(), input });
+    },
+    onSuccess: r => setTestResult(r),
+    onError: (e: any) => setTestResult({ error: e.message }),
+  });
   const runNow = useMutation({ meta: { failLabel: "Couldn't run" }, mutationFn: () => api.post<any>(`/data/flows/${flowId}/run`), onSuccess: r => setPreview({ ...r, mode: 'run' }) });
   const runTrigger = useMutation({ mutationFn: () => api.post<any>(`/platform/triggers/${flowId}/run-now`, {}), onSuccess: r => setPreview({ ok: !r.error, mode: 'run', rowCount: undefined, error: r.error, trace: undefined, traceSteps: r.trace }), onError: (e: any) => setPreview({ ok: false, mode: 'run', error: e.message }) });
   const doPreview = useMutation({ mutationFn: async () => { if (dirty) await save.mutateAsync(); return api.post<any>(`/data/flows/${flowId}/preview`); }, onSuccess: r => setPreview({ ...r, mode: 'preview' }) });
@@ -176,20 +188,24 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
       {/* header */}
       <div className="bg-white border-b border-[#e0e0e0] px-6 pt-4 pb-3">
         <div className="flex items-center gap-4">
-          <h1 className="text-[22px] text-[#161616] font-semibold">{flow.name}</h1>
+          <h1 className="text-[22px] text-[#161616] font-semibold truncate min-w-0">{flow.name}</h1>
           {liveVersion > 0 && <span className="flex items-center gap-1.5 text-[14px] text-[#525252]"><span className="h-2.5 w-2.5 rounded-full bg-[#24a148]" />v{liveVersion} live</span>}
           <div className="ml-auto flex items-center gap-1">
             <button className="h-9 w-9 flex items-center justify-center hover:bg-[#e8e8e8] disabled:opacity-30" onClick={undo} disabled={!past.current.length || locked} aria-label="Undo"><Undo2 className="h-4 w-4" /></button>
             <button className="h-9 w-9 flex items-center justify-center hover:bg-[#e8e8e8] disabled:opacity-30" onClick={redo} disabled={!future.current.length || locked} aria-label="Redo"><Redo2 className="h-4 w-4" /></button>
             <span className="h-6 w-px bg-[#e0e0e0] mx-2" />
             <button className={`h-9 w-9 flex items-center justify-center hover:bg-[#e8e8e8] ${locked ? 'bg-[#e0e0e0]' : ''}`} onClick={() => setLocked(l => !l)} aria-label={locked ? 'Unlock' : 'Lock editing'}>{locked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}</button>
-            <span className="flex items-center gap-2 text-[14px] text-[#161616] ml-4"><span className="h-2.5 w-2.5 rounded-full" style={{ background: state.dot }} />{state.text}</span>
+            <span className="flex items-center gap-2 text-[14px] text-[#161616] ml-4 whitespace-nowrap"><span className="h-2.5 w-2.5 rounded-full" style={{ background: state.dot }} />{state.text}</span>
             <button className="ml-4 h-9 px-3 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8] disabled:text-[#c6c6c6]" disabled={!dirty} onClick={() => load(flow)}>Discard</button>
           </div>
         </div>
         <div className="flex items-center gap-2 mt-3">
           <button className="h-10 pl-4 pr-8 text-[14px] border border-[#8d8d8d] text-[#161616] hover:bg-[#e8e8e8] disabled:text-[#8d8d8d] disabled:border-[#e0e0e0]" disabled={!dirty || save.isPending || locked} onClick={() => save.mutate()}>Save draft</button>
           <button className="h-10 pl-4 pr-8 text-[14px] bg-[#0f62fe] text-white hover:bg-[#0353e9] disabled:bg-[#c6c6c6]" disabled={publish.isPending || locked || (!dirty && published)} onClick={() => publish.mutate()}>Publish v{published && !dirty ? flow.version : flow.version + (published ? 1 : 0)}</button>
+          {kind === 'decision' && <>
+            <span className="w-4" />
+            <button className="h-10 pl-3 pr-6 text-[14px] text-[#0f62fe] border border-[#0f62fe] hover:bg-[#0f62fe] hover:text-white flex items-center gap-2" onClick={() => setTestOpen(o => !o)}><Play className="h-4 w-4" /> Test</button>
+          </>}
           {kind === 'data' && <>
             <span className="w-4" />
             <button className="h-10 pl-3 pr-6 text-[14px] text-[#0f62fe] border border-[#0f62fe] hover:bg-[#0f62fe] hover:text-white flex items-center gap-2" onClick={() => doPreview.mutate()} disabled={doPreview.isPending}><Eye className="h-4 w-4" /> Preview 100 rows</button>
@@ -221,9 +237,9 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
           </ReactFlow>
 
           <div className="absolute top-4 right-4 flex items-center gap-2">
-            <button className="h-10 pl-3 pr-5 bg-white border border-[#e0e0e0] text-[14px] flex items-center gap-2 hover:bg-[#e8e8e8]" disabled={locked} onClick={() => commit(tidy(nodes, edges), edges)}><LayoutGrid className="h-4 w-4" /> Tidy up</button>
+            <button className="h-10 pl-3 pr-5 bg-white border border-[#e0e0e0] text-[14px] flex items-center gap-2 whitespace-nowrap hover:bg-[#e8e8e8]" disabled={locked} onClick={() => { commit(tidy(nodes, edges), edges); setTimeout(() => rf.fitView({ padding: 0.3, maxZoom: 1 }), 50); }}><LayoutGrid className="h-4 w-4" /> Tidy up</button>
             <div className="relative">
-              <button className="h-10 pl-3 pr-5 bg-[#393939] text-white text-[14px] flex items-center gap-2 hover:bg-[#474747]" disabled={locked} onClick={() => setAddOpen(o => !o)}><Plus className="h-4 w-4" /> Add step</button>
+              <button className="h-10 pl-3 pr-5 bg-[#393939] text-white text-[14px] flex items-center gap-2 whitespace-nowrap hover:bg-[#474747]" disabled={locked} onClick={() => setAddOpen(o => !o)}><Plus className="h-4 w-4" /> Add step</button>
               {addOpen && (
                 <div className="absolute right-0 mt-1 w-64 bg-white border border-[#e0e0e0] shadow-[0_2px_6px_rgba(0,0,0,.2)] z-30 max-h-[60vh] overflow-y-auto">
                   {groups.map(g => (
@@ -251,7 +267,7 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
             <button className="h-11 w-11 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={() => rf.fitView({ padding: 0.3, maxZoom: 1 })} aria-label="Fit to screen"><Maximize2 className="h-4 w-4" /></button>
           </div>
 
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[min(560px,calc(100%-260px))] bg-white border border-[#e0e0e0] p-3">
+          <div className="absolute bottom-4 left-[260px] right-24 max-w-[560px] bg-white border border-[#e0e0e0] p-3 hidden xl:block">
             <div className="flex items-center gap-3">
               <Sparkles className="h-5 w-5 shrink-0 text-[#161616]" />
               <input className="input flex-1" value={aiText} onChange={e => { setAiText(e.target.value); setAiMsg(null); }} placeholder="Change this pipeline so that…" disabled={locked}
@@ -268,6 +284,31 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
       </div>
 
       {preview && <PreviewDrawer result={preview} onClose={() => setPreview(null)} />}
+      {testOpen && (
+        <div className="h-[320px] bg-white border-t border-[#e0e0e0] flex min-h-0">
+          <div className="w-[360px] shrink-0 border-r border-[#e0e0e0] flex flex-col">
+            <div className="h-12 px-4 flex items-center gap-3 border-b border-[#e0e0e0]">
+              <span className="text-[14px] font-semibold text-[#161616]">Input</span>
+              <button className="ml-auto h-8 pl-3 pr-5 text-[14px] bg-[#0f62fe] text-white disabled:bg-[#c6c6c6] flex items-center gap-2" disabled={testRun.isPending} onClick={() => testRun.mutate()}><Play className="h-3.5 w-3.5" /> Run</button>
+            </div>
+            <textarea className="flex-1 p-3 font-mono text-[13px] outline-none resize-none" spellCheck={false} value={testInput} onChange={e => setTestInput(e.target.value)} />
+          </div>
+          <div className="flex-1 min-w-0 flex flex-col">
+            <div className="h-12 px-4 flex items-center gap-3 border-b border-[#e0e0e0]">
+              <span className="text-[14px] font-semibold text-[#161616]">Result</span>
+              {testResult && !testResult.error && <span className="px-2 rounded-full text-[12px] bg-[#a7f0ba] text-[#0e6027]">Passed</span>}
+              {testResult?.error && <span className="px-2 rounded-full text-[12px] bg-[#ffd7d9] text-[#a2191f]">Failed</span>}
+              {testResult?.duration_ms !== undefined && <span className="text-[12px] text-[#525252] tabular-nums">{testResult.duration_ms} ms</span>}
+              <button className="ml-auto h-8 w-8 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={() => setTestOpen(false)} aria-label="Close"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="flex-1 overflow-auto p-4 grid grid-cols-1 2xl:grid-cols-2 gap-4">
+              {testResult?.error && <div className="text-[13px] text-[#a2191f]">{testResult.error}</div>}
+              {testResult && 'output' in testResult && <pre className="font-mono text-[12px] text-[#161616] whitespace-pre-wrap">{JSON.stringify(testResult.output, null, 2)}</pre>}
+              {testResult?.trace && <TraceView steps={testResult.trace} />}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

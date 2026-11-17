@@ -40,4 +40,31 @@ r.post('/:id/publish', authMiddleware, async (req, res, next) => {
   try { res.json({ success: true, data: await svc.publishFlow(req.params.id, req.body?.message, req.user!) }); } catch (e) { next(e); }
 });
 
+// Try the flow as it is on screen (draft graph from the body, or the saved one) without publishing or an API key.
+r.post('/:id/run', authMiddleware, async (req, res, next) => {
+  try {
+    const flow: any = await svc.getFlow(req.params.id, req.user!);
+    const graph = req.body?.graph || flow.graph;
+    const input = req.body?.input ?? {};
+    const { runFlow } = await import('../services/flow-runtime.service.js');
+    const { executeRule } = await import('../services/execute.service.js');
+    const { prisma } = await import('../config/database.js');
+    const wsId = flow.project?.workspaceId;
+    const trace: any[] = [];
+    const t0 = Date.now();
+    try {
+      const output = await runFlow(graph, input, async (slug: string, payload: any) => {
+        const rule = /^[a-z0-9]{20,30}$/i.test(slug)
+          ? await prisma.rule.findUnique({ where: { id: slug } })
+          : await prisma.rule.findFirst({ where: { OR: [{ slug }, { alias: slug }], ...(wsId ? { project: { workspaceId: wsId } } : {}) } });
+        if (!rule) throw new Error(`Step uses a rule that does not exist: '${slug}'`);
+        return ((await executeRule(rule.id, payload, {}, req.user!)) as any).output;
+      }, { projectId: flow.projectId, trace });
+      res.json({ success: true, data: { output, trace, duration_ms: Date.now() - t0 } });
+    } catch (e: any) {
+      res.json({ success: true, data: { error: e?.message || String(e), trace, duration_ms: Date.now() - t0 } });
+    }
+  } catch (e) { next(e); }
+});
+
 export default r;
