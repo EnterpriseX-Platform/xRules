@@ -49,8 +49,8 @@ test('Decision flow: transform, rule, branch, run together + merge, output', asy
       { id: 'b', type: 'branch', data: { condition: "checks.r2.decision === 'block' || checks.r2 && checks.r2.decision === 'block'" } },
       { id: 'stop', type: 'transform', data: { target: 'result', expression: "'stop'" } },
       { id: 'go', type: 'transform', data: { target: 'result', expression: "'go'" } },
-      { id: 'o1', type: 'output', data: {} },
-      { id: 'o2', type: 'output', data: {} },
+      { id: 'o1', type: 'output', data: { return: { orderAmount: '{{orderAmount}}', checks: '{{checks}}', result: '{{result}}' } } },
+      { id: 'o2', type: 'output', data: { return: { orderAmount: '{{orderAmount}}', checks: '{{checks}}', result: '{{result}}' } } },
     ],
     edges: [
       { source: 'in', target: 'tx' }, { source: 'tx', target: 'par' },
@@ -66,7 +66,7 @@ test('Decision flow: transform, rule, branch, run together + merge, output', asy
   const safe = await call(page, k, flow, { qty: 3, price: 400, customerTier: 'gold', countryRisk: 'low', velocityHourly: 1, newDevice: false, amount: 500 });
   expect(safe.status, JSON.stringify(safe.json)).toBe(200);
   const s = safe.json.output;
-  expect(s.orderAmount).toBe(1200);                                  // transform
+  expect(s.orderAmount, JSON.stringify(safe.json)).toBe(1200);                                  // transform
   expect(s.checks.r1).toMatchObject({ discountPercent: 10 });         // rule inside run-together, input mapped from the transform
   expect(s.checks.r2).toMatchObject({ decision: 'approve' });
   expect(s.result).toBe('go');                                       // branch false
@@ -83,7 +83,7 @@ test('Decision flow: HTTP call step fetches and keeps the response', async ({ pa
     nodes: [
       { id: 'in', type: 'input', data: {} },
       { id: 'h', type: 'http', data: { method: 'GET', url: 'http://xrules-api-svc:4000/health', outputAs: 'health' } },
-      { id: 'o', type: 'output', data: {} },
+      { id: 'o', type: 'output', data: { return: { health: '{{health}}' } } },
     ],
     edges: [{ source: 'in', target: 'h' }, { source: 'h', target: 'o' }],
   };
