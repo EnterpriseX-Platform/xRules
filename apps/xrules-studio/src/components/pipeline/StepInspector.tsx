@@ -5,6 +5,7 @@ import type { Node } from 'reactflow';
 import { Plus, Trash2, X } from 'lucide-react';
 import { api, rulesApi } from '@/lib/api';
 import { Dropdown } from './Dropdown';
+import { ConditionBuilder } from './ConditionBuilder';
 import { metaFor } from './registry';
 
 const csv = (v: any) => (Array.isArray(v) ? v.join(', ') : v || '');
@@ -137,7 +138,8 @@ export function StepInspector({ node, nodes = [], projectId, onChange, onRemove,
           <Field label="Store result as" htmlFor="st-lo"><Text id="st-lo" mono value={d.outputAs} onChange={(v: string) => set({ outputAs: v })} /></Field>
         </>}
 
-        {k === 'branch' && <Field label="Condition" htmlFor="st-cond"><Text id="st-cond" mono value={d.condition} onChange={(v: string) => set({ condition: v })} /></Field>}
+        {k === 'branch' && <ConditionBuilder key={node.id} value={d.condition || ''} onChange={(v: string) => set({ condition: v })}
+          fields={Array.from(new Set(nodes.filter(n => n.id !== node.id && n.data?.outputAs).map(n => String(n.data.outputAs)))).slice(0, 8)} />}
         {(k === 'transform' || k === 'assign') && <>
           <Field label="Store as" htmlFor="st-tt"><Text id="st-tt" mono value={d.target} onChange={(v: string) => set({ target: v })} /></Field>
           <Field label="Expression" htmlFor="st-te"><Text id="st-te" mono value={d.expression} onChange={(v: string) => set({ expression: v })} /></Field>

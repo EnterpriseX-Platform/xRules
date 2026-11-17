@@ -17,6 +17,7 @@ import { LookupDesigner } from '@/components/rule/LookupDesigner';
 import { AIAgentDesigner } from '@/components/rule/AIAgentDesigner';
 import { ScorecardDesigner } from '@/components/rule/ScorecardDesigner';
 import { RuleFlowDesigner } from '@/components/rule/RuleFlowDesigner';
+import { SchemaFields, toFields, toSchema, type SField } from '@/components/rule/SchemaFields';
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
@@ -258,32 +259,54 @@ function RawJsonDefinition({ rule, onSave }: { rule: any; onSave: (d: any) => vo
 }
 
 function SchemasTab({ rule }: { rule: any }) {
-  const [input, setInput] = useState(JSON.stringify(rule.inputSchema || { type: 'object', properties: {} }, null, 2));
-  const [output, setOutput] = useState(JSON.stringify(rule.outputSchema || { type: 'object', properties: {} }, null, 2));
+  const qc = useQueryClient();
+  const [inF, setInF] = useState<SField[]>(() => toFields(rule.inputSchema));
+  const [outF, setOutF] = useState<SField[]>(() => toFields(rule.outputSchema));
+  const [mode, setMode] = useState<'fields' | 'json'>('fields');
+  const [inJ, setInJ] = useState('');
+  const [outJ, setOutJ] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const toJson = () => { setInJ(JSON.stringify(toSchema(inF, rule.inputSchema), null, 2)); setOutJ(JSON.stringify(toSchema(outF, rule.outputSchema), null, 2)); };
+  const switchMode = (m: 'fields' | 'json') => {
+    setErr(null);
+    if (m === 'json') { toJson(); setMode(m); return; }
+    try { setInF(toFields(JSON.parse(inJ))); setOutF(toFields(JSON.parse(outJ))); setMode(m); } catch (e: any) { setErr('JSON is not valid — ' + e.message); }
+  };
   const mut = useMutation({
     mutationFn: () => {
-      const i = JSON.parse(input);
-      const o = JSON.parse(output);
+      let i: any, o: any;
+      if (mode === 'json') { i = JSON.parse(inJ); o = JSON.parse(outJ); } else { i = toSchema(inF, rule.inputSchema); o = toSchema(outF, rule.outputSchema); }
       return rulesApi.update(rule.id, { inputSchema: i, outputSchema: o });
     },
+    onMutate: () => setErr(null),
+    onSuccess: () => { setSavedAt(Date.now()); qc.invalidateQueries({ queryKey: ['rule', rule.id] }); },
+    onError: (e: any) => setErr(e.message),
   });
+  const box = (title: string, f: SField[], setF: (x: SField[]) => void, j: string, setJ: (x: string) => void) => (
+    <div className="card overflow-hidden">
+      <div className="px-4 h-11 flex items-center border-b border-border text-[14px] font-semibold text-[#161616]">{title}</div>
+      {mode === 'fields' ? <SchemaFields fields={f} onChange={x => { setF(x); setSavedAt(null); }} />
+        : <MonacoEditor height="420px" language="json" value={j} onChange={v => { setJ(v || ''); setSavedAt(null); }} options={{ minimap: { enabled: false }, fontSize: 13 }} />}
+    </div>
+  );
   return (
-    <div className="grid grid-cols-2 gap-4">
-      <div className="card overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-border label-section">Input Schema · JSON Schema 2020-12</div>
-        <MonacoEditor height="500px" language="json" value={input} onChange={(v) => setInput(v || '')}
-          options={{ minimap: { enabled: false }, fontSize: 13 }} />
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="flex border border-[#c6c6c6]">
+          {(['fields', 'json'] as const).map(m => (
+            <button key={m} className={`h-8 px-3 text-[13px] ${mode === m ? 'bg-[#161616] text-white' : 'text-[#525252] hover:bg-[#f4f4f4]'}`} onClick={() => mode !== m && switchMode(m)}>{m === 'fields' ? 'Fields' : 'JSON'}</button>
+          ))}
+        </div>
+        {err && <span className="text-[13px] text-[#da1e28] truncate">{err}</span>}
+        <div className="ml-auto flex items-center gap-3">
+          {savedAt && !mut.isPending && <span className="text-[13px] text-[#24a148] flex items-center gap-1"><Check className="h-4 w-4" /> Saved</span>}
+          <button className="btn-primary" onClick={() => mut.mutate()} disabled={mut.isPending}><Save className="h-3.5 w-3.5" />{mut.isPending ? 'Saving' : 'Save'}</button>
+        </div>
       </div>
-      <div className="card overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-border label-section">Output Schema</div>
-        <MonacoEditor height="500px" language="json" value={output} onChange={(v) => setOutput(v || '')}
-          options={{ minimap: { enabled: false }, fontSize: 13 }} />
-      </div>
-      <div className="col-span-2 flex justify-end">
-        <button className="btn-primary" onClick={() => mut.mutate()} disabled={mut.isPending}>
-          <Save className="h-3.5 w-3.5" />
-          {mut.isPending ? 'Saving…' : 'Save Schemas'}
-        </button>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        {box('Input', inF, setInF, inJ, setInJ)}
+        {box('Output', outF, setOutF, outJ, setOutJ)}
       </div>
     </div>
   );

@@ -2,6 +2,7 @@
 // AI Assistant — floating bottom-right dock. Toggle with the Sparkles button or '?'/'a' shortcut.
 // Calls POST /assistant/chat with the current project context.
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
+import { usePathname } from 'next/navigation';
 import { Sparkles, Send, X, Bot, User } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { useProject } from '@/lib/store';
@@ -16,6 +17,8 @@ interface Msg {
 }
 
 export function AssistantPanel() {
+  const pathname = usePathname() || '';
+  const onCanvas = /\/(flows|data-flows|triggers|apis|jobs)\/[^/]+/.test(pathname);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -77,7 +80,7 @@ export function AssistantPanel() {
   return (
     <>
       {/* Floating toggle */}
-      <button
+      {!onCanvas && <button
         className={cn(
           'fixed bottom-5 right-5 z-40 h-12 w-12 border transition-colors',
           'flex items-center justify-center',
@@ -87,7 +90,7 @@ export function AssistantPanel() {
         title={open ? 'Close assistant (⌘;)' : 'Ask Assistant (⌘;)'}
       >
         {open ? <X className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
-      </button>
+      </button>}
 
       {open && (
         <div className="fixed bottom-20 right-5 z-40 w-[380px] max-h-[70vh] card flex flex-col border !border-[#e0e0e0] shadow-[0_2px_6px_rgba(0,0,0,.2)]">

@@ -186,36 +186,20 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
   return (
     <div className="h-[calc(100vh-48px)] flex flex-col bg-[#f4f4f4]">
       {/* header */}
-      <div className="bg-white border-b border-[#e0e0e0] px-6 pt-4 pb-3">
-        <div className="flex items-center gap-4">
-          <h1 className="text-[22px] text-[#161616] font-semibold truncate min-w-0">{flow.name}</h1>
-          {liveVersion > 0 && <span className="flex items-center gap-1.5 text-[14px] text-[#525252]"><span className="h-2.5 w-2.5 rounded-full bg-[#24a148]" />v{liveVersion} live</span>}
-          <div className="ml-auto flex items-center gap-1">
-            <button className="h-9 w-9 flex items-center justify-center hover:bg-[#e8e8e8] disabled:opacity-30" onClick={undo} disabled={!past.current.length || locked} aria-label="Undo"><Undo2 className="h-4 w-4" /></button>
-            <button className="h-9 w-9 flex items-center justify-center hover:bg-[#e8e8e8] disabled:opacity-30" onClick={redo} disabled={!future.current.length || locked} aria-label="Redo"><Redo2 className="h-4 w-4" /></button>
-            <span className="h-6 w-px bg-[#e0e0e0] mx-2" />
-            <button className={`h-9 w-9 flex items-center justify-center hover:bg-[#e8e8e8] ${locked ? 'bg-[#e0e0e0]' : ''}`} onClick={() => setLocked(l => !l)} aria-label={locked ? 'Unlock' : 'Lock editing'}>{locked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}</button>
-            <span className="flex items-center gap-2 text-[14px] text-[#161616] ml-4 whitespace-nowrap"><span className="h-2.5 w-2.5 rounded-full" style={{ background: state.dot }} />{state.text}</span>
-            <button className="ml-4 h-9 px-3 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8] disabled:text-[#c6c6c6]" disabled={!dirty} onClick={() => load(flow)}>Discard</button>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 mt-3">
-          <button className="h-10 pl-4 pr-8 text-[14px] border border-[#8d8d8d] text-[#161616] hover:bg-[#e8e8e8] disabled:text-[#8d8d8d] disabled:border-[#e0e0e0]" disabled={!dirty || save.isPending || locked} onClick={() => save.mutate()}>Save draft</button>
-          <button className="h-10 pl-4 pr-8 text-[14px] bg-[#0f62fe] text-white hover:bg-[#0353e9] disabled:bg-[#c6c6c6]" disabled={publish.isPending || locked || (!dirty && published)} onClick={() => publish.mutate()}>Publish v{published && !dirty ? flow.version : flow.version + (published ? 1 : 0)}</button>
-          {kind === 'decision' && <>
-            <span className="w-4" />
-            <button className="h-10 pl-3 pr-6 text-[14px] text-[#0f62fe] border border-[#0f62fe] hover:bg-[#0f62fe] hover:text-white flex items-center gap-2" onClick={() => setTestOpen(o => !o)}><Play className="h-4 w-4" /> Test</button>
-          </>}
+      <div className="bg-white border-b border-[#e0e0e0] px-6 h-16 flex items-center gap-4 min-w-0">
+        <h1 className="text-[20px] text-[#161616] font-semibold truncate min-w-0">{flow.name}</h1>
+        <span className="flex items-center gap-1.5 text-[13px] text-[#525252] whitespace-nowrap"><span className="h-2 w-2 rounded-full" style={{ background: state.dot }} />{state.text}</span>
+        {(save.error || publish.error) && <span className="text-[13px] text-[#da1e28] truncate">{String((save.error as any)?.message || (publish.error as any)?.message)}</span>}
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          {dirty && <button className="h-10 px-3 text-[14px] text-[#525252] hover:bg-[#e8e8e8]" onClick={() => load(flow)}>Discard</button>}
+          {kind === 'decision' && <button className={`h-10 px-4 text-[14px] border flex items-center gap-2 ${testOpen ? 'bg-[#161616] text-white border-[#161616]' : 'border-[#8d8d8d] text-[#161616] hover:bg-[#e8e8e8]'}`} onClick={() => { setTestOpen(o => !o); setSelectedId(null); }}><Play className="h-4 w-4" /> Test</button>}
           {kind === 'data' && <>
-            <span className="w-4" />
-            <button className="h-10 pl-3 pr-6 text-[14px] text-[#0f62fe] border border-[#0f62fe] hover:bg-[#0f62fe] hover:text-white flex items-center gap-2" onClick={() => doPreview.mutate()} disabled={doPreview.isPending}><Eye className="h-4 w-4" /> Preview 100 rows</button>
-            <button className="h-10 pl-3 pr-6 text-[14px] text-[#0f62fe] border border-[#0f62fe] hover:bg-[#0f62fe] hover:text-white flex items-center gap-2" onClick={() => runNow.mutate()} disabled={runNow.isPending || !published}><Play className="h-4 w-4" /> Run now</button>
+            <button className="h-10 px-4 text-[14px] border border-[#8d8d8d] hover:bg-[#e8e8e8] flex items-center gap-2 whitespace-nowrap" onClick={() => doPreview.mutate()} disabled={doPreview.isPending}><Eye className="h-4 w-4" /> Preview</button>
+            <button className="h-10 px-4 text-[14px] border border-[#8d8d8d] hover:bg-[#e8e8e8] flex items-center gap-2 whitespace-nowrap disabled:text-[#8d8d8d]" onClick={() => runNow.mutate()} disabled={runNow.isPending || !published}><Play className="h-4 w-4" /> Run</button>
           </>}
-          {kind === 'trigger' && <>
-            <span className="w-4" />
-            <button className="h-10 pl-3 pr-6 text-[14px] text-[#0f62fe] border border-[#0f62fe] hover:bg-[#0f62fe] hover:text-white flex items-center gap-2" onClick={() => runTrigger.mutate()} disabled={runTrigger.isPending || !published}><Play className="h-4 w-4" /> Run now</button>
-          </>}
-          {(save.error || publish.error) && <span className="text-[13px] text-[#da1e28] ml-3">{String((save.error as any)?.message || (publish.error as any)?.message)}</span>}
+          {kind === 'trigger' && <button className="h-10 px-4 text-[14px] border border-[#8d8d8d] hover:bg-[#e8e8e8] flex items-center gap-2 whitespace-nowrap disabled:text-[#8d8d8d]" onClick={() => runTrigger.mutate()} disabled={runTrigger.isPending || !published}><Play className="h-4 w-4" /> Run</button>}
+          <button className="h-10 px-4 text-[14px] border border-[#8d8d8d] text-[#161616] hover:bg-[#e8e8e8] whitespace-nowrap disabled:text-[#8d8d8d] disabled:border-[#e0e0e0]" disabled={!dirty || save.isPending || locked} onClick={() => save.mutate()}>Save</button>
+          <button className="h-10 px-4 text-[14px] bg-[#0f62fe] text-white hover:bg-[#0353e9] whitespace-nowrap disabled:bg-[#c6c6c6]" disabled={publish.isPending || locked || (!dirty && published)} onClick={() => publish.mutate()}>Publish v{published && !dirty ? flow.version : flow.version + (published ? 1 : 0)}</button>
         </div>
       </div>
 
@@ -265,50 +249,49 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
             <span className="w-14 text-center text-[14px] tabular-nums">{Math.round(zoom * 100)}%</span>
             <button className="h-11 w-11 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={() => rf.zoomIn()} aria-label="Zoom in"><Plus className="h-4 w-4" /></button>
             <button className="h-11 w-11 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={() => rf.fitView({ padding: 0.3, maxZoom: 1 })} aria-label="Fit to screen"><Maximize2 className="h-4 w-4" /></button>
+            <span className="h-6 w-px bg-[#e0e0e0]" />
+            <button className="h-11 w-11 flex items-center justify-center hover:bg-[#e8e8e8] disabled:opacity-30" onClick={undo} disabled={!past.current.length || locked} aria-label="Undo"><Undo2 className="h-4 w-4" /></button>
+            <button className="h-11 w-11 flex items-center justify-center hover:bg-[#e8e8e8] disabled:opacity-30" onClick={redo} disabled={!future.current.length || locked} aria-label="Redo"><Redo2 className="h-4 w-4" /></button>
+            <button className={`h-11 w-11 flex items-center justify-center hover:bg-[#e8e8e8] ${locked ? 'bg-[#e0e0e0]' : ''}`} onClick={() => setLocked(l => !l)} aria-label={locked ? 'Unlock' : 'Lock editing'}>{locked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}</button>
           </div>
 
-          <div className="absolute bottom-4 left-[260px] right-24 max-w-[560px] bg-white border border-[#e0e0e0] p-3 hidden xl:block">
-            <div className="flex items-center gap-3">
-              <Sparkles className="h-5 w-5 shrink-0 text-[#161616]" />
-              <input className="input flex-1" value={aiText} onChange={e => { setAiText(e.target.value); setAiMsg(null); }} placeholder="Change this pipeline so that…" disabled={locked}
-                onKeyDown={e => { if (e.key === 'Enter' && aiText.trim()) buildAi.mutate(); }} />
+          {!testOpen && (
+            <div className="absolute top-4 left-4 right-[260px] max-w-[520px] h-10 bg-white border border-[#e0e0e0] flex items-center">
+              <Sparkles className="h-4 w-4 mx-3 shrink-0 text-[#525252]" />
+              <input className="flex-1 min-w-0 h-full text-[14px] outline-none bg-transparent" value={aiText} onChange={e => { setAiText(e.target.value); setAiMsg(null); }} placeholder={aiMsg || 'Change this flow with AI'} disabled={locked}
+                onKeyDown={e => { if (e.key === 'Enter' && aiText.trim()) buildAi.mutate(); }} aria-label="Change this flow with AI" />
+              {aiText.trim() && <button className="h-full px-4 text-[14px] bg-[#161616] text-white disabled:bg-[#8d8d8d]" disabled={buildAi.isPending || locked} onClick={() => buildAi.mutate()}>Build</button>}
             </div>
-            <div className="flex items-center gap-3 mt-2 pl-8">
-              <button className="h-10 pl-4 pr-8 text-[14px] bg-[#393939] text-white disabled:bg-[#8d8d8d]" disabled={!aiText.trim() || buildAi.isPending || locked} onClick={() => buildAi.mutate()}>Build with AI</button>
-              {aiMsg && <span className="text-[13px] text-[#525252]">{aiMsg}</span>}
-            </div>
-          </div>
+          )}
         </div>
 
+        {testOpen && !selected && (
+          <div className="w-[380px] shrink-0 bg-white border-l border-[#e0e0e0] flex flex-col min-h-0">
+            <div className="h-12 px-4 flex items-center gap-3 border-b border-[#e0e0e0]">
+              <span className="text-[14px] font-semibold text-[#161616]">Test</span>
+              <button className="ml-auto h-8 w-8 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={() => setTestOpen(false)} aria-label="Close"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="p-4 border-b border-[#e0e0e0] space-y-2">
+              <label className="block text-[12px] text-[#525252]" htmlFor="flow-test-input">Input</label>
+              <textarea id="flow-test-input" rows={5} className="w-full bg-[#f4f4f4] border-b border-[#8d8d8d] px-3 py-2 font-mono text-[13px] outline-none resize-y focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2" spellCheck={false} value={testInput} onChange={e => setTestInput(e.target.value)} />
+              <button className="h-10 w-full text-[14px] bg-[#0f62fe] text-white hover:bg-[#0353e9] disabled:bg-[#c6c6c6] flex items-center justify-center gap-2" disabled={testRun.isPending} onClick={() => testRun.mutate()}><Play className="h-4 w-4" /> Run</button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {testResult && <div className="px-4 h-11 flex items-center gap-3 border-b border-[#e0e0e0]">
+                <span className="text-[14px] font-semibold text-[#161616]">Result</span>
+                {testResult.error ? <span className="px-2 rounded-full text-[12px] bg-[#ffd7d9] text-[#a2191f]">Failed</span> : <span className="px-2 rounded-full text-[12px] bg-[#a7f0ba] text-[#0e6027]">Passed</span>}
+                {testResult.duration_ms !== undefined && <span className="ml-auto text-[12px] text-[#525252] tabular-nums">{testResult.duration_ms} ms</span>}
+              </div>}
+              {testResult?.error && <div className="px-4 py-3 text-[13px] text-[#a2191f]">{testResult.error}</div>}
+              {testResult && 'output' in testResult && <pre className="px-4 py-3 font-mono text-[12px] text-[#161616] whitespace-pre-wrap break-all border-b border-[#e0e0e0]">{JSON.stringify(testResult.output, null, 2)}</pre>}
+              {testResult?.trace && <div className="px-2 py-2"><TraceView steps={testResult.trace} /></div>}
+            </div>
+          </div>
+        )}
         {selected && <StepInspector node={selected} nodes={nodes} projectId={flow.projectId} onChange={updateNode} onRemove={removeNode} onClose={() => setSelectedId(null)} />}
       </div>
 
       {preview && <PreviewDrawer result={preview} onClose={() => setPreview(null)} />}
-      {testOpen && (
-        <div className="h-[320px] bg-white border-t border-[#e0e0e0] flex min-h-0">
-          <div className="w-[360px] shrink-0 border-r border-[#e0e0e0] flex flex-col">
-            <div className="h-12 px-4 flex items-center gap-3 border-b border-[#e0e0e0]">
-              <span className="text-[14px] font-semibold text-[#161616]">Input</span>
-              <button className="ml-auto h-8 pl-3 pr-5 text-[14px] bg-[#0f62fe] text-white disabled:bg-[#c6c6c6] flex items-center gap-2" disabled={testRun.isPending} onClick={() => testRun.mutate()}><Play className="h-3.5 w-3.5" /> Run</button>
-            </div>
-            <textarea className="flex-1 p-3 font-mono text-[13px] outline-none resize-none" spellCheck={false} value={testInput} onChange={e => setTestInput(e.target.value)} />
-          </div>
-          <div className="flex-1 min-w-0 flex flex-col">
-            <div className="h-12 px-4 flex items-center gap-3 border-b border-[#e0e0e0]">
-              <span className="text-[14px] font-semibold text-[#161616]">Result</span>
-              {testResult && !testResult.error && <span className="px-2 rounded-full text-[12px] bg-[#a7f0ba] text-[#0e6027]">Passed</span>}
-              {testResult?.error && <span className="px-2 rounded-full text-[12px] bg-[#ffd7d9] text-[#a2191f]">Failed</span>}
-              {testResult?.duration_ms !== undefined && <span className="text-[12px] text-[#525252] tabular-nums">{testResult.duration_ms} ms</span>}
-              <button className="ml-auto h-8 w-8 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={() => setTestOpen(false)} aria-label="Close"><X className="h-4 w-4" /></button>
-            </div>
-            <div className="flex-1 overflow-auto p-4 grid grid-cols-1 2xl:grid-cols-2 gap-4">
-              {testResult?.error && <div className="text-[13px] text-[#a2191f]">{testResult.error}</div>}
-              {testResult && 'output' in testResult && <pre className="font-mono text-[12px] text-[#161616] whitespace-pre-wrap">{JSON.stringify(testResult.output, null, 2)}</pre>}
-              {testResult?.trace && <TraceView steps={testResult.trace} />}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
