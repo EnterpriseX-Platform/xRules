@@ -82,7 +82,8 @@ return { decision: score > 50 ? 'block' : score > 25 ? 'review' : 'approve', sco
   await designerOpens(page, rule, '10-script');
 });
 
-test('AI Agent: the model answers in the declared shape', async ({ page }) => {
+// skipped: UAT has no LLM key (OPENAI_API_KEY) or Connection yet — enable when an LLM is chosen
+test.skip('AI Agent: the model answers in the declared shape', async ({ page }) => {
   const t = tpl('sentiment-classifier');
   const rule = await makeRule(page, `e2e type ai ${stamp}`, 'AI_AGENT', t.definition, { input_schema: t.inputSchema, output_schema: t.outputSchema });
   const r = await api(page, 'POST', '/execute', { rule_id: rule.id, input: { feedback: 'Delivery was late twice and support never replied. Very disappointed.' } });
