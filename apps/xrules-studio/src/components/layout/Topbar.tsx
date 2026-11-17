@@ -51,11 +51,11 @@ export function Topbar() {
       </div>
 
       <button
-        className="ml-4 mr-auto relative w-80 max-w-full hidden md:flex items-center pl-9 pr-14 text-left h-8 bg-[#393939] hover:bg-[#474747]"
+        className="ml-4 mr-auto relative w-80 min-w-0 shrink hidden lg:flex items-center pl-9 pr-14 text-left h-8 bg-[#393939] hover:bg-[#474747]"
         onClick={() => window.dispatchEvent(new CustomEvent('xrules:open-palette'))}
       >
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#c6c6c6]" />
-        <span className="text-[#c6c6c6] text-[13px]">Search rules, flows, APIs</span>
+        <span className="text-[#c6c6c6] text-[13px] truncate whitespace-nowrap">Search rules, flows, APIs</span>
         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-[#a8a8a8]">⌘K</span>
       </button>
 

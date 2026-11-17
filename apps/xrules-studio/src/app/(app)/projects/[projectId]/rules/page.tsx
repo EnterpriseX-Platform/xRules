@@ -175,7 +175,7 @@ export default function RulesPage() {
             <tr className="text-left">
               <th className="py-3 px-4 label-section w-12">#</th>
               <th className="py-3 px-2 label-section w-10"></th>
-              <th className="py-3 px-4 label-section">Rule</th>
+              <th className="py-3 px-4 label-section min-w-[220px]">Rule</th>
               <th className="py-3 px-4 label-section">Type</th>
               <th className="py-3 px-4 label-section">Folder</th>
               <th className="py-3 px-4 label-section">Status</th>
@@ -222,7 +222,7 @@ export default function RulesPage() {
                   </Link>
                 </td>
                 <td className="py-3 px-4">
-                  <Pill tone={tone}>{T.replace('_', ' ')}</Pill>
+                  <Pill tone={tone}><span className="whitespace-nowrap">{T.replace('_', ' ')}</span></Pill>
                 </td>
                 <td className="py-3 px-4 w-48">
                   {perms.write
