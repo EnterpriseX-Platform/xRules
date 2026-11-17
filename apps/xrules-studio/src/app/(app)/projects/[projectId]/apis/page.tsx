@@ -16,7 +16,7 @@ export default function ApisPage() {
   const { data: traffic } = useQuery({ queryKey: ['traffic', projectId, 24], queryFn: () => api.get<any>(`/platform/monitor/traffic?project_id=${projectId}&hours=24`) });
   const callsBySpec: Record<string, number> = {};
   for (const o of traffic?.operations || []) callsBySpec[`${o.basePath}/v${o.version}`] = (callsBySpec[`${o.basePath}/v${o.version}`] || 0) + o.calls;
-  const create = useMutation({ mutationFn: () => api.post<any>('/platform/specs', { projectId, name: f.name, basePath: f.basePath || undefined, version: Number(f.version) || 1, description: f.description }), onSuccess: s => router.push(`/projects/${projectId}/apis/${s.id}`) });
+  const create = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>('/platform/specs', { projectId, name: f.name, basePath: f.basePath || undefined, version: Number(f.version) || 1, description: f.description }), onSuccess: s => router.push(`/projects/${projectId}/apis/${s.id}`) });
   return (
     <div className="px-8 py-6">
       <PageHead title="REST APIs" sub={`${specs.length} API · served at /api/{base path}/v{version}/…`} actions={perms.integrate ? (<Btn onClick={() => setOpen(o => !o)}>New API</Btn>) : undefined} />

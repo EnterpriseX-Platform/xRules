@@ -32,7 +32,7 @@ export default function TestsPage() {
   const run = useMutation({ meta: { failLabel: "Couldn't run" }, mutationFn: (id: string) => api.post(`/platform/tests/${id}/run`), onSettled: inv });
   const runSuite = useMutation({ meta: { failLabel: "Couldn't run" }, mutationFn: () => api.post(`/platform/suites/${suite}/run`), onSettled: inv });
   const newSuite = useMutation({ mutationFn: (name: string) => api.post<any>('/platform/suites', { projectId, name }), onSuccess: s => { qc.invalidateQueries({ queryKey: ['suites', projectId] }); setSuite(s.id); } });
-  const create = useMutation({ mutationFn: () => api.post('/platform/tests', { projectId, name: f.name, targetType: f.targetType, targetId: f.targetId, input: JSON.parse(f.input), expectations: JSON.parse(f.expectations), suiteIds: suite ? [suite] : [] }), onSuccess: () => { setOpen(false); inv(); } });
+  const create = useMutation({ meta: { silent: true }, mutationFn: () => api.post('/platform/tests', { projectId, name: f.name, targetType: f.targetType, targetId: f.targetId, input: JSON.parse(f.input), expectations: JSON.parse(f.expectations), suiteIds: suite ? [suite] : [] }), onSuccess: () => { setOpen(false); inv(); } });
   const passed = (cases as any[]).filter(c => c.lastStatus === 'PASS').length;
   return (
     <div className="px-8 py-6">

@@ -25,7 +25,7 @@ function Writer({ projectId }: { projectId: string }) {
   const [name, setName] = useState('');
   const { data: terms = [] } = useQuery({ queryKey: ['vocab', projectId], queryFn: () => api.get<any[]>(`/platform/vocabulary?project_id=${projectId}`) });
   const check = useMutation({ mutationFn: () => api.post<any>('/platform/vocabulary/check', { projectId, sentence }) });
-  const save = useMutation({ mutationFn: () => api.post<any>('/platform/vocabulary/rules', { projectId, name, sentence }) });
+  const save = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>('/platform/vocabulary/rules', { projectId, name, sentence }) });
   const insert = (w: string) => setSentence(s => `${s.trimEnd()} ${w} `);
   return (
     <div className="grid grid-cols-[1fr_300px] gap-4 items-start">
@@ -56,7 +56,7 @@ function Cowork({ projectId }: { projectId: string }) {
   const [flow, setFlow] = useState('');
   const [pick, setPick] = useState<Record<string, boolean>>({});
   const { data: flows = [] } = useQuery({ queryKey: ['flows-all', projectId], queryFn: () => api.get<any[]>(`/flows?project_id=${projectId}`) });
-  const draft = useMutation({ mutationFn: () => api.post<any>('/platform/cowork/draft', { projectId, text }), onSuccess: d => setPick(Object.fromEntries([...d.rules.map((r: any, i: number) => [`r${i}`, r.ok]), ...d.tests.map((_: any, i: number) => [`t${i}`, true]), ...d.newTerms.map((_: any, i: number) => [`n${i}`, true])])) });
+  const draft = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>('/platform/cowork/draft', { projectId, text }), onSuccess: d => setPick(Object.fromEntries([...d.rules.map((r: any, i: number) => [`r${i}`, r.ok]), ...d.tests.map((_: any, i: number) => [`t${i}`, true]), ...d.newTerms.map((_: any, i: number) => [`n${i}`, true])])) });
   const apply = useMutation({ mutationFn: () => api.post<any>('/platform/cowork/apply', { projectId, flow: flow || undefined,
     newTerms: draft.data.newTerms.filter((_: any, i: number) => pick[`n${i}`]), rules: draft.data.rules.filter((_: any, i: number) => pick[`r${i}`]), tests: draft.data.tests.filter((_: any, i: number) => pick[`t${i}`]) }) });
   const d = draft.data;

@@ -75,7 +75,7 @@ export function TenantSwitcher() {
 
 function CreateTenant({ onDone }: { onDone: (t: any) => void }) {
   const [name, setName] = useState('');
-  const m = useMutation({ mutationFn: () => tenantApi.create({ name: name.trim() }), onSuccess: onDone });
+  const m = useMutation({ meta: { silent: true }, mutationFn: () => tenantApi.create({ name: name.trim() }), onSuccess: onDone });
   return (
     <form className="p-3 space-y-2" onSubmit={e => { e.preventDefault(); if (name.trim()) m.mutate(); }}>
       <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="Tenant name"

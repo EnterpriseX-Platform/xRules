@@ -16,7 +16,7 @@ export default function ApprovalsPage() {
   const [tab, setTab] = useState('Pending');
   const [note, setNote] = useState<Record<string, string>>({});
   const { data: rows = [] } = useQuery({ queryKey: ['reviews', projectId], queryFn: () => api.get<any[]>(`/platform/reviews?project_id=${projectId}`) });
-  const decide = useMutation({ mutationFn: ({ id, ok }: any) => api.post(`/platform/reviews/${id}/${ok ? 'approve' : 'reject'}`, { note: note[id] }), onSuccess: () => qc.invalidateQueries({ queryKey: ['reviews', projectId] }) });
+  const decide = useMutation({ meta: { silent: true }, mutationFn: ({ id, ok }: any) => api.post(`/platform/reviews/${id}/${ok ? 'approve' : 'reject'}`, { note: note[id] }), onSuccess: () => qc.invalidateQueries({ queryKey: ['reviews', projectId] }) });
   const list = (rows as any[]).filter(r => tab === 'Pending' ? r.status === 'PENDING' : r.status !== 'PENDING');
   return (
     <div className="px-8 py-6">

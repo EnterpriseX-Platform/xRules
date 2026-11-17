@@ -576,7 +576,7 @@ function SettingsTab({ rule }: { rule: any }) {
   const [confirm, setConfirm] = useState(false);
   const refresh = () => { qc.invalidateQueries({ queryKey: ['rule'] }); qc.invalidateQueries({ queryKey: ['rules'] }); };
   const saveTags = useMutation({ mutationFn: () => rulesApi.update(rule.id, { tags: tags.split(',').map((t: string) => t.trim()).filter(Boolean) }), onSuccess: refresh });
-  const setStatus = useMutation({ mutationFn: (status: string) => rulesApi.update(rule.id, { status }), onSuccess: () => { setConfirm(false); refresh(); } });
+  const setStatus = useMutation({ meta: { silent: true }, mutationFn: (status: string) => rulesApi.update(rule.id, { status }), onSuccess: () => { setConfirm(false); refresh(); } });
   const archived = String(rule.status).toLowerCase() === 'archived';
   const tagsDirty = tags !== (rule.tags || []).join(', ');
   return (

@@ -18,8 +18,8 @@ export default function SpecPage() {
   const [tab, setTab] = useState('Operations');
   const { data: s } = useQuery({ queryKey: ['spec', specId], queryFn: () => api.get<any>(`/platform/specs/${specId}`) });
   const refresh = () => qc.invalidateQueries({ queryKey: ['spec', specId] });
-  const publish = useMutation({ mutationFn: () => api.post(`/platform/specs/${specId}/publish`, {}), onSuccess: refresh });
-  const submit = useMutation({ mutationFn: () => api.post('/platform/reviews', { targetType: 'api_spec', targetId: specId }), onSuccess: refresh });
+  const publish = useMutation({ meta: { silent: true }, mutationFn: () => api.post(`/platform/specs/${specId}/publish`, {}), onSuccess: refresh });
+  const submit = useMutation({ meta: { silent: true }, mutationFn: () => api.post('/platform/reviews', { targetType: 'api_spec', targetId: specId }), onSuccess: refresh });
   if (!s) return <div className="px-8 py-6" />;
   return (
     <div className="px-8 py-6">
@@ -40,7 +40,7 @@ export default function SpecPage() {
 
 function Operations({ spec, projectId, onChange }: any) {
   const [f, setF] = useState({ method: 'POST', path: '', summary: '', schema: '' });
-  const add = useMutation({ mutationFn: () => api.post(`/platform/specs/${spec.id}/operations`, { method: f.method, path: f.path, summary: f.summary, requestSchema: f.schema ? JSON.parse(f.schema) : undefined }), onSuccess: () => { setF({ method: 'POST', path: '', summary: '', schema: '' }); onChange(); } });
+  const add = useMutation({ meta: { silent: true }, mutationFn: () => api.post(`/platform/specs/${spec.id}/operations`, { method: f.method, path: f.path, summary: f.summary, requestSchema: f.schema ? JSON.parse(f.schema) : undefined }), onSuccess: () => { setF({ method: 'POST', path: '', summary: '', schema: '' }); onChange(); } });
   const del = useMutation({ mutationFn: (id: string) => api.del(`/platform/operations/${id}`), onSuccess: onChange });
   return (
     <div className="space-y-4">
