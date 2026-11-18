@@ -22,7 +22,6 @@ export default function ProjectsPage() {
     <PageContent>
       <PageHeader
         title="Projects"
-        description="Projects in this tenant — each owns its own rules, flows and integrations"
         stats={[
           { label: 'Total', value: projects.length },
         ]}
@@ -38,7 +37,6 @@ export default function ProjectsPage() {
         <table className="w-full">
           <thead className="bg-muted/30 border-b border-border">
             <tr className="text-left">
-              <th className="py-3 px-4 label-section w-12">#</th>
               <th className="py-3 px-4 label-section">Project</th>
               <th className="py-3 px-4 label-section text-right">Rules</th>
               <th className="py-3 px-4 label-section">Access</th>
@@ -47,18 +45,14 @@ export default function ProjectsPage() {
             </tr>
           </thead>
           <tbody>
-            {isLoading && (
-              <tr><td colSpan={6} className="text-center py-12 text-subtle font-mono text-sm">Loading…</td></tr>
-            )}
             {!isLoading && projects.length === 0 && (
-              <tr><td colSpan={6} className="text-center py-16">
+              <tr><td colSpan={5} className="text-center py-16">
                 <FolderKanban className="h-10 w-10 mx-auto text-subtle/40 mb-2" />
-                <div className="text-sm text-subtle">No projects yet — create your first one</div>
+                <div className="text-sm text-subtle">No projects</div>
               </td></tr>
             )}
             {projects.map((p: any, i: number) => (
               <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                <td className="py-3 px-4 row-index">{String(i + 1).padStart(2, '0')}</td>
                 <td className="py-3 px-4">
                   <Link href={`/p/${p.id}/rules`} className="flex items-center gap-3 group">
                     <span className="h-8 w-8 rounded flex items-center justify-center" style={{ background: p.color ? `${p.color}33` : 'rgb(var(--c-mint) / 0.2)' }}>

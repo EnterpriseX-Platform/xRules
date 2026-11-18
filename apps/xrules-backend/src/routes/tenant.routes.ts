@@ -52,6 +52,7 @@ r.post('/members', h(async (req, res) => {
   }
   const exists = await prisma.workspaceMember.findUnique({ where: { workspaceId_userId: { workspaceId: req.tenant!.id, userId: user.id } } });
   if (exists) throw new ValidationError(`${email} is already a member`);
+  if (!tempPassword) await (await import('../services/admin.service.js')).assertNoOtherOrg(user.id, email);
   const m = await prisma.workspaceMember.create({ data: { workspaceId: req.tenant!.id, userId: user.id, role } });
   res.status(201).json({ success: true, data: { userId: user.id, name: user.name, email: user.email, role: m.role, tempPassword } });
 }));

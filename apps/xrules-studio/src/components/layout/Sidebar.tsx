@@ -8,7 +8,7 @@ import {
   Activity, KeyRound, Plug, Webhook, ScrollText, Settings,
   ChevronDown, Workflow, Briefcase, ListTree, Zap,
   Database, Layers, Network, BookA, Rows3, GitCompare, BadgeCheck, Timer, ListChecks, Gauge, PieChart, HeartPulse, Bell, History,
-  UserCog, Lock, Box, Building2, Shield,
+  UserCog, Lock, Box, Building2, Shield, ChevronLeft,
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { useProject } from '@/lib/store';
@@ -56,75 +56,85 @@ export function Sidebar() {
   const projBase = `/p/${currentProject?.id || project || '_'}`;
 
   const perms = usePerms();
-  const HUB = '';
-  const ALL = '';
 
-  // Project level — the daily work, so it sits first
-  const engine: NavItem[] = project ? [
-    { href: `${projBase}/rules`,               label: 'Rules',          icon: FileText },
-    { href: `${projBase}/flows?kind=DECISION`, label: 'Decision Flows', icon: Workflow },
-    { href: `${projBase}/vocabulary`,          label: 'Vocabulary',     icon: BookA },
-    { href: `${projBase}/bulk`,                label: 'Bulk Runs',      icon: Rows3 },
-    { href: `${projBase}/simulations`,         label: 'Simulations',    icon: GitCompare },
-    { href: `${projBase}/models`,              label: 'Models',         icon: Box },
-    { href: `${projBase}/releases`,            label: 'Releases',       icon: ScrollText },
-  ] : [];
-  // Tenant level
-  const integration: NavItem[] = [
-    { href: `${HUB}/apis`,                     label: 'REST APIs',   icon: Zap },
-    { href: `${HUB}/triggers`,                 label: 'Triggers',    icon: Timer },
-    { href: `${HUB}/data-sets`,                label: 'Data Sets',   icon: Layers },
-    { href: '/connections', label: 'Connections', icon: Database },
-  ];
-  const testing: NavItem[] = [
-    { href: `${ALL}/tests`,     label: 'Test Suites', icon: FlaskConical },
-    { href: `${ALL}/test-runs`, label: 'Test Runs',   icon: ListChecks },
-    { href: `${ALL}/approvals`, label: 'Approvals',   icon: BadgeCheck },
-  ];
-  const monitor: NavItem[] = [
-    { href: `${ALL}/monitor`,             label: 'Overview',    icon: Gauge },
-    { href: `${ALL}/monitor/traffic`,     label: 'API Traffic', icon: Activity },
-    { href: `${ALL}/monitor/decisions`,   label: 'Decisions',   icon: PieChart },
-    { href: `${ALL}/monitor/data-health`, label: 'Data Health', icon: HeartPulse },
-    { href: `${ALL}/monitor/alerts`,      label: 'Alerts',      icon: Bell },
-    { href: `${ALL}/executions`,          label: 'Executions',  icon: History },
-  ];
-  // Administration — organization owners/admins; System admin for platform admins
+  // Which level the page belongs to: system (/admin), project (/p/<cuid>) or organization (everything else)
+  const level: 'system' | 'project' | 'org' = pathname.startsWith('/admin') ? 'system' : pathname.startsWith('/p/') ? 'project' : 'org';
   const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => api.get<any>('/auth/me'), staleTime: 60_000 });
-  const admin: NavItem[] = [
-    ...(perms.admin ? [
-      { href: '/projects', label: 'Projects', icon: FolderKanban },
-      ...(project ? [{ href: `${projBase}/access`, label: 'Project access', icon: Lock }] : []),
-      { href: '/settings', label: 'Organization', icon: Building2 },
-    ] : []),
-    ...((me as any)?.isSystemAdmin ? [{ href: '/admin', label: 'System admin', icon: Shield }] : []),
-  ];
 
-  const areas: { id: string; label: string; icon: any; items: NavItem[] }[] = [
-    { id: 'engine', label: 'Decision Engine', icon: Workflow, items: [{ href: '/', label: 'Dashboard', icon: LayoutDashboard }, ...engine] },
-    { id: 'integration', label: 'Integration', icon: Plug, items: integration },
-    { id: 'testing', label: 'Testing', icon: FlaskConical, items: testing },
-    { id: 'monitor', label: 'Monitor', icon: Activity, items: monitor },
-    ...(admin.length ? [{ id: 'admin', label: 'Administration', icon: Settings, items: admin }] : []),
-  ];
-  areas.forEach(a => a.items.forEach(it => { if (!ALL_ITEMS.some(i => i.href === it.href)) ALL_ITEMS.push(it); }));
-  const activeHref = bestHref(pathname);
-  const here = areas.find(a => a.items.some(it => it.href === activeHref))?.id ?? 'engine';
-  // one menu with every area as a section: the old icon rail swapped the menu away from the page you were on
-  const main = areas.filter(a => a.id !== 'admin'), adminArea = areas.find(a => a.id === 'admin');
+  let areas: { id: string; label: string; items: NavItem[] }[] = [];
+  let title = '';
+  let foot: NavItem | null = null;
+  if (level === 'system') {
+    title = 'System admin';
+    areas = [{ id: 'sys', label: '', items: [
+      { href: '/admin/orgs', label: 'Organizations', icon: Building2 },
+      { href: '/admin/users', label: 'Users', icon: UserCog },
+      { href: '/admin/settings', label: 'Settings', icon: Settings },
+    ] }];
+    foot = { href: '/projects', label: 'Back to app', icon: ChevronLeft };
+  } else if (level === 'project') {
+    title = currentProject?.name || '';
+    areas = [
+      { id: 'engine', label: '', items: [
+        { href: `${projBase}/rules`,               label: 'Rules',          icon: FileText },
+        { href: `${projBase}/flows?kind=DECISION`, label: 'Decision Flows', icon: Workflow },
+        { href: `${projBase}/vocabulary`,          label: 'Vocabulary',     icon: BookA },
+        { href: `${projBase}/bulk`,                label: 'Bulk Runs',      icon: Rows3 },
+        { href: `${projBase}/simulations`,         label: 'Simulations',    icon: GitCompare },
+        { href: `${projBase}/models`,              label: 'Models',         icon: Box },
+        { href: `${projBase}/releases`,            label: 'Releases',       icon: ScrollText },
+      ] },
+      ...(perms.admin ? [{ id: 'pset', label: '', items: [{ href: `${projBase}/access`, label: 'Project settings', icon: Lock }] }] : []),
+    ];
+    foot = { href: '/projects', label: 'Organization', icon: ChevronLeft };
+  } else {
+    title = '';
+    areas = [
+      { id: 'home', label: '', items: [
+        { href: '/projects', label: 'Projects', icon: FolderKanban },
+        { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+      ] },
+      { id: 'shared', label: 'Shared', items: [
+        { href: '/apis',        label: 'REST APIs',   icon: Zap },
+        { href: '/triggers',    label: 'Triggers',    icon: Timer },
+        { href: '/data-sets',   label: 'Data Sets',   icon: Layers },
+        { href: '/connections', label: 'Connections', icon: Database },
+      ] },
+      { id: 'testing', label: 'Testing', items: [
+        { href: '/tests',     label: 'Test Suites', icon: FlaskConical },
+        { href: '/test-runs', label: 'Test Runs',   icon: ListChecks },
+        { href: '/approvals', label: 'Approvals',   icon: BadgeCheck },
+      ] },
+      { id: 'monitor', label: 'Monitor', items: [
+        { href: '/monitor',             label: 'Overview',    icon: Gauge },
+        { href: '/monitor/traffic',     label: 'API Traffic', icon: Activity },
+        { href: '/monitor/decisions',   label: 'Decisions',   icon: PieChart },
+        { href: '/monitor/data-health', label: 'Data Health', icon: HeartPulse },
+        { href: '/monitor/alerts',      label: 'Alerts',      icon: Bell },
+        { href: '/executions',          label: 'Executions',  icon: History },
+      ] },
+    ];
+    if (perms.admin) foot = { href: '/settings', label: 'Organization settings', icon: Settings };
+  }
+  ALL_ITEMS = [];
+  areas.forEach(a => a.items.forEach(it => ALL_ITEMS.push(it)));
+  if (foot) ALL_ITEMS.push(foot);
+  void me;
+  // narrow screens: icons only
   return (
-    <aside className="shrink-0 w-[220px] bg-[#f4f4f4] border-r border-[#e0e0e0] flex flex-col overflow-y-auto">
-      <div className="flex-1 py-3">
-        {main.map((a, i) => (
-          <div key={a.id} className={cn(i > 0 && 'mt-4')}>
-            <div className="px-4 pb-1 text-[12px] text-[#6f6f6f]">{a.label}</div>
+    <aside className="shrink-0 w-[52px] lg:w-[220px] bg-[#f4f4f4] border-r border-[#e0e0e0] flex flex-col overflow-y-auto overflow-x-hidden">
+      {title && <div className="hidden lg:block px-4 pt-4 pb-2 text-[14px] font-semibold text-[#161616] truncate">{title}</div>}
+      <div className="flex-1 py-2">
+        {areas.map((a, i) => (
+          <div key={a.id} className={cn(i > 0 && 'mt-3 pt-3 border-t border-[#e0e0e0] lg:border-0 lg:pt-0')}>
+            {a.label && <div className="hidden lg:block px-4 pb-1 text-[12px] text-[#6f6f6f]">{a.label}</div>}
             {a.items.map(it => <NavRow key={it.href} item={it} pathname={pathname} />)}
           </div>
         ))}
       </div>
-      {adminArea && (
+      {foot && (
         <div className="py-2 border-t border-[#e0e0e0]">
-          {adminArea.items.map(it => <NavRow key={it.href} item={it} pathname={pathname} />)}
+          <NavRow item={foot} pathname={pathname} />
         </div>
       )}
     </aside>
@@ -160,7 +170,6 @@ function bestHref(pathname: string): string | null {
   for (const it of ALL_ITEMS) {
     const [path, qs] = it.href.split('?');
     if (!(pathname === path || pathname.startsWith(path + '/'))) continue;
-    if (path === '/projects' && pathname !== path) continue;   // Admin › Projects is the list only
     const itKind = qs ? new URLSearchParams(qs).get('kind') : null;
     if (itKind && kind && itKind.toLowerCase() !== kind.toLowerCase()) continue;
     const score = path.length * 2 + (itKind && kind ? 1 : 0);
@@ -169,6 +178,7 @@ function bestHref(pathname: string): string | null {
   // pages inside the Integration hub without their own menu item (an API operation's flow) belong to REST APIs
   if (!best && pathname.startsWith('/apis/')) return '/apis';
   if (!best && pathname.startsWith('/settings')) return '/settings';
+  if (!best && pathname.startsWith('/projects')) return '/projects';
   return best?.href ?? null;
 }
 
@@ -177,9 +187,9 @@ function NavRow({ item, pathname }: { item: NavItem; pathname: string }) {
   const active = bestHref(pathname) === item.href;
   const Icon = item.icon;
   return (
-    <Link href={item.href} className={cn('nav-row', active && 'nav-row-active')}>
+    <Link href={item.href} title={item.label} className={cn('nav-row', active && 'nav-row-active')}>
       <Icon className="h-4 w-4 shrink-0" />
-      <span className="flex-1 truncate">{item.label}</span>
+      <span className="flex-1 truncate hidden lg:inline">{item.label}</span>
     </Link>
   );
 }

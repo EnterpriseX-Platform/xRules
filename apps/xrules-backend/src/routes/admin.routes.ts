@@ -14,6 +14,7 @@ router.post('/orgs', h(req => admin.createOrg(req.body), 201));
 router.patch('/orgs/:id', h(req => admin.updateOrg(req.params.id, req.body)));
 router.get('/users', h(() => admin.listUsers()));
 router.patch('/users/:id', h(req => admin.updateUser(req.params.id, req.body, req.user!.userId)));
+router.post('/users/:id/move', h(req => admin.moveUser(req.params.id, req.body)));
 router.post('/users/:id/reset-password', h(req => admin.resetPassword(req.params.id)));
 router.get('/settings', h(() => admin.getSettings()));
 router.put('/settings', h(req => admin.setSettings(req.body || {})));

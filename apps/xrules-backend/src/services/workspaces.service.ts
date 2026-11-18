@@ -73,6 +73,7 @@ export async function createWorkspace(data: { name: string; description?: string
     throw new ValidationError('Workspace name is required');
   }
 
+  await (await import('./admin.service.js')).assertNoOtherOrg(user.userId, user.email || 'This account');
   const baseSlug = generateSlug(data.name);
   let slug = baseSlug;
   let counter = 1;
@@ -138,6 +139,7 @@ export async function addMember(workspaceId: string, data: { email: string; role
   if (existing) {
     throw new ValidationError('User is already a member');
   }
+  if (!tempPassword) await (await import('./admin.service.js')).assertNoOtherOrg(targetUser.id, email);
 
   const role = (data.role?.toUpperCase() || 'MEMBER') as any;
 

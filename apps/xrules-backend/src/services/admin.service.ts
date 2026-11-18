@@ -27,6 +27,23 @@ export async function setSettings(patch: Record<string, any>) {
   return getSettings();
 }
 
+export async function assertNoOtherOrg(userId: string, email: string, workspaceId?: string) {
+  const other = await prisma.workspaceMember.findFirst({ where: { userId, ...(workspaceId ? { NOT: { workspaceId } } : {}) }, include: { workspace: { select: { name: true } } } });
+  if (other) throw new ValidationError(`${email} already belongs to another organization (${other.workspace.name})`);
+}
+
+export async function moveUser(id: string, data: { workspaceId: string; role?: string }) {
+  const ws = await prisma.workspace.findUnique({ where: { id: String(data.workspaceId || '') } });
+  if (!ws) throw new NotFoundError('Organization');
+  const role = String(data.role || 'MEMBER').toUpperCase();
+  if (!['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'].includes(role)) throw new ValidationError('Invalid role');
+  await prisma.$transaction([
+    prisma.workspaceMember.deleteMany({ where: { userId: id } }),
+    prisma.workspaceMember.create({ data: { userId: id, workspaceId: ws.id, role: role as any } }),
+  ]);
+  return { id, workspaceId: ws.id, role };
+}
+
 export async function listOrgs() {
   const ws = await prisma.workspace.findMany({
     orderBy: { createdAt: 'asc' } as any,
@@ -43,6 +60,7 @@ export async function createOrg(data: { name: string; ownerEmail: string }) {
   let user = await prisma.user.findUnique({ where: { email } });
   let password: string | undefined;
   if (!user) { password = tempPassword(); user = await prisma.user.create({ data: { email, name: email.split('@')[0], password: await bcrypt.hash(password, 10) } }); }
+  else await assertNoOtherOrg(user.id, email);
   const ws = await prisma.workspace.create({ data: { name, slug, members: { create: { userId: user.id, role: 'OWNER' } } } });
   return { id: ws.id, slug: ws.slug, ownerEmail: email, tempPassword: password };
 }
@@ -56,9 +74,9 @@ export async function updateOrg(id: string, data: { suspended?: boolean; name?: 
 export async function listUsers() {
   const us = await prisma.user.findMany({
     orderBy: { email: 'asc' },
-    select: { id: true, email: true, name: true, isSystemAdmin: true, disabled: true, workspaces: { select: { role: true, workspace: { select: { name: true, slug: true } } } } },
+    select: { id: true, email: true, name: true, isSystemAdmin: true, disabled: true, workspaces: { select: { role: true, workspace: { select: { id: true, name: true } } } } },
   });
-  return us.map(u => ({ id: u.id, email: u.email, name: u.name, isSystemAdmin: u.isSystemAdmin, disabled: u.disabled, orgs: u.workspaces.map(w => ({ name: w.workspace.name, slug: w.workspace.slug, role: w.role })) }));
+  return us.map(u => ({ id: u.id, email: u.email, name: u.name, isSystemAdmin: u.isSystemAdmin, disabled: u.disabled, orgs: u.workspaces.map(w => ({ id: w.workspace.id, name: w.workspace.name, role: w.role })) }));
 }
 
 export async function updateUser(id: string, data: { disabled?: boolean; isSystemAdmin?: boolean }, me: string) {

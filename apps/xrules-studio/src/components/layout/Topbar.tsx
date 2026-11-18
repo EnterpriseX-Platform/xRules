@@ -43,7 +43,7 @@ export function Topbar() {
       <Link href="/" className="w-[52px] h-full flex items-center justify-center text-white hover:bg-[#393939]" aria-label="xRules home"><Logo className="h-5 w-5" /></Link>
       <span className="text-[14px] font-semibold text-white pr-4">xRules</span>
       <div className="h-full flex items-center border-l border-[#393939] pl-1 pr-2 gap-0.5 min-w-0">
-        <TenantSwitcher />
+        {pathname.startsWith('/admin') ? <span className="h-8 px-2 flex items-center text-[14px] text-white">System admin</span> : <TenantSwitcher />}
         {!tenantWide && current && <>
           <span className="text-[#6f6f6f] px-0.5">›</span>
           <div className="w-56 min-w-0 [&>div>button>span:first-child]:hidden [&>div>button]:h-8 [&>div>button]:border-0 [&>div>button]:bg-transparent [&>div>button]:text-white [&>div>button:hover]:bg-[#393939] [&>div>button]:rounded-none">
@@ -81,7 +81,7 @@ export function Topbar() {
               <div className="text-[14px] truncate">{name}</div>
               <div className="text-[12px] text-[#a8a8a8] truncate">{user?.email}</div>
             </div>
-            <button role="menuitem" type="button" onClick={() => { setMenu(false); router.push('/settings'); }} className="w-full flex items-center gap-2 px-3 h-10 text-[14px] hover:bg-[#393939]"><Settings className="h-4 w-4" />Organization settings</button>
+            <button role="menuitem" type="button" onClick={() => { setMenu(false); router.push('/settings'); }} hidden={!perms.admin} className="w-full flex items-center gap-2 px-3 h-10 text-[14px] hover:bg-[#393939]"><Settings className="h-4 w-4" />Organization settings</button>
             {isSys && <button role="menuitem" type="button" onClick={() => { setMenu(false); router.push('/admin'); }} className="w-full flex items-center gap-2 px-3 h-10 text-[14px] hover:bg-[#393939]"><Shield className="h-4 w-4" />System admin</button>}
             <button role="menuitem" type="button" onClick={() => { clear(); qc.clear(); router.push('/login'); }} className="w-full flex items-center gap-2 px-3 h-10 text-[14px] hover:bg-[#393939]"><LogOut className="h-4 w-4" />Sign out</button>
           </div>

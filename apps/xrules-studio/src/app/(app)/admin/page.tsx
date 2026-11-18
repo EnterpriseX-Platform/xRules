@@ -1,4 +1,5 @@
 'use client';
+import { Dropdown } from '@/components/pipeline/Dropdown';
 // System admin — every organization, every user, platform settings. System admins only (API enforces it).
 import { Suspense, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
@@ -20,13 +21,7 @@ function AdminPage() {
   if (me && !(me as any).isSystemAdmin) return <PageContent><Notice kind="error">System admins only.</Notice></PageContent>;
   return (
     <PageContent>
-      <h1 className="text-[24px] leading-8 text-[#161616] mb-3">System admin</h1>
-      <div className="flex border-b border-[#e0e0e0] mb-5 overflow-x-auto [scrollbar-width:none]">
-        {TABS.map(t => (
-          <button key={t} onClick={() => router.replace(`/admin/${t === 'Organizations' ? 'orgs' : t.toLowerCase()}`)}
-            className={`h-10 px-4 text-[14px] whitespace-nowrap border-b-2 -mb-px ${tab === t ? 'border-[#161616] text-[#161616] font-semibold' : 'border-transparent text-[#525252] hover:text-[#161616]'}`}>{t}</button>
-        ))}
-      </div>
+      <h1 className="text-[24px] leading-8 text-[#161616] mb-4">{tab}</h1>
       {tab === 'Organizations' ? <Orgs /> : tab === 'Users' ? <Users meId={(me as any)?.id} /> : <Settings />}
     </PageContent>
   );
@@ -95,6 +90,10 @@ function Users({ meId }: { meId?: string }) {
   const [err, setErr] = useState<string | null>(null);
   const inv = () => qc.invalidateQueries({ queryKey: ['admin-users'] });
   const upd = useMutation({ meta: { silent: true }, mutationFn: ({ id, body }: any) => api.patch(`/admin/users/${id}`, body), onSuccess: () => { setErr(null); inv(); }, onError: (e: any) => setErr(e.message) });
+  const { data: orgs = [] } = useQuery({ queryKey: ['admin-orgs'], queryFn: () => api.get<any[]>('/admin/orgs') });
+  const move = useMutation({ meta: { silent: true }, mutationFn: ({ id, ...body }: any) => api.post(`/admin/users/${id}/move`, body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-users'] }); qc.invalidateQueries({ queryKey: ['admin-orgs'] }); },
+    onError: (e: any) => setErr(e?.message || 'Move failed') });
   const reset = useMutation({ mutationFn: (u: any) => api.post<any>(`/admin/users/${u.id}/reset-password`, {}).then((r: any) => ({ ...r, email: u.email })),
     onSuccess: (r: any) => setIssued({ email: r.email, password: r.tempPassword }) });
   const list = users.filter((u: any) => !q || u.email.toLowerCase().includes(q.toLowerCase()) || (u.name || '').toLowerCase().includes(q.toLowerCase()));
@@ -113,7 +112,16 @@ function Users({ meId }: { meId?: string }) {
             <div key={u.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 border-b border-[#e0e0e0] last:border-b-0">
               <div className="flex-1 min-w-[200px]">
                 <div className="text-[14px] text-[#161616]">{u.name || u.email}{self && <span className="ml-2 text-[12px] text-[#525252]">(you)</span>}{u.disabled && <span className="ml-2"><Tag tone="red">Disabled</Tag></span>}</div>
-                <div className="text-[12px] text-[#525252] truncate"><span className="font-mono">{u.email}</span>{u.orgs.length > 0 && <> · {u.orgs.map((o: any) => `${o.name} (${String(o.role).toLowerCase()})`).join(', ')}</>}</div>
+                <div className="text-[12px] text-[#525252] truncate font-mono">{u.email}</div>
+              </div>
+              <div className="w-[220px] flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <Dropdown value={u.orgs[0]?.id || ''} placeholder="No organization"
+                    options={orgs.map((o: any) => ({ value: o.id, label: o.name }))}
+                    onChange={v => v !== u.orgs[0]?.id && move.mutate({ id: u.id, workspaceId: v, role: u.orgs[0]?.role || 'MEMBER' })} />
+                </div>
+                {u.orgs[0] && <span className="text-[12px] text-[#525252] w-14">{String(u.orgs[0].role)[0] + String(u.orgs[0].role).slice(1).toLowerCase()}</span>}
+                {u.orgs.length > 1 && <Tag tone="red">{u.orgs.length} orgs</Tag>}
               </div>
               <label className="flex items-center gap-2 text-[13px] text-[#525252]">
                 System admin

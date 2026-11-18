@@ -34,7 +34,7 @@ export default function LoginPage() {
         res.refresh_token,
       );
       const next = new URLSearchParams(window.location.search).get('next');
-      router.push(next || `/`);
+      router.push(next || (res.user?.isSystemAdmin && !res.workspace?.id ? `/admin` : `/projects`));
     } catch (e: any) {
       setError(e.message || 'Login failed');
     } finally {
