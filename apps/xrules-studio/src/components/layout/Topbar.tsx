@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { Search, Sun, Moon, ChevronDown, Settings, LogOut, Shield } from 'lucide-react';
+import { Search, Sun, Moon, ChevronDown, ChevronRight, Settings, LogOut, Shield } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme, useAuth, useProject } from '@/lib/store';
 import { api, projectsApi } from '@/lib/api';
@@ -39,37 +39,44 @@ export function Topbar() {
   const tenantWide = !pathname.startsWith('/p/');
 
   return (
-    <header className="h-[48px] shrink-0 bg-[#161616] text-[#c6c6c6] flex items-center pr-2">
-      <Link href="/" className="w-[52px] h-full flex items-center justify-center text-white hover:bg-[#393939]" aria-label="xRules home"><Logo className="h-5 w-5" /></Link>
-      <span className="text-[14px] font-semibold text-white pr-4">xRules</span>
-      <div className="h-full flex items-center border-l border-[#393939] pl-1 pr-2 gap-0.5 min-w-0">
+    <header className="h-[48px] shrink-0 bg-[#161616] text-[#c6c6c6] flex items-center border-b border-[#262626]">
+      {/* brand block lines up with the sidebar column */}
+      <Link href="/projects" className="w-[52px] lg:w-[220px] h-full shrink-0 flex items-center gap-2.5 px-4 text-white hover:bg-[#262626] border-r border-[#262626]" aria-label="xRules home">
+        <Logo className="h-5 w-5 shrink-0" />
+        <span className="hidden lg:block text-[15px] font-semibold tracking-tight">xRules</span>
+      </Link>
+      <nav className="h-full flex items-center pl-2 min-w-0 shrink" aria-label="Location">
         {pathname.startsWith('/admin') ? <span className="h-8 px-2 flex items-center text-[14px] text-white">System admin</span> : <TenantSwitcher />}
         {!tenantWide && current && <>
-          <span className="text-[#6f6f6f] px-0.5">›</span>
-          <div className="w-56 min-w-0 [&>div>button>span:first-child]:hidden [&>div>button]:h-8 [&>div>button]:border-0 [&>div>button]:bg-transparent [&>div>button]:text-white [&>div>button:hover]:bg-[#393939] [&>div>button]:rounded-none">
+          <ChevronRight className="h-4 w-4 text-[#6f6f6f] shrink-0" />
+          <div className="w-52 min-w-0 [&>div>button>span:first-child]:hidden [&>div>button]:h-8 [&>div>button]:border-0 [&>div>button]:bg-transparent [&>div>button]:text-white [&>div>button:hover]:bg-[#262626] [&>div>button]:rounded-none">
             <ProjectPicker projects={projects as any[]} current={current} onPick={(p) => setProject(p.id)} />
           </div>
         </>}
+      </nav>
+
+      <div className="flex-1 min-w-0 flex justify-center px-4">
+        <button
+          className="relative w-full max-w-[440px] hidden md:flex items-center pl-9 pr-12 text-left h-8 bg-[#262626] border border-[#393939] hover:border-[#525252]"
+          onClick={() => window.dispatchEvent(new CustomEvent('xrules:open-palette'))}
+        >
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#8d8d8d]" />
+          <span className="text-[#8d8d8d] text-[13px] truncate whitespace-nowrap">Search rules, flows, APIs</span>
+          <kbd className="absolute right-2 top-1/2 -translate-y-1/2 px-1.5 h-5 flex items-center text-[11px] text-[#a8a8a8] border border-[#393939] font-sans">⌘K</kbd>
+        </button>
       </div>
 
-      <button
-        className="ml-4 mr-auto relative w-80 min-w-0 shrink hidden lg:flex items-center pl-9 pr-14 text-left h-8 bg-[#393939] hover:bg-[#474747]"
-        onClick={() => window.dispatchEvent(new CustomEvent('xrules:open-palette'))}
-      >
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#c6c6c6]" />
-        <span className="text-[#c6c6c6] text-[13px] truncate whitespace-nowrap">Search rules, flows, APIs</span>
-        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-[#a8a8a8]">⌘K</span>
-      </button>
-
-      <button className="h-10 w-10 flex items-center justify-center hover:bg-[#393939] text-[#c6c6c6]" onClick={toggle} aria-label="Toggle theme">
+      <button className="md:hidden h-12 w-12 flex items-center justify-center hover:bg-[#262626]" aria-label="Search"
+        onClick={() => window.dispatchEvent(new CustomEvent('xrules:open-palette'))}><Search className="h-4 w-4" /></button>
+      <button className="h-12 w-12 flex items-center justify-center hover:bg-[#262626] text-[#c6c6c6]" onClick={toggle} aria-label="Toggle theme">
         {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </button>
 
-      <div className="relative h-full border-l border-[#393939]" ref={ref}>
+      <div className="relative h-full" ref={ref}>
         <button type="button" onClick={() => setMenu(m => !m)} aria-haspopup="menu" aria-expanded={menu}
-          className="h-full flex items-center gap-2 px-3 hover:bg-[#393939] text-left">
+          className="h-full flex items-center gap-2 pl-2 pr-3 hover:bg-[#262626] text-left">
           <span className="h-7 w-7 rounded-full bg-[#4589ff] text-white text-[11px] font-semibold flex items-center justify-center">{initials}</span>
-          <span className="hidden sm:block leading-tight">
+          <span className="hidden xl:block leading-tight">
             <span className="block text-[13px] text-white max-w-[140px] truncate">{name}</span>
             {role && <span className="block text-[11px] text-[#a8a8a8]">{role}</span>}
           </span>
