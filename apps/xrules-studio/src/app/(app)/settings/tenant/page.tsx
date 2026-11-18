@@ -123,7 +123,6 @@ function Members({ me, admin }: { me: any; admin: boolean }) {
         <Modal title={removing.self ? 'Leave organization' : 'Remove member'} onClose={() => setRemoving(null)} danger
           onSubmit={() => delM.mutate(removing.userId)} submitLabel={removing.self ? 'Leave' : 'Remove'} submitDisabled={delM.isPending} error={err}>
           <div>{removing.name || removing.email} <span className="font-mono text-[13px] text-[#525252]">{removing.email}</span></div>
-          <div className="text-[#525252]">The record is kept and can be restored.</div>
         </Modal>
       )}
 
