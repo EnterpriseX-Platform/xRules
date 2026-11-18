@@ -6,7 +6,11 @@ import { ValidationError, UnauthorizedError, NotFoundError, ForbiddenError } fro
 import { generateSlug } from '../utils/slug.js';
 import type { AuthUser } from '../middleware/auth.js';
 
-export async function signup(data: { email: string; password: string; name: string }) {
+export async function signup(data: { email: string; password: string; name: string }, opts: { bypassSwitch?: boolean } = {}) {
+  if (!opts.bypassSwitch) {
+    const row = await prisma.systemSetting.findUnique({ where: { key: 'allowSignup' } });
+    if (row && row.value === false) throw new ForbiddenError('Sign-up is turned off. Ask an administrator for an account.');
+  }
   if (!data.email || !data.password || !data.name) {
     throw new ValidationError('Email, password, and name are required');
   }

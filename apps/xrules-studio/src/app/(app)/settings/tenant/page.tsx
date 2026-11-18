@@ -7,6 +7,7 @@ import { PageHead, Panel, Table, Td, Btn, Tabs, Input, Notice, Tag } from '@/com
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { tenantApi, api } from '@/lib/api';
 import { useAuth } from '@/lib/store';
+import { OrgTabs } from '@/components/layout/OrgTabs';
 
 const ROLE_OPTS = [
   { value: 'OWNER', label: 'Owner', hint: 'full control' },
@@ -23,15 +24,13 @@ export default function TenantSettingsPageWrapper() {
 
 function TenantSettingsPage() {
   const sp = useSearchParams();
-  const [tab, setTab] = useState(sp.get('tab') === 'Members' ? 'Members' : 'General');
-  useEffect(() => { if (sp.get('tab') === 'Members') setTab('Members'); }, [sp]);
+  const tab = sp.get('tab') === 'Members' ? 'Members' : sp.get('tab') === 'Roles' ? 'Roles' : 'General';
   const { data: t } = useQuery({ queryKey: ['tenant'], queryFn: tenantApi.current });
   const admin = t && (t.role === 'OWNER' || t.role === 'ADMIN');
   return (
     <PageContent>
-      <PageHead title={t?.name ?? 'Tenant'} sub={t ? <span className="font-mono text-[13px]">{t.slug}</span> : null} />
-      <Tabs tabs={['General', 'Members']} value={tab} onChange={setTab} />
-      <div>{t && (tab === 'General' ? <General t={t} admin={!!admin} /> : <Members me={t} admin={!!admin} />)}</div>
+      <OrgTabs title={t?.name} />
+      <div>{t && (tab === 'General' ? <General t={t} admin={!!admin} /> : tab === 'Roles' ? <Roles /> : <Members me={t} admin={!!admin} />)}</div>
     </PageContent>
   );
 }
@@ -59,10 +58,10 @@ function General({ t, admin }: { t: any; admin: boolean }) {
           {save.error && <Notice kind="error">{(save.error as any).message}</Notice>}
           {save.isSuccess && !dirty && <Notice kind="success">Saved</Notice>}
           {admin ? <Btn disabled={!dirty || save.isPending} onClick={() => save.mutate()}>Save</Btn>
-            : <Notice>Only owners and admins can change tenant details.</Notice>}
+            : <Notice>Only owners and admins can change these details.</Notice>}
         </div>
       </Panel>
-      <Panel title="Tenant facts">
+      <Panel title="Summary">
         <dl className="grid grid-cols-[160px_1fr] gap-y-3 text-[14px]">
           <dt className="text-[#525252]">Your role</dt><dd>{roleLabel(t.role)}</dd>
           <dt className="text-[#525252]">Projects</dt><dd className="tabular-nums">{t.projectCount}</dd>
@@ -84,7 +83,8 @@ function Members({ me, admin }: { me: any; admin: boolean }) {
   const [add, setAdd] = useState({ email: '', role: 'MEMBER' });
   const [err, setErr] = useState<string | null>(null);
   const onErr = (e: any) => setErr(e.message);
-  const addM = useMutation({ mutationFn: () => tenantApi.addMember(add), onSuccess: () => { setAdd({ email: '', role: 'MEMBER' }); setErr(null); inv(); }, onError: onErr });
+  const [issued, setIssued] = useState<{ email: string; password: string } | null>(null);
+  const addM = useMutation({ mutationFn: () => tenantApi.addMember(add), onSuccess: (m: any) => { setIssued(m?.tempPassword ? { email: m.email, password: m.tempPassword } : null); setAdd({ email: '', role: 'MEMBER' }); setErr(null); inv(); }, onError: onErr });
   const approveM = useMutation({ mutationFn: (v: { userId: string; canApprove: boolean }) => api.put(`/tenant/members/${v.userId}`, { canApprove: v.canApprove }), onSuccess: () => { setErr(null); inv(); }, onError: onErr });
   const roleM = useMutation({ mutationFn: (v: { userId: string; role: string }) => tenantApi.setRole(v.userId, v.role), onSuccess: () => { setErr(null); inv(); }, onError: onErr });
   const delM = useMutation({ mutationFn: (userId: string) => tenantApi.removeMember(userId), onSuccess: () => { setErr(null); inv(); }, onError: onErr });
@@ -102,7 +102,13 @@ function Members({ me, admin }: { me: any; admin: boolean }) {
             </div>
             <Btn type="submit" disabled={!add.email.trim() || addM.isPending}>Add</Btn>
           </form>
-          <div className="text-[12px] text-[#525252] mt-2">The person must already have an xRules account.</div>
+          {issued && (
+            <div className="mt-3 border-l-4 border-[#0f62fe] bg-[#edf5ff] px-4 py-3 text-[14px]">
+              New account <span className="font-mono">{issued.email}</span> · temporary password <span className="font-mono font-semibold select-all">{issued.password}</span>
+              <button type="button" className="ml-3 text-[#0f62fe] hover:underline" onClick={() => navigator.clipboard?.writeText(issued.password)}>Copy</button>
+              <button type="button" className="ml-3 text-[#525252] hover:underline" onClick={() => setIssued(null)}>Hide</button>
+            </div>
+          )}
         </Panel>
       )}
       {err && <Notice kind="error">{err}</Notice>}
@@ -126,6 +132,38 @@ function Members({ me, admin }: { me: any; admin: boolean }) {
           );
         })}
       </Table>
+    </div>
+  );
+}
+
+const CAN: [string, (boolean | 'flag')[]][] = [
+  // Owner, Admin, Integrator, Member, Viewer
+  ['View rules, flows and results',            [true, true, true, true, true]],
+  ['Create and edit rules and flows',          [true, true, true, true, false]],
+  ['Publish and release',                      [true, true, true, true, false]],
+  ['Approve changes',                          [true, true, 'flag', 'flag', false]],
+  ['REST APIs, triggers, data sets, connections', [true, true, true, false, false]],
+  ['Projects and project access',              [true, true, false, false, false]],
+  ['Members, API keys, webhooks',              [true, true, false, false, false]],
+  ['Organization details, add owners',         [true, false, false, false, false]],
+];
+function Roles() {
+  return (
+    <div className="bg-white border border-[#e0e0e0] overflow-x-auto">
+      <table className="w-full min-w-[640px] text-[14px]">
+        <thead><tr className="h-11 border-b border-[#e0e0e0] text-left text-[12px] text-[#525252]">
+          <th className="px-4 font-normal">Permission</th>
+          {ROLE_OPTS.map(r => <th key={r.value} className="px-3 font-normal text-center w-[96px]">{r.label}</th>)}
+        </tr></thead>
+        <tbody>
+          {CAN.map(([what, v]) => (
+            <tr key={what} className="h-11 border-b border-[#f4f4f4]">
+              <td className="px-4 text-[#161616]">{what}</td>
+              {v.map((ok, i) => <td key={i} className="text-center">{ok === 'flag' ? <span className="text-[12px] text-[#525252]">if Approver</span> : ok ? <span className="text-[#161616]">✓</span> : <span className="text-[#c6c6c6]">—</span>}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

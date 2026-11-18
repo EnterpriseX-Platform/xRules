@@ -1,4 +1,6 @@
 'use client';
+import { OrgTabs } from '@/components/layout/OrgTabs';
+import { useParams as useOrgParams } from 'next/navigation';
 // API Keys: one key per calling system; which APIs it may call, limit per minute, expiry, on/off.
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
@@ -26,9 +28,11 @@ export default function ApiKeysPage() {
   const create = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>('/api-keys', { name: f.name, systemName: f.systemName, specIds: f.specIds, rateLimitPerMin: Number(f.rate) || 600, expiresInDays: f.days ? Number(f.days) : undefined, workspaceSlug: wsSlug }), onSuccess: k => { setCreated(k); setOpen(false); inv(); } });
   const upd = useMutation({ mutationFn: ({ id, body }: any) => api.put(`/api-keys/${id}`, body), onSuccess: inv });
   const toggleSpec = (id: string) => setF({ ...f, specIds: f.specIds.includes(id) ? f.specIds.filter((x: string) => x !== id) : [...f.specIds, id] });
+  const orgLevel = String(useOrgParams<any>()?.projectId || '').startsWith('_');
   return (
-    <div className="px-8 py-6">
-      <PageHead title="API Keys" sub="One key per calling system · choose which APIs it may call" actions={perms.admin ? (tab === 'Keys' ? <Btn onClick={() => setOpen(o => !o)}>New Key</Btn> : undefined) : undefined} />
+    <div className="px-6 lg:px-8 py-6">
+      {orgLevel && <OrgTabs />}
+      <PageHead title={orgLevel ? '' : 'API Keys'} sub="One key per calling system · choose which APIs it may call" actions={perms.admin ? (tab === 'Keys' ? <Btn onClick={() => setOpen(o => !o)}>New Key</Btn> : undefined) : undefined} />
       <Tabs tabs={['Keys', 'Webhooks']} value={tab} onChange={setTab} />
       {tab === 'Keys' && <>
         {created && <div className="mb-4"><Notice kind="success">Key created. Copy it now; it will not be shown again<div className="font-mono text-[13px] mt-2 bg-white px-2 py-1 select-all">{created.key}</div></Notice></div>}

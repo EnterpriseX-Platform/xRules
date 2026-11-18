@@ -1,4 +1,6 @@
 'use client';
+import { OrgTabs } from '@/components/layout/OrgTabs';
+import { useParams as useOrgParams } from 'next/navigation';
 // Audit log viewer — backed by /bi/audit/v2 endpoint (cursor pagination + filters).
 import Link from 'next/link';
 import { useState } from 'react';
@@ -34,6 +36,7 @@ export default function AuditPage() {
 
   return (
     <PageContent>
+      {String(useOrgParams<any>()?.projectId || '').startsWith('_') && <OrgTabs />}
       <PageHeader
         title="Audit Log"
         description="Every rule execution recorded with input, output, duration, correlation ID, and API key."

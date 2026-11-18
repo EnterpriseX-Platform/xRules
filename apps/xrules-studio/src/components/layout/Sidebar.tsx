@@ -8,12 +8,12 @@ import {
   Activity, KeyRound, Plug, Webhook, ScrollText, Settings,
   ChevronDown, Workflow, Briefcase, ListTree, Zap,
   Database, Layers, Network, BookA, Rows3, GitCompare, BadgeCheck, Timer, ListChecks, Gauge, PieChart, HeartPulse, Bell, History,
-  UserCog, Lock,
+  UserCog, Lock, Box, Building2, Shield,
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { useProject } from '@/lib/store';
 import { useQuery } from '@tanstack/react-query';
-import { projectsApi } from '@/lib/api';
+import { projectsApi, api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { usePerms } from '@/lib/perms';
 
@@ -63,7 +63,7 @@ export function Sidebar() {
     { href: `${projBase}/vocabulary`,          label: 'Vocabulary',     icon: BookA },
     { href: `${projBase}/bulk`,                label: 'Bulk Runs',      icon: Rows3 },
     { href: `${projBase}/simulations`,         label: 'Simulations',    icon: GitCompare },
-    { href: `${projBase}/models`,              label: 'Models',         icon: Brain },
+    { href: `${projBase}/models`,              label: 'Models',         icon: Box },
     { href: `${projBase}/releases`,            label: 'Releases',       icon: ScrollText },
   ] : [];
   // Tenant level
@@ -86,22 +86,23 @@ export function Sidebar() {
     { href: `${ALL}/monitor/alerts`,      label: 'Alerts',      icon: Bell },
     { href: `${ALL}/executions`,          label: 'Executions',  icon: History },
   ];
-  // Admin — tenant owners and admins only
-  const admin: NavItem[] = perms.admin ? [
-    { href: '/settings/tenant?tab=Members',              label: 'Members & Roles', icon: UserCog },
-    { href: '/projects',                                  label: 'Projects',        icon: FolderKanban },
-    ...(project ? [{ href: `${projBase}/access`, label: 'Project Access', icon: Lock }] : []),
-    { href: `${HUB}/integrations/api-keys`,               label: 'API Keys',        icon: KeyRound },
-    { href: `${ALL}/audit`,                               label: 'Audit Log',       icon: ListTree },
-    { href: '/settings/tenant',                           label: 'Tenant',          icon: Settings },
-  ] : [];
+  // Administration — organization owners/admins; System admin for platform admins
+  const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => api.get<any>('/auth/me'), staleTime: 60_000 });
+  const admin: NavItem[] = [
+    ...(perms.admin ? [
+      { href: '/projects', label: 'Projects', icon: FolderKanban },
+      ...(project ? [{ href: `${projBase}/access`, label: 'Project access', icon: Lock }] : []),
+      { href: '/settings/tenant', label: 'Organization', icon: Building2 },
+    ] : []),
+    ...((me as any)?.isSystemAdmin ? [{ href: '/admin', label: 'System admin', icon: Shield }] : []),
+  ];
 
   const areas: { id: string; label: string; icon: any; items: NavItem[] }[] = [
     { id: 'engine', label: 'Decision Engine', icon: Workflow, items: [{ href: '/', label: 'Dashboard', icon: LayoutDashboard }, ...engine] },
     { id: 'integration', label: 'Integration', icon: Plug, items: integration },
     { id: 'testing', label: 'Testing', icon: FlaskConical, items: testing },
     { id: 'monitor', label: 'Monitor', icon: Activity, items: monitor },
-    ...(admin.length ? [{ id: 'admin', label: 'Admin', icon: Settings, items: admin }] : []),
+    ...(admin.length ? [{ id: 'admin', label: 'Administration', icon: Settings, items: admin }] : []),
   ];
   areas.forEach(a => a.items.forEach(it => { if (!ALL_ITEMS.some(i => i.href === it.href)) ALL_ITEMS.push(it); }));
   const activeHref = bestHref(pathname);

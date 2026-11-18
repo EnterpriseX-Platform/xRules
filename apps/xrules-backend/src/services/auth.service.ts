@@ -37,12 +37,14 @@ export async function login(email: string, password: string) {
     throw new UnauthorizedError('Invalid email or password');
   }
 
-  const defaultWorkspace = user.workspaces[0]?.workspace;
+  if (user.disabled) throw new ForbiddenError('This account is disabled');
+  const active = user.workspaces.filter(w => !w.workspace.suspended);
+  const defaultWorkspace = active[0]?.workspace;
   if (!defaultWorkspace) {
-    throw new ForbiddenError('User has no tenant assigned');
+    throw new ForbiddenError(user.workspaces.length ? 'Your organization is suspended' : 'User has no organization assigned');
   }
 
-  const role = user.workspaces[0]?.role || 'MEMBER';
+  const role = active[0]?.role || 'MEMBER';
 
   const tokenPayload: JWTPayload = {
     userId: user.id,
@@ -68,6 +70,7 @@ export async function login(email: string, password: string) {
       name: user.name,
       role,
       tenantId: defaultWorkspace.slug,
+      isSystemAdmin: user.isSystemAdmin,
     },
     workspace: {
       id: defaultWorkspace.id,
@@ -100,6 +103,7 @@ export async function getMe(userId: string) {
     image: user.image,
     role: defaultWorkspace?.role || 'MEMBER',
     tenantId: defaultWorkspace?.workspace?.slug,
+    isSystemAdmin: user.isSystemAdmin,
   };
 }
 

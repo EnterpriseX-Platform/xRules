@@ -19,6 +19,13 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction) =>
   } catch (err) { next(err); }
 });
 
+router.get('/signup-open', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { getSettings } = await import('../services/admin.service.js');
+    res.json({ success: true, data: { open: (await getSettings()).allowSignup !== false } });
+  } catch (err) { next(err); }
+});
+
 router.get('/me', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await authService.getMe(req.user!.userId);

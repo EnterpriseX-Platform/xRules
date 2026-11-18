@@ -42,12 +42,18 @@ r.post('/members', h(async (req, res) => {
   if (!email) throw new ValidationError('Email is required');
   if (!ROLES.includes(role)) throw new ValidationError(`Role must be one of ${ROLES.join(', ')}`);
   if (role === 'OWNER' && req.tenant!.role !== 'OWNER') throw new ForbiddenError('Only an owner can add owners');
-  const user = await prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } });
-  if (!user) throw new NotFoundError(`User ${email}`);
+  let user = await prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } });
+  let tempPassword: string | undefined;
+  if (!user) {
+    const { tempPassword: gen } = await import('../services/admin.service.js');
+    const bcrypt = (await import('bcryptjs')).default;
+    tempPassword = gen();
+    user = await prisma.user.create({ data: { email, name: email.split('@')[0], password: await bcrypt.hash(tempPassword, 10) } });
+  }
   const exists = await prisma.workspaceMember.findUnique({ where: { workspaceId_userId: { workspaceId: req.tenant!.id, userId: user.id } } });
   if (exists) throw new ValidationError(`${email} is already a member`);
   const m = await prisma.workspaceMember.create({ data: { workspaceId: req.tenant!.id, userId: user.id, role } });
-  res.status(201).json({ success: true, data: { userId: user.id, name: user.name, email: user.email, role: m.role } });
+  res.status(201).json({ success: true, data: { userId: user.id, name: user.name, email: user.email, role: m.role, tempPassword } });
 }));
 
 r.put('/members/:userId', h(async (req, res) => {

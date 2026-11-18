@@ -45,9 +45,11 @@ async function ensureAdmin() {
   const email = process.env.ADMIN_EMAIL?.trim(); const password = process.env.ADMIN_PASSWORD;
   if (!email || !password) return;
   const { prisma } = await import('./config/database.js');
-  if (await prisma.user.findUnique({ where: { email } })) return;
+  const found = await prisma.user.findUnique({ where: { email } });
+  if (found) { if (!found.isSystemAdmin) await prisma.user.update({ where: { email }, data: { isSystemAdmin: true } }); return; }
   const { signup } = await import('./services/users.service.js');
-  await signup({ email, password, name: 'Admin', workspaceName: process.env.ADMIN_WORKSPACE || 'xRules' } as any);
+  await signup({ email, password, name: 'Admin', workspaceName: process.env.ADMIN_WORKSPACE || 'xRules' } as any, { bypassSwitch: true });
+  await prisma.user.update({ where: { email }, data: { isSystemAdmin: true } });
   console.log(`Admin account created: ${email}`);
 }
 ensureAdmin().catch(e => console.error('Admin bootstrap failed:', e.message));

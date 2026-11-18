@@ -13,6 +13,8 @@ export default function LoginPage() {
   // pre-fill the last email used on this browser
   useEffect(() => { try { const e = localStorage.getItem('xrules_last_email'); if (e) setEmail(e); } catch {} }, []);
   const [email, setEmail] = useState('');
+  const [signupOpen, setSignupOpen] = useState(false);
+  useEffect(() => { fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'}/auth/signup-open`).then(r => r.json()).then(j => setSignupOpen(j?.data?.open !== false)).catch(() => setSignupOpen(false)); }, []);
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -84,10 +86,10 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="text-center text-sm text-subtle">
+        {signupOpen && <div className="text-center text-sm text-subtle">
           No account?{' '}
           <Link href="/signup" className="text-accent hover:underline">Sign up</Link>
-        </div>
+        </div>}
       </div>
     </div>
   );

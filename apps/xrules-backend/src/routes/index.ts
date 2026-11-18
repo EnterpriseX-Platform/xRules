@@ -1,3 +1,4 @@
+import adminRoutes from './admin.routes.js';
 import { Router } from 'express';
 import authRoutes from './auth.routes.js';
 import projectsRoutes from './projects.routes.js';
@@ -38,6 +39,7 @@ const router = Router();
 
 // Auth
 router.use('/auth', authRoutes);
+router.use('/admin', adminRoutes);
 router.use('/auth', usersRoutes);
 
 // Public API (Solver / API key)

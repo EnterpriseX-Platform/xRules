@@ -120,9 +120,15 @@ export async function addMember(workspaceId: string, data: { email: string; role
     throw new ForbiddenError('Insufficient permissions');
   }
 
-  const targetUser = await prisma.user.findUnique({ where: { email: data.email } });
+  const email = String(data.email || '').trim().toLowerCase();
+  if (!email) throw new ValidationError('Email is required');
+  let targetUser = await prisma.user.findUnique({ where: { email } });
+  let tempPassword: string | undefined;
   if (!targetUser) {
-    throw new NotFoundError('User');
+    const { tempPassword: gen } = await import('./admin.service.js');
+    tempPassword = gen();
+    const bcrypt = (await import('bcryptjs')).default;
+    targetUser = await prisma.user.create({ data: { email, name: email.split('@')[0], password: await bcrypt.hash(tempPassword, 10) } });
   }
 
   const existing = await prisma.workspaceMember.findUnique({
@@ -147,5 +153,6 @@ export async function addMember(workspaceId: string, data: { email: string; role
     email: member.user.email,
     role: member.role,
     createdAt: member.createdAt.toISOString(),
+    tempPassword,
   };
 }

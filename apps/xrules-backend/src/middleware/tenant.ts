@@ -125,7 +125,9 @@ export async function visibleProjectIds(userId: string, t: TenantCtx): Promise<s
 }
 
 export async function resolveTenant(user: AuthUser, wanted?: string): Promise<TenantCtx | null> {
-  const ms = await prisma.workspaceMember.findMany({ where: { userId: user.userId }, include: { workspace: true }, orderBy: { createdAt: 'asc' } });
+  const all = await prisma.workspaceMember.findMany({ where: { userId: user.userId }, include: { workspace: true, user: { select: { disabled: true } } }, orderBy: { createdAt: 'asc' } });
+  // a disabled account or a suspended organization gets no tenant (requests are refused)
+  const ms = all.filter(m => !m.workspace.suspended && !m.user.disabled);
   if (!ms.length) return null;
   const pick = wanted ? ms.find(m => m.workspace.slug === wanted || m.workspace.id === wanted) : (ms.find(m => m.workspace.slug === user.tenantId) ?? ms[0]);
   if (!pick) return null;

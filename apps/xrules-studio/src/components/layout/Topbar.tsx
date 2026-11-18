@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { Search, Sun, Moon, ChevronDown, Settings, LogOut } from 'lucide-react';
+import { Search, Sun, Moon, ChevronDown, Settings, LogOut, Shield } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme, useAuth, useProject } from '@/lib/store';
 import { api, projectsApi } from '@/lib/api';
@@ -31,6 +31,8 @@ export function Topbar() {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as any)) setMenu(false); };
     document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h);
   }, []);
+  const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => api.get<any>('/auth/me'), staleTime: 60_000 });
+  const isSys = !!(me as any)?.isSystemAdmin;
   const name = user?.name || user?.email?.split('@')[0] || '';
   const initials = name.slice(0, 2).toUpperCase() || 'A';
   const role = perms.role ? perms.role[0] + perms.role.slice(1).toLowerCase() : '';
@@ -43,8 +45,8 @@ export function Topbar() {
       <div className="h-full flex items-center border-l border-[#393939] pl-1 pr-2 gap-0.5 min-w-0">
         <TenantSwitcher />
         {!tenantWide && current && <>
-          <span className="text-[#6f6f6f]">/</span>
-          <div className="w-56 [&>div>button]:h-8 [&>div>button]:border-0 [&>div>button]:bg-transparent [&>div>button]:text-white [&>div>button:hover]:bg-[#393939] [&>div>button]:rounded-none">
+          <span className="text-[#6f6f6f] px-0.5">›</span>
+          <div className="w-56 min-w-0 [&>div>button>span:first-child]:hidden [&>div>button]:h-8 [&>div>button]:border-0 [&>div>button]:bg-transparent [&>div>button]:text-white [&>div>button:hover]:bg-[#393939] [&>div>button]:rounded-none">
             <ProjectPicker projects={projects as any[]} current={current} onPick={(p) => setProject(p.id)} />
           </div>
         </>}
@@ -79,7 +81,8 @@ export function Topbar() {
               <div className="text-[14px] truncate">{name}</div>
               <div className="text-[12px] text-[#a8a8a8] truncate">{user?.email}</div>
             </div>
-            <button role="menuitem" type="button" onClick={() => { setMenu(false); router.push('/settings/tenant'); }} className="w-full flex items-center gap-2 px-3 h-10 text-[14px] hover:bg-[#393939]"><Settings className="h-4 w-4" />Tenant settings</button>
+            <button role="menuitem" type="button" onClick={() => { setMenu(false); router.push('/settings/tenant'); }} className="w-full flex items-center gap-2 px-3 h-10 text-[14px] hover:bg-[#393939]"><Settings className="h-4 w-4" />Organization settings</button>
+            {isSys && <button role="menuitem" type="button" onClick={() => { setMenu(false); router.push('/admin'); }} className="w-full flex items-center gap-2 px-3 h-10 text-[14px] hover:bg-[#393939]"><Shield className="h-4 w-4" />System admin</button>}
             <button role="menuitem" type="button" onClick={() => { clear(); qc.clear(); router.push('/login'); }} className="w-full flex items-center gap-2 px-3 h-10 text-[14px] hover:bg-[#393939]"><LogOut className="h-4 w-4" />Sign out</button>
           </div>
         )}

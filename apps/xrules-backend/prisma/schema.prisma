@@ -22,6 +22,8 @@ model User {
   image         String?
   password      String?
   emailVerified DateTime?
+  isSystemAdmin Boolean   @default(false)
+  disabled      Boolean   @default(false)
 
   workspaces   WorkspaceMember[]
   projectRoles ProjectMember[]
@@ -45,6 +47,7 @@ model Workspace {
   description String?
   settings    Json    @default("{}")
   plan        Plan    @default(FREE)
+  suspended   Boolean @default(false)
 
   members   WorkspaceMember[]
   projects  Project[]
@@ -1162,4 +1165,13 @@ model Outbox {
 
   @@index([sentAt, nextAt])
   @@map("outbox")
+}
+
+// Platform-wide settings edited by system admins (key → JSON value)
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
 }

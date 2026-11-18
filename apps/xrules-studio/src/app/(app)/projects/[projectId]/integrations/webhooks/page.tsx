@@ -1,4 +1,6 @@
 'use client';
+import { OrgTabs } from '@/components/layout/OrgTabs';
+import { useParams as useOrgParams } from 'next/navigation';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -35,6 +37,7 @@ export default function WebhooksPage() {
 
   return (
     <PageContent>
+      {String(useOrgParams<any>()?.projectId || '').startsWith('_') && <OrgTabs />}
       <PageHeader
         title="Webhooks"
         description="HMAC-SHA256 signed callbacks delivered when chosen events occur. Retried with exponential backoff up to 5 times."
