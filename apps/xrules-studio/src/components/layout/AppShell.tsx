@@ -12,7 +12,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Topbar />
       <div className="flex-1 flex min-h-0">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto bg-bg relative">
+        <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-bg relative">
           <ScopeBar />
           {children}
         </main>
@@ -48,5 +48,5 @@ export function PageHeader({
 }
 
 export function PageContent({ children }: { children: React.ReactNode }) {
-  return <div className="px-8 pt-6 pb-24 max-w-[1600px]">{children}</div>;
+  return <div className="px-6 lg:px-8 pt-6 pb-24 max-w-[1600px] min-w-0">{children}</div>;
 }

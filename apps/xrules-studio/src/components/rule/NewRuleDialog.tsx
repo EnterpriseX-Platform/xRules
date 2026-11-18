@@ -86,7 +86,6 @@ export function NewRuleDialog({
   onCreated?: (rule: any) => void;
 }) {
   const router = useRouter();
-  const [step, setStep] = useState<'type' | 'name'>('type');
   const [selected, setSelected] = useState<string>('DECISION_TABLE');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -102,88 +101,48 @@ export function NewRuleDialog({
     onError: (e: any) => setError(e.message),
   });
 
-  const selectedCard = TYPES.find(t => t.type === selected)!;
-
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-6 z-50" onClick={onClose}>
-      <div className="card w-full max-w-3xl max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-border flex items-center">
-          <div>
-            <h2 className="text-xl font-bold">New Rule</h2>
-            <p className="text-xs font-mono text-subtle mt-0.5">
-              {step === 'type' ? 'Pick a rule kind' : `Naming your ${selectedCard.label}`}
-            </p>
-          </div>
-          <button className="btn-ghost ml-auto" onClick={onClose}><X className="h-4 w-4" /></button>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={onClose}>
+      <form className="bg-white w-full max-w-[560px] max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}
+        onSubmit={(e) => { e.preventDefault(); if (name.trim()) mut.mutate(); }}>
+        <div className="px-6 h-14 flex items-center border-b border-[#e0e0e0]">
+          <h2 className="text-[20px] text-[#161616]">New rule</h2>
+          <button type="button" className="ml-auto h-8 w-8 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={onClose} aria-label="Close"><X className="h-4 w-4" /></button>
         </div>
-
-        {step === 'type' && (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          <div className="space-y-1.5">
+            <label htmlFor="nr-name" className="block text-[12px] text-[#525252]">Name</label>
+            <input id="nr-name" required className="input w-full" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+          </div>
+          <div className="space-y-1.5">
+            <div className="text-[12px] text-[#525252]">Type</div>
+            <div className="border border-[#e0e0e0]" role="radiogroup" aria-label="Rule type">
               {TYPES.map((card) => {
                 const Icon = card.icon;
-                const isSelected = selected === card.type;
+                const on = selected === card.type;
                 return (
-                  <button
-                    key={card.type}
-                    onClick={() => setSelected(card.type)}
-                    className={cn(
-                      'border rounded p-4 text-left transition-colors relative',
-                      isSelected ? 'border-accent bg-accent/5 ring-2 ring-accent/30' : 'border-border hover:border-accent/40 hover:bg-muted/30',
-                    )}
-                  >
-                    {card.recommended && (
-                      <span className="absolute top-2 right-2 pill pill-info text-[8px]">RECOMMENDED</span>
-                    )}
-                    <div className={cn('h-9 w-9 rounded flex items-center justify-center mb-2 border', TONE_BG[card.tone])}>
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="font-medium text-sm">{card.label}</div>
-                    <div className="font-mono text-[10px] text-subtle mb-1.5">{card.tagline}</div>
-                    <div className="text-xs text-subtle leading-snug">{card.description}</div>
+                  <button type="button" key={card.type} role="radio" aria-checked={on} onClick={() => setSelected(card.type)}
+                    className={cn('w-full flex items-center gap-3 px-3 h-12 text-left border-b border-[#e0e0e0] last:border-b-0',
+                      on ? 'bg-[#e0e0e0]' : 'hover:bg-[#f4f4f4]')}>
+                    <Icon className="h-4 w-4 shrink-0 text-[#525252]" />
+                    <span className={cn('text-[14px] text-[#161616] w-[120px] shrink-0', on && 'font-semibold')}>{card.label}</span>
+                    <span className="text-[13px] text-[#525252] truncate">{card.tagline}</span>
                   </button>
                 );
               })}
             </div>
-            <div className="px-6 py-3 border-t border-border flex justify-end gap-2">
-              <button className="btn-ghost" onClick={onClose}>Cancel</button>
-              <button className="btn-primary" onClick={() => setStep('name')}>Continue →</button>
-            </div>
-          </>
-        )}
-
-        {step === 'name' && (
-          <form className="p-6 space-y-4" onSubmit={(e) => { e.preventDefault(); mut.mutate(); }}>
-            <div className="flex items-center gap-3 p-3 bg-muted/30 rounded">
-              <div className={cn('h-9 w-9 rounded flex items-center justify-center border', TONE_BG[selectedCard.tone])}>
-                <selectedCard.icon className="h-4 w-4" />
-              </div>
-              <div>
-                <div className="font-medium text-sm">{selectedCard.label}</div>
-                <div className="font-mono text-[10px] text-subtle">{selectedCard.tagline}</div>
-              </div>
-              <button type="button" className="btn-ghost text-xs ml-auto" onClick={() => setStep('type')}>Change</button>
-            </div>
-            <div>
-              <label className="label-section block mb-1.5">Name</label>
-              <input required className="input w-full" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-              <p className="text-[10px] font-mono text-subtle mt-1">Slug + alias auto-generated. Both editable later.</p>
-            </div>
-            <div>
-              <label className="label-section block mb-1.5">Description (optional)</label>
-              <textarea className="input w-full h-20 py-2" value={description} onChange={(e) => setDescription(e.target.value)} />
-            </div>
-            {error && <div className="pill pill-danger">{error}</div>}
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" className="btn-ghost" onClick={() => setStep('type')}>← Back</button>
-              <button type="submit" className="btn-primary disabled:opacity-50" disabled={mut.isPending || !name}>
-                {mut.isPending ? 'Creating…' : 'Create rule →'}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="nr-desc" className="block text-[12px] text-[#525252]">Description</label>
+            <textarea id="nr-desc" rows={2} className="input w-full py-2" value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
+          {error && <div className="text-[13px] text-[#da1e28]">{error}</div>}
+        </div>
+        <div className="flex border-t border-[#e0e0e0]">
+          <button type="button" className="flex-1 h-14 text-left px-4 text-[14px] bg-[#393939] text-white hover:bg-[#4c4c4c]" onClick={onClose}>Cancel</button>
+          <button type="submit" className="flex-1 h-14 text-left px-4 text-[14px] bg-[#0f62fe] text-white hover:bg-[#0353e9] disabled:bg-[#c6c6c6]" disabled={mut.isPending || !name.trim()}>Create</button>
+        </div>
+      </form>
     </div>
   );
 }

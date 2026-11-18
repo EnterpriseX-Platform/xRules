@@ -15,6 +15,7 @@ import { rulesApi, api } from '@/lib/api';
 import { NewRuleDialog } from '@/components/rule/NewRuleDialog';
 import { usePerms } from '@/lib/perms';
 import { Select } from '@/components/ui/Select';
+import { Dropdown } from '@/components/pipeline/Dropdown';
 import { FolderPanel, flatten, subtreeIds, DRAG_TYPE } from '@/components/rule/FolderPanel';
 
 const TYPE_TONE: Record<string, any> = {
@@ -59,6 +60,7 @@ export default function RulesPage() {
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [folderId, setFolderId] = useState<string | null>(null);
+  const [foldersOpen, setFoldersOpen] = useState(false);
   const pathname = usePathname();
 
   // Open NewRuleDialog when URL has ?new=1 (from Topbar +New Rule shortcut).
@@ -97,75 +99,32 @@ export default function RulesPage() {
 
   return (
     <PageContent>
-      <PageHeader
-        title={typeFilter ? typeFilter.replace('_', ' ').replace(/\b\w/g, m => m.toUpperCase()) + 's' : 'Rules'}
-        description={typeFilter ? 'Filtered by rule kind' : 'Atomic decision units — decision tables, trees, formulas, scripts'}
-        stats={[
-          { label: 'Published', value: stats.published },
-          { label: 'Draft',     value: stats.draft },
-          { label: 'Total',     value: stats.total },
-        ]}
-        actions={
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/projects/${projectId}/templates`}
-              className="btn-outline"
-              title="Browse pre-built starter rules"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Templates
-            </Link>
-            <Link
-              href={`/projects/${projectId}/drd`}
-              className="btn-ghost"
-              title="Decision Requirements Diagram — visualize rule dependencies"
-            >
-              <Network className="h-3.5 w-3.5" />
-              Graph
-            </Link>
-            {perms.write && (<button className="btn-primary" onClick={() => setShowCreate(true)}>
-              <Plus className="h-3.5 w-3.5" />
-              New Rule
-            </button>)}
-          </div>
-        }
-      />
+      <div className="flex items-center gap-3 mb-4 min-w-0">
+        <h1 className="text-[24px] leading-8 text-[#161616]">Rules</h1>
+        <span className="text-[13px] text-[#525252] tabular-nums whitespace-nowrap">{stats.total} · {stats.published} published</span>
+        <div className="ml-auto flex items-center gap-1 shrink-0">
+          {!folders.length && perms.write && <button className="h-9 px-3 text-[14px] text-[#161616] hover:bg-[#e8e8e8] hidden xl:flex items-center gap-1.5" onClick={() => setFoldersOpen(o => !o)}><FolderPlus className="h-4 w-4" />Folders</button>}
+          <Link href={`/projects/${projectId}/templates`} className="h-9 px-3 text-[14px] text-[#161616] hover:bg-[#e8e8e8] flex items-center gap-1.5"><Sparkles className="h-4 w-4" />Templates</Link>
+          <Link href={`/projects/${projectId}/drd`} className="h-9 px-3 text-[14px] text-[#161616] hover:bg-[#e8e8e8] flex items-center gap-1.5"><Network className="h-4 w-4" />Graph</Link>
+          {perms.write && <button className="h-9 pl-3 pr-4 text-[14px] bg-[#0f62fe] text-white hover:bg-[#0353e9] flex items-center gap-1.5 whitespace-nowrap" onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />New rule</button>}
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr] gap-3">
-        <FolderPanel projectId={projectId} folders={folders} items={rules} folderId={folderId} setFolderId={setFolderId} canWrite={!!perms.write} />
+      <div className={folders.length || foldersOpen ? 'grid grid-cols-1 xl:grid-cols-[220px_1fr] gap-3' : ''}>
+        {(folders.length > 0 || foldersOpen) && <div className="hidden xl:block"><FolderPanel projectId={projectId} folders={folders} items={rules} folderId={folderId} setFolderId={setFolderId} canWrite={!!perms.write} /></div>}
 
-        {/* Main */}
-        <div>
-          {/* Type filter chips — always visible regardless of ?type= URL param */}
-          <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <span className="label-section mr-1">Type</span>
-            <TypeChip current={typeFilter} value="" projectId={projectId}>All</TypeChip>
-            <TypeChip current={typeFilter} value="DECISION_TABLE" projectId={projectId} tone="info">Decision Table</TypeChip>
-            <TypeChip current={typeFilter} value="DECISION_TREE"  projectId={projectId} tone="mint">Decision Tree</TypeChip>
-            <TypeChip current={typeFilter} value="SCORECARD"      projectId={projectId} tone="accent">Scorecard</TypeChip>
-            <TypeChip current={typeFilter} value="FORMULA"        projectId={projectId} tone="warn">Formula</TypeChip>
-            <TypeChip current={typeFilter} value="SCRIPT"         projectId={projectId} tone="subtle">Scripting</TypeChip>
-            <TypeChip current={typeFilter} value="LOOKUP"         projectId={projectId} tone="subtle">Lookup</TypeChip>
-            <TypeChip current={typeFilter} value="AI_AGENT"       projectId={projectId} tone="accent">AI Agent</TypeChip>
-            <TypeChip current={typeFilter} value="MODEL_CALL"     projectId={projectId} tone="danger">Model Call</TypeChip>
-          </div>
-
-          <div className="flex items-center gap-3 mb-4">
-            <div className="tabs-row">
-              {['all', 'published', 'draft', 'archived'].map((t) => (
-                <button key={t} className={`tab ${filter === t ? 'tab-active' : ''}`} onClick={() => setFilter(t)}>
-                  {t}
-                </button>
-              ))}
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <div className="relative flex-1 min-w-[180px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#525252]" />
+              <input className="input w-full pl-9" placeholder="Search" aria-label="Search rules" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-subtle" />
-              <input
-                className="input w-full pl-9"
-                placeholder="search rules…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+            <div className="w-[160px]"><Dropdown value={typeFilter} onChange={v => router.push(v ? `/projects/${projectId}/rules?type=${v}` : `/projects/${projectId}/rules`)} options={[{ value: '', label: 'All types' }, { value: 'DECISION_TABLE', label: 'Decision Table' }, { value: 'DECISION_TREE', label: 'Decision Tree' }, { value: 'SCORECARD', label: 'Scorecard' }, { value: 'FORMULA', label: 'Formula' }, { value: 'SCRIPT', label: 'Scripting' }, { value: 'LOOKUP', label: 'Lookup' }, { value: 'AI_AGENT', label: 'AI Agent' }, { value: 'MODEL_CALL', label: 'Model Call' }]} /></div>
+            {folders.length > 0 && <div className="w-[160px] xl:hidden"><Dropdown value={folderId || ''} onChange={v => setFolderId(v || null)} options={[{ value: '', label: 'All folders' }, ...flatten(folders).map((f: any) => ({ value: f.id, label: f.name }))]} /></div>}
+            <div className="flex border border-[#c6c6c6] h-10">
+              {['all', 'published', 'draft', 'archived'].map((t) => (
+                <button key={t} className={`px-3 text-[13px] capitalize ${filter === t ? 'bg-[#161616] text-white' : 'text-[#525252] hover:bg-[#f4f4f4]'}`} onClick={() => setFilter(t)}>{t}</button>
+              ))}
             </div>
           </div>
 
@@ -187,19 +146,12 @@ export default function RulesPage() {
             {isLoading && <tr><td colSpan={8} className="text-center py-12 text-subtle font-mono text-sm">Loading…</td></tr>}
             {!isLoading && filtered.length === 0 && (
               <tr><td colSpan={8} className="text-center py-16">
-                <div className="max-w-sm mx-auto">
-                  <div className="h-14 w-14 mx-auto rounded-full bg-accent/10 flex items-center justify-center mb-3">
-                    <FileText className="h-6 w-6 text-accent" />
-                  </div>
-                  <div className="text-sm font-medium text-text mb-1">No rules yet</div>
-                  <div className="text-xs text-subtle leading-relaxed mb-4">
-                    Pick from 8 rule kinds — from simple decision tables to LLM-backed AI agents — to author your first decision.
-                  </div>
-                  {perms.write && (<button className="btn-primary text-sm" onClick={() => setShowCreate(true)}>
-                    <Plus className="h-3.5 w-3.5" />
-                    Create your first rule
+                <div className="text-[14px] text-[#525252] mb-3">{rules.length ? 'No matching rules' : 'No rules'}</div>
+                  {perms.write && !rules.length && (<button className="h-9 pl-3 pr-4 text-[14px] bg-[#0f62fe] text-white inline-flex items-center gap-1.5" onClick={() => setShowCreate(true)}>
+                    <Plus className="h-4 w-4" />
+                    New rule
                   </button>)}
-                </div>
+
               </td></tr>
             )}
             {filtered.map((r: any, i: number) => {
