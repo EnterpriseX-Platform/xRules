@@ -5,7 +5,7 @@ import { Suspense, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageContent } from '@/components/layout/AppShell';
-import { Btn, Input, Panel, Notice, Tag } from '@/components/pipeline/ui';
+import { Btn, Input, Panel, Notice, Tag, Modal } from '@/components/pipeline/ui';
 import { api } from '@/lib/api';
 
 const TABS = ['Organizations', 'Users', 'Settings'] as const;
@@ -55,15 +55,11 @@ function Orgs() {
         <div className="ml-auto"><Btn onClick={() => setOpen(o => !o)}>New organization</Btn></div>
       </div>
       {open && (
-        <Panel className="mb-4">
-          <form className="flex flex-wrap items-end gap-3" onSubmit={e => { e.preventDefault(); create.mutate(); }}>
-            <div className="flex-1 min-w-[200px]"><Input label="Name" id="o-name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} /></div>
-            <div className="flex-1 min-w-[220px]"><Input label="Owner email" id="o-owner" value={f.ownerEmail} onChange={(v: string) => setF({ ...f, ownerEmail: v })} /></div>
-            <Btn type="submit" disabled={!f.name.trim() || !f.ownerEmail.trim() || create.isPending}>Create</Btn>
-            <Btn kind="ghost" type="button" onClick={() => setOpen(false)}>Cancel</Btn>
-          </form>
-          {create.error && <div className="mt-2"><Notice kind="error">{(create.error as any).message}</Notice></div>}
-        </Panel>
+        <Modal title="New organization" onClose={() => setOpen(false)} onSubmit={() => create.mutate()} submitLabel="Create"
+          submitDisabled={!f.name.trim() || !f.ownerEmail.trim() || create.isPending} error={(create.error as any)?.message}>
+          <Input label="Name" id="o-name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} />
+          <Input label="Owner email" id="o-owner" value={f.ownerEmail} onChange={(v: string) => setF({ ...f, ownerEmail: v })} />
+        </Modal>
       )}
       <Issued v={issued} onHide={() => setIssued(null)} />
       <div className="bg-white border border-[#e0e0e0]">

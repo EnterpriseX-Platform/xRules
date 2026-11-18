@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { PageHead, Table, Td, Tag, Btn, Input, TextArea, Panel, Notice, Tabs } from '@/components/pipeline/ui';
+import { PageHead, Table, Td, Tag, Btn, Input, TextArea, Panel, Notice, Tabs, Modal } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { TraceView } from '@/components/pipeline/TraceView';
 import { usePerms } from '@/lib/perms';
@@ -39,8 +39,9 @@ export default function SpecPage() {
 }
 
 function Operations({ spec, projectId, onChange }: any) {
+  const [addOpen, setAddOpen] = useState(false);
   const [f, setF] = useState({ method: 'POST', path: '', summary: '', schema: '' });
-  const add = useMutation({ meta: { silent: true }, mutationFn: () => api.post(`/platform/specs/${spec.id}/operations`, { method: f.method, path: f.path, summary: f.summary, requestSchema: f.schema ? JSON.parse(f.schema) : undefined }), onSuccess: () => { setF({ method: 'POST', path: '', summary: '', schema: '' }); onChange(); } });
+  const add = useMutation({ meta: { silent: true }, mutationFn: () => api.post(`/platform/specs/${spec.id}/operations`, { method: f.method, path: f.path, summary: f.summary, requestSchema: f.schema ? JSON.parse(f.schema) : undefined }), onSuccess: () => { setAddOpen(false); setF({ method: 'POST', path: '', summary: '', schema: '' }); onChange(); } });
   const del = useMutation({ mutationFn: (id: string) => api.del(`/platform/operations/${id}`), onSuccess: onChange });
   return (
     <div className="space-y-4">
@@ -55,8 +56,9 @@ function Operations({ spec, projectId, onChange }: any) {
           </tr>
         ))}
       </Table>
-      <Panel title="Add operation">
-        <div className="grid grid-cols-[140px_1fr_1fr] gap-4">
+      <div><Btn onClick={() => setAddOpen(true)}>Add operation</Btn></div>
+      {addOpen && <Modal title="Add operation" onClose={() => setAddOpen(false)} wide>
+        <div className="grid gap-4">
           <div><div className="text-[12px] text-[#525252] mb-1.5">Method</div><Dropdown value={f.method} onChange={v => setF({ ...f, method: v })} options={['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map(m => ({ value: m, label: m }))} /></div>
           <Input id="op-path" label="Path (parameters like {itemCode})" mono value={f.path} onChange={(v: string) => setF({ ...f, path: v })} placeholder="/standard-price/{itemCode}" />
           <Input id="op-sum" label="Summary" value={f.summary} onChange={(v: string) => setF({ ...f, summary: v })} />
@@ -64,7 +66,7 @@ function Operations({ spec, projectId, onChange }: any) {
         <div className="mt-4"><TextArea id="op-schema" label="Body JSON Schema (optional)" rows={4} value={f.schema} onChange={(v: string) => setF({ ...f, schema: v })} /></div>
         {add.error && <div className="mt-3"><Notice kind="error">{String((add.error as any).message)}</Notice></div>}
         <div className="mt-4"><Btn onClick={() => add.mutate()} disabled={!f.path || add.isPending}>Add</Btn></div>
-      </Panel>
+      </Modal>}
     </div>
   );
 }

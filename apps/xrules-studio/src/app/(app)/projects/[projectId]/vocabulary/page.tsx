@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { PageHead, Table, Td, Tag, Btn, Input, TextArea, Panel, Notice, Tabs, DropZone } from '@/components/pipeline/ui';
+import { PageHead, Table, Td, Tag, Btn, Input, TextArea, Panel, Notice, Tabs, DropZone, Modal } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 
 export default function VocabularyPage() {
@@ -88,22 +88,24 @@ function Cowork({ projectId }: { projectId: string }) {
 
 function Terms({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
+  const [addOpen, setAddOpen] = useState(false);
   const [f, setF] = useState({ term: '', path: '', type: 'text', values: '' });
   const { data: terms = [] } = useQuery({ queryKey: ['vocab', projectId], queryFn: () => api.get<any[]>(`/platform/vocabulary?project_id=${projectId}`) });
   const { data: sug = [] } = useQuery({ queryKey: ['vocab-sug', projectId], queryFn: () => api.get<any[]>(`/platform/vocabulary/suggest?project_id=${projectId}`) });
-  const save = useMutation({ mutationFn: (t: any) => api.post('/platform/vocabulary', { projectId, ...t }), onSuccess: () => { qc.invalidateQueries({ queryKey: ['vocab', projectId] }); qc.invalidateQueries({ queryKey: ['vocab-sug', projectId] }); setF({ term: '', path: '', type: 'text', values: '' }); } });
+  const save = useMutation({ mutationFn: (t: any) => api.post('/platform/vocabulary', { projectId, ...t }), onSuccess: () => { setAddOpen(false); qc.invalidateQueries({ queryKey: ['vocab', projectId] }); qc.invalidateQueries({ queryKey: ['vocab-sug', projectId] }); setF({ term: '', path: '', type: 'text', values: '' }); } });
   const del = useMutation({ mutationFn: (id: string) => api.del(`/platform/vocabulary/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ['vocab', projectId] }) });
   return (
     <div className="space-y-4">
-      <Panel title="Add term">
-        <div className="grid grid-cols-[1fr_1fr_160px_1fr_auto] gap-3 items-end">
+      <div><Btn onClick={() => setAddOpen(true)}>Add term</Btn></div>
+      {addOpen && <Modal title="Add term" onClose={() => setAddOpen(false)} wide>
+        <div className="grid gap-4">
           <Input id="t-term" label="Term" value={f.term} onChange={(v: string) => setF({ ...f, term: v })} />
           <Input id="t-path" label="Data path" mono value={f.path} onChange={(v: string) => setF({ ...f, path: v })} placeholder="item.unitPrice" />
           <div><div className="text-[12px] text-[#525252] mb-1.5">Type</div><Dropdown value={f.type} onChange={v => setF({ ...f, type: v })} options={[{ value: 'text', label: 'Text' }, { value: 'number', label: 'Number' }, { value: 'money', label: 'Money' }, { value: 'date', label: 'Date' }, { value: 'enum', label: 'List of values' }]} /></div>
           <Input id="t-vals" label="Allowed values (comma separated)" value={f.values} onChange={(v: string) => setF({ ...f, values: v })} />
           <Btn onClick={() => save.mutate({ term: f.term, path: f.path, type: f.type, values: f.values.split(',').map(s => s.trim()).filter(Boolean) })} disabled={!f.term || !f.path}>Add</Btn>
         </div>
-      </Panel>
+      </Modal>}
       <Table head={['Term', 'Means', 'Type', 'Allowed values', '']}>
         {(terms as any[]).map(t => <tr key={t.id}><Td>{t.term}</Td><Td mono>{t.path}</Td><Td>{t.type}</Td><Td>{t.values.join(', ')}</Td><Td><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={() => del.mutate(t.id)}>Delete</button></Td></tr>)}
       </Table>
