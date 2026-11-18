@@ -1,0 +1,2 @@
+ALTER TABLE "test_cases" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP(3);
+ALTER TABLE "test_cases" ADD COLUMN IF NOT EXISTS "deletedBy" TEXT;

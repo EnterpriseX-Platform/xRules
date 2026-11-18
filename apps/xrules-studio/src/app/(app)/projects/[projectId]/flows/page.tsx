@@ -1,4 +1,5 @@
 'use client';
+import { Modal, Input } from '@/components/pipeline/ui';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -81,7 +82,6 @@ export default function FlowsPage() {
     <PageContent>
       <PageHeader
         title={meta?.title || 'Flows'}
-        description={meta?.description || 'Orchestration — both sync (decision flows) and async (integration flows).'}
         stats={[{ label: 'Published', value: stats.published }, { label: 'Draft', value: stats.draft }, { label: 'Total', value: stats.total }]}
         actions={
           perms.write ? (<button className="btn-primary" onClick={() => setShowCreate(true)}>
@@ -112,7 +112,6 @@ export default function FlowsPage() {
         isLoading={isLoading}
         emptyText={meta?.emptyText || 'No flows yet'}
         emptyIcon={meta?.icon || Workflow}
-        emptyBody={meta?.emptyBody}
         emptyCta={
           perms.write ? (<button className="btn-primary text-sm" onClick={() => setShowCreate(true)}>
             <Plus className="h-3.5 w-3.5" />
@@ -205,6 +204,7 @@ function CreateFlowDialog({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const router = useRouter();
   const [name, setName] = useState('');
   const [kind, setKind] = useState<Exclude<Kind, 'ALL'>>(defaultKind);
   const [error, setError] = useState<string | null>(null);
@@ -221,52 +221,22 @@ function CreateFlowDialog({
         edges: [{ id: 'e1', source: 'in', target: 'out' }],
       },
     }),
-    onSuccess: () => { onCreated(); onClose(); },
+    onSuccess: (f: any) => { onCreated(); onClose(); if (f?.id) router.push(`/p/${projectId}/flows/${f.id}`); },
     onError: (e: any) => setError(e.message),
   });
 
   const meta = KIND_META[kind];
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-6 z-50" onClick={onClose}>
-      <div className="card w-full max-w-md p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-xl font-semibold">{meta.cta}</h2>
-
-        {!lockKind && (
-          <div className="grid grid-cols-2 gap-2">
-            <KindOption
-              active={kind === 'DECISION'}
-              onClick={() => setKind('DECISION')}
-              icon={Workflow}
-              label="Rule Flow"
-              hint="Sync · chain rules"
-            />
-            <KindOption
-              active={kind === 'INTEGRATION'}
-              onClick={() => setKind('INTEGRATION')}
-              icon={Zap}
-              label="Integration"
-              hint="Async · fetch + jobs"
-            />
-          </div>
-        )}
-
-        <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); mut.mutate(); }}>
-          <div>
-            <label className="label-section block mb-1.5">Name</label>
-            <input required className="input w-full" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-            <p className="text-[11px] text-subtle mt-1.5">{meta.description}</p>
-          </div>
-          {error && <div className="pill pill-danger">{error}</div>}
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
-            <button type="submit" disabled={mut.isPending || !name} className="btn-primary disabled:opacity-50">
-              {mut.isPending ? 'Creating…' : 'Create'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <Modal title={meta.cta} onClose={onClose} onSubmit={() => mut.mutate()} submitLabel="Create" submitDisabled={mut.isPending || !name.trim()} error={error}>
+      {!lockKind && (
+        <div className="grid grid-cols-2 gap-2">
+          <KindOption active={kind === 'DECISION'} onClick={() => setKind('DECISION')} icon={Workflow} label="Rule Flow" hint="Sync · chain rules" />
+          <KindOption active={kind === 'INTEGRATION'} onClick={() => setKind('INTEGRATION')} icon={Zap} label="Integration" hint="Async · fetch + jobs" />
+        </div>
+      )}
+      <Input id="flow-name" label="Name" value={name} onChange={setName} />
+    </Modal>
   );
 }
 

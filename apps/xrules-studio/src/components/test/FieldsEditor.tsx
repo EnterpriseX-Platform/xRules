@@ -8,8 +8,8 @@ import { Dropdown } from '@/components/pipeline/Dropdown';
 export type Field = { name: string; type?: string };
 
 const isPlain = (v: any) => v === null || ['string', 'number', 'boolean'].includes(typeof v);
-const toText = (v: any) => (v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v));
-function fromText(t: string, type?: string): any {
+export const toText = (v: any) => (v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v));
+export function fromText(t: string, type?: string): any {
   const s = t.trim();
   if (type === 'number' || type === 'integer' || type === 'money') return s === '' ? null : (isNaN(Number(s)) ? s : Number(s));
   if (type === 'boolean') return s === 'true';

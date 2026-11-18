@@ -18,6 +18,7 @@ export default function TestsPage() {
   const [open, setOpen] = useState(false);
   const [suite, setSuite] = useState('');
   const [suiteName, setSuiteName] = useState('');
+  const [suiteOpen, setSuiteOpen] = useState(false);
   const [f, setF] = useState<any>({ name: '', targetType: 'decision_flow', targetId: '', input: {}, expectations: [{ kind: 'equals', path: '', value: '' }], suiteIds: [] });
   const { data: cases = [] } = useQuery({ queryKey: ['tests', projectId, suite], queryFn: () => api.get<any[]>(`/platform/tests?project_id=${projectId}${suite ? `&suiteId=${suite}` : ''}`) });
   const { data: suites = [] } = useQuery({ queryKey: ['suites', projectId], queryFn: () => api.get<any[]>(`/platform/suites?project_id=${projectId}`) });
@@ -39,14 +40,19 @@ export default function TestsPage() {
   const passed = (cases as any[]).filter(c => c.lastStatus === 'PASS').length;
   return (
     <div className="px-8 py-6">
-      <PageHead title="Test Suites" sub={`${cases.length} cases · ${passed} passed · all cases of an item must pass before it can be published`} actions={<>
+      <PageHead title="Test Suites" sub={`${cases.length} cases · ${passed} passed`} actions={<>
         {suite && <Btn kind="tertiary" onClick={() => runSuite.mutate()} disabled={runSuite.isPending}>Run suite</Btn>}
         {perms.write && <Btn onClick={() => setOpen(true)}>New Test Case</Btn>}</>} />
       <div className="flex gap-2 items-end mb-4">
         <div className="w-80"><div className="text-[12px] text-[#525252] mb-1.5">Test suite</div><Dropdown value={suite} onChange={setSuite} options={[{ value: '', label: 'All cases' }, ...(suites as any[]).map(s => ({ value: s.id, label: s.name }))]} /></div>
-        <Input id="suite-new" className="w-64" label="New suite" value={suiteName} onChange={setSuiteName} placeholder="TOR 4.4" />
-        {perms.write && <Btn kind="ghost" onClick={() => { newSuite.mutate(suiteName); setSuiteName(''); }} disabled={!suiteName.trim()}>Create suite</Btn>}
+        {perms.write && <Btn kind="ghost" onClick={() => setSuiteOpen(true)}>New suite</Btn>}
       </div>
+      {suiteOpen && (
+        <Modal title="New suite" onClose={() => setSuiteOpen(false)} submitLabel="Create" submitDisabled={!suiteName.trim() || newSuite.isPending}
+          onSubmit={() => newSuite.mutate(suiteName, { onSuccess: () => { setSuiteName(''); setSuiteOpen(false); } })}>
+          <Input id="suite-new" label="Name" value={suiteName} onChange={setSuiteName} />
+        </Modal>
+      )}
       {open && (
         <Modal title="New test case" onClose={() => setOpen(false)} wide onSubmit={() => create.mutate()} submitLabel="Save" submitDisabled={!f.name || !f.targetId || create.isPending} error={create.error ? String((create.error as any).message) : null}>
           <div className="grid gap-4">

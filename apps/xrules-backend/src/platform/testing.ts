@@ -57,9 +57,9 @@ export async function runCase(caseId: string) {
 }
 
 async function casesFor(targetType: string, targetId: string) {
-  if (targetType === 'rule') return prisma.testCase.findMany({ where: { OR: [{ ruleId: targetId }, { targetType: 'rule', targetId }] } });
-  if (targetType === 'api_spec') { const ops = await prisma.apiOperation.findMany({ where: { specId: targetId } }); return prisma.testCase.findMany({ where: { targetType: 'operation', targetId: { in: ops.map(o => o.id) } } }); }
-  return prisma.testCase.findMany({ where: { targetType, targetId } });
+  if (targetType === 'rule') return prisma.testCase.findMany({ where: { deletedAt: null, OR: [{ ruleId: targetId }, { targetType: 'rule', targetId }] } });
+  if (targetType === 'api_spec') { const ops = await prisma.apiOperation.findMany({ where: { specId: targetId } }); return prisma.testCase.findMany({ where: { deletedAt: null, targetType: 'operation', targetId: { in: ops.map(o => o.id) } } }); }
+  return prisma.testCase.findMany({ where: { deletedAt: null, targetType, targetId } });
 }
 
 export async function runForTarget(targetType: string, targetId: string) {
@@ -104,7 +104,7 @@ export async function createCase(data: { projectId?: string; name: string; targe
 }
 export async function listCases(projectIdOrSlug: string, user: AuthUser, f: { targetType?: string; targetId?: string; suiteId?: string }) {
   const ids = await projectScope(projectIdOrSlug, user);
-  return prisma.testCase.findMany({ where: { projectId: { in: ids }, ...(f.targetType ? { targetType: f.targetType } : {}), ...(f.targetId ? { targetId: f.targetId } : {}), ...(f.suiteId ? { suiteIds: { has: f.suiteId } } : {}) }, orderBy: { name: 'asc' } });
+  return prisma.testCase.findMany({ where: { deletedAt: null, projectId: { in: ids }, ...(f.targetType ? { targetType: f.targetType } : {}), ...(f.targetId ? { targetId: f.targetId } : {}), ...(f.suiteId ? { suiteIds: { has: f.suiteId } } : {}) }, orderBy: { name: 'asc' } });
 }
 export async function updateCase(id: string, data: any, user: AuthUser) {
   const c = await prisma.testCase.findUnique({ where: { id } }); if (!c?.projectId) throw new NotFoundError('Test case');
@@ -112,6 +112,32 @@ export async function updateCase(id: string, data: any, user: AuthUser) {
   if (data.expectations !== undefined) checkExpectations(data.expectations);
   const u: any = {}; for (const k of ['name', 'input', 'expectations', 'suiteIds']) if (data[k] !== undefined) u[k] = data[k];
   return prisma.testCase.update({ where: { id }, data: u });
+}
+
+/** Save a whole test sheet for one target: rows with an id are updated, rows without are created,
+ *  and ids listed in `removed` are stamped deleted (kept, not erased). */
+export async function saveSheet(data: { targetType: string; targetId: string; rows: any[]; removed?: string[] }, user: AuthUser) {
+  const saved: any[] = [];
+  for (const row of data.rows || []) {
+    const name = String(row.name || '').trim();
+    if (!name) continue;
+    const exps = (row.expectations || []).filter((e: any) => e && e.kind && !(e.kind === 'equals' && (e.path ?? '') === ''));
+    if (row.id) saved.push(await updateCase(row.id, { name, input: row.input ?? {}, expectations: exps }, user));
+    else saved.push(await createCase({ name, targetType: data.targetType, targetId: data.targetId, input: row.input ?? {}, expectations: exps, suiteIds: row.suiteIds || [] }, user));
+  }
+  for (const id of data.removed || []) {
+    const c = await prisma.testCase.findUnique({ where: { id } });
+    if (!c?.projectId || c.deletedAt) continue;
+    await assertProjectAccess(c.projectId, user, 'write');
+    await prisma.testCase.update({ where: { id }, data: { deletedAt: new Date(), deletedBy: (user as any).userId } });
+  }
+  return { saved: saved.length, cases: await casesFor(data.targetType, data.targetId) };
+}
+
+export async function listForTarget(targetType: string, targetId: string, user: AuthUser) {
+  const cases = await casesFor(targetType, targetId);
+  const pid = cases[0]?.projectId; if (pid) await assertProjectAccess(pid, user);
+  return cases.sort((a, b) => a.createdAt < b.createdAt ? -1 : 1);
 }
 
 /** Run a suite (cases whose suiteIds contain it) and keep the run. */

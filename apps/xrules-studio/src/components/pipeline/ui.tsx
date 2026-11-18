@@ -102,14 +102,14 @@ function readMode(): 'drawer' | 'modal' {
 }
 export function Modal({ title, onClose, onSubmit, submitLabel = 'Save', submitDisabled, danger, error, wide, children }: {
   title: React.ReactNode; onClose: () => void; onSubmit?: () => void; submitLabel?: string; submitDisabled?: boolean;
-  danger?: boolean; error?: string | null; wide?: boolean; children?: React.ReactNode;
+  danger?: boolean; error?: string | null; wide?: boolean | 'xl'; children?: React.ReactNode;
 }) {
   const [mode, setMode] = useStateUi<"drawer" | "modal">(readMode);
   const flip = () => setMode(m => { const n = m === 'drawer' ? 'modal' : 'drawer'; try { localStorage.setItem(FORM_MODE_KEY, n); } catch {} return n; });
   // a form only when the panel submits itself; pages that bring their own form get a plain box (no nested forms)
   const Box: any = onSubmit ? 'form' : 'div';
   const drawer = mode === 'drawer';
-  const width = wide ? 'max-w-[720px]' : 'max-w-[480px]';
+  const width = wide === 'xl' ? 'max-w-[1200px]' : wide ? 'max-w-[720px]' : 'max-w-[480px]';
   return (
     <div className={`fixed inset-0 z-50 bg-[#161616]/50 flex ${drawer ? 'justify-end' : 'items-start justify-center pt-[10vh] px-4 overflow-y-auto'}`}
       onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>

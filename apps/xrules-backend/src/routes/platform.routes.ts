@@ -79,6 +79,8 @@ r.get('/flows/:id/challenger', authMiddleware, h(async req => {
 // ---- Tests (every target)
 r.get('/tests', authMiddleware, h(async req => (await import('../platform/testing.js')).listCases(String(req.query.project_id), req.user, { targetType: req.query.targetType, targetId: req.query.targetId, suiteId: req.query.suiteId })));
 r.post('/tests', authMiddleware, h(async req => (await import('../platform/testing.js')).createCase(req.body, req.user), 201));
+r.post('/tests/sheet', authMiddleware, h(async req => (await import('../platform/testing.js')).saveSheet(req.body, req.user)));
+r.get('/tests/target/:type/:id', authMiddleware, h(async req => (await import('../platform/testing.js')).listForTarget(req.params.type, req.params.id, req.user)));
 r.put('/tests/:id', authMiddleware, h(async req => (await import('../platform/testing.js')).updateCase(req.params.id, req.body, req.user)));
 r.post('/tests/:id/run', authMiddleware, h(async req => (await import('../platform/testing.js')).runCase(req.params.id)));
 r.post('/tests/target/:type/:id/run', authMiddleware, h(async req => (await import('../platform/testing.js')).runForTarget(req.params.type, req.params.id)));

@@ -1,5 +1,7 @@
 'use client';
-import { InputFields, ResultView, inputFieldsOf } from '@/components/test/FieldsEditor';
+import { InputFields, ResultView, inputFieldsOf, outputFieldsOf } from '@/components/test/FieldsEditor';
+import { TestSheet } from '@/components/test/TestSheet';
+import { TestBadge } from '@/components/test/TestBadge';
 
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -88,6 +90,7 @@ export default function RuleDetailPage() {
           }} title={rule.locked ? 'Unlock' : 'Lock'}>
             {rule.locked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
           </button>
+          <TestBadge targetType="rule" targetId={rule.id} onOpen={() => setTab('test')} />
           <button className="btn-primary" onClick={() => publish.mutate()} disabled={publish.isPending || rule.locked}>
             <Rocket className="h-3.5 w-3.5" />
             {publish.isPending ? 'Publishing…' : 'Publish'}
@@ -116,7 +119,14 @@ export default function RuleDetailPage() {
       {/* Tab content */}
       {tab === 'definition' && <DefinitionTab rule={rule} projectId={projectId} />}
       {tab === 'schemas'    && <SchemasTab    rule={rule} />}
-      {tab === 'test'       && <TestTab       rule={rule} />}
+      {/* kept mounted so what was typed survives switching tabs */}
+      <div className={tab === 'test' ? 'space-y-8' : 'hidden'}>
+        <TestSheet targetType="rule" targetId={rule.id} inputs={inputFieldsOf(rule)} outputs={outputFieldsOf(rule)} />
+        <div>
+          <div className="text-[16px] text-[#161616] mb-3">Try once</div>
+          <TestTab rule={rule} />
+        </div>
+      </div>
       {tab === 'simulate'   && <SimulateTab   rule={rule} projectId={projectId} />}
       {tab === 'api'        && <ApiTab        rule={rule} />}
       {tab === 'versions'   && <VersionsTab   ruleId={ruleId} />}

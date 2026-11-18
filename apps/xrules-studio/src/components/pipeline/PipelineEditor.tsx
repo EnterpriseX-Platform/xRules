@@ -18,6 +18,9 @@ import { StepInspector } from './StepInspector';
 import { TraceView } from './TraceView';
 import { FlowRelations } from './Relations';
 import { InputFields, flowFields } from '@/components/test/FieldsEditor';
+import { TestSheet } from '@/components/test/TestSheet';
+import { TestBadge } from '@/components/test/TestBadge';
+import { Modal } from './ui';
 
 type Graph = { nodes: Node[]; edges: Edge[] };
 const EDGE = { type: 'smoothstep', style: { stroke: '#161616', strokeWidth: 1.4 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#161616', width: 18, height: 18 } } as const;
@@ -70,6 +73,7 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
   const [aiMsg, setAiMsg] = useState<string | null>(null);
   const [preview, setPreview] = useState<any | null>(null);
   const [testOpen, setTestOpen] = useState(false);
+  const [casesOpen, setCasesOpen] = useState(false);
   const [testInput, setTestInput] = useState('{}');
   const { data: projRules } = useQuery({ queryKey: ['rules', flow?.projectId], queryFn: () => api.get<any>(`/rules?project_id=${flow?.projectId}`), enabled: !!flow?.projectId });
   const ruleList: any[] = Array.isArray(projRules) ? projRules : ((projRules as any)?.data || (projRules as any)?.items || []);
@@ -201,6 +205,7 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
             <button className="h-10 px-4 text-[14px] border border-[#8d8d8d] hover:bg-[#e8e8e8] flex items-center gap-2 whitespace-nowrap disabled:text-[#8d8d8d]" onClick={() => runNow.mutate()} disabled={runNow.isPending || !published}><Play className="h-4 w-4" /> Run</button>
           </>}
           {kind === 'trigger' && <button className="h-10 px-4 text-[14px] border border-[#8d8d8d] hover:bg-[#e8e8e8] flex items-center gap-2 whitespace-nowrap disabled:text-[#8d8d8d]" onClick={() => runTrigger.mutate()} disabled={runTrigger.isPending || !published}><Play className="h-4 w-4" /> Run</button>}
+          {kind === 'decision' && <TestBadge targetType="decision_flow" targetId={flowId} onOpen={() => setCasesOpen(true)} />}
           <button className="h-10 px-4 text-[14px] border border-[#8d8d8d] text-[#161616] hover:bg-[#e8e8e8] whitespace-nowrap disabled:text-[#8d8d8d] disabled:border-[#e0e0e0]" disabled={!dirty || save.isPending || locked} onClick={() => save.mutate()}>Save</button>
           <button className="h-10 px-4 text-[14px] bg-[#0f62fe] text-white hover:bg-[#0353e9] whitespace-nowrap disabled:bg-[#c6c6c6]" disabled={publish.isPending || locked || (!dirty && published)} onClick={() => publish.mutate()}>Publish v{published && !dirty ? flow.version : flow.version + (published ? 1 : 0)}</button>
         </div>
@@ -268,6 +273,11 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
           )}
         </div>
 
+        {casesOpen && (
+          <Modal title="Test cases" wide="xl" onClose={() => setCasesOpen(false)}>
+            {(() => { const ff = flowFields({ graph: { nodes } }, ruleList); return <TestSheet targetType="decision_flow" targetId={flowId} inputs={ff.inputs} outputs={ff.outputs} />; })()}
+          </Modal>
+        )}
         {testOpen && !selected && (
           <div className="w-[380px] shrink-0 bg-white border-l border-[#e0e0e0] flex flex-col min-h-0">
             <div className="h-12 px-4 flex items-center gap-3 border-b border-[#e0e0e0]">
