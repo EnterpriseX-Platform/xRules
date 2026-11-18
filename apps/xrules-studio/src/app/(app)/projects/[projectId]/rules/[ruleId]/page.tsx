@@ -1,4 +1,5 @@
 'use client';
+import { InputFields, ResultView, inputFieldsOf } from '@/components/test/FieldsEditor';
 
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -377,7 +378,7 @@ function TestTab({ rule }: { rule: any }) {
       <div className="card overflow-hidden">
         <div className="px-4 py-2.5 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="label-section">Input JSON</span>
+            <span className="label-section">Input</span>
             <button onClick={reset} className="btn-ghost text-[11px] text-subtle hover:text-text">reset</button>
           </div>
           <button onClick={run} disabled={running} className="btn-primary text-xs disabled:opacity-50">
@@ -385,8 +386,11 @@ function TestTab({ rule }: { rule: any }) {
             {running ? 'Running…' : 'Run'}
           </button>
         </div>
-        <MonacoEditor height="450px" language="json" value={input} onChange={(v) => { edited.current = true; setInput(v ?? ''); }}
-          options={{ minimap: { enabled: false }, fontSize: 13 }} />
+        <div className="p-4 h-[450px] overflow-auto">
+          <InputFields title="" fields={inputFieldsOf(rule).length ? inputFieldsOf(rule) : Object.keys(sampleInput || {}).map(name => ({ name }))}
+            value={(() => { try { return JSON.parse(input || '{}'); } catch { return {}; } })()}
+            onChange={v => { edited.current = true; setInput(JSON.stringify(v, null, 2)); }} />
+        </div>
       </div>
       <div className="card overflow-hidden">
         <div className="px-4 py-2.5 border-b border-border flex items-center justify-between">
@@ -407,7 +411,7 @@ function TestTab({ rule }: { rule: any }) {
               <div className="pill pill-ok mb-2">
                 <Check className="h-3 w-3" /> Success
               </div>
-              <pre className="text-text whitespace-pre-wrap leading-relaxed">{JSON.stringify(output, null, 2)}</pre>
+              <ResultView value={output} />
             </>
           )}
 

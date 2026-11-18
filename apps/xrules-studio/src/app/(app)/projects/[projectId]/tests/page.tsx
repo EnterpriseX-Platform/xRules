@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { PageHead, Table, Td, Tag, Btn, Input, TextArea, Panel, Notice, fmtTime, Modal } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { usePerms } from '@/lib/perms';
+import { InputFields, ExpectationRows, inputFieldsOf, outputFieldsOf, flowFields } from '@/components/test/FieldsEditor';
 
 const ST: Record<string, [any, string]> = { PASS: ['green', 'Passed'], FAIL: ['red', 'Failed'], ERROR: ['red', 'Error'], PENDING: ['gray', 'Not run'] };
 const TT: Record<string, string> = { rule: 'Rule', decision_flow: 'Decision Flow', operation: 'API operation' };
@@ -17,7 +18,7 @@ export default function TestsPage() {
   const [open, setOpen] = useState(false);
   const [suite, setSuite] = useState('');
   const [suiteName, setSuiteName] = useState('');
-  const [f, setF] = useState<any>({ name: '', targetType: 'decision_flow', targetId: '', input: '{\n  "context": {},\n  "items": []\n}', expectations: '[\n  { "kind": "has_finding", "code": "TOR-4.4.1.3", "severity": "WARNING" }\n]', suiteIds: [] });
+  const [f, setF] = useState<any>({ name: '', targetType: 'decision_flow', targetId: '', input: {}, expectations: [{ kind: 'equals', path: '', value: '' }], suiteIds: [] });
   const { data: cases = [] } = useQuery({ queryKey: ['tests', projectId, suite], queryFn: () => api.get<any[]>(`/platform/tests?project_id=${projectId}${suite ? `&suiteId=${suite}` : ''}`) });
   const { data: suites = [] } = useQuery({ queryKey: ['suites', projectId], queryFn: () => api.get<any[]>(`/platform/suites?project_id=${projectId}`) });
   const { data: flows = [] } = useQuery({ queryKey: ['flows-all', projectId], queryFn: () => api.get<any[]>(`/flows?project_id=${projectId}`) });
@@ -27,12 +28,14 @@ export default function TestsPage() {
   const targetOpts = f.targetType === 'rule' ? ruleList.map(r => ({ value: r.id, label: r.name }))
     : f.targetType === 'operation' ? (specs as any[]).flatMap(s => (s.operations || []).map((o: any) => ({ value: o.id, label: `${s.name}: ${o.method} ${o.path}` })))
     : (flows as any[]).filter(x => x.kind === 'decision').map(x => ({ value: x.id, label: x.name }));
+  const target = f.targetType === 'rule' ? ruleList.find(r => r.id === f.targetId) : (flows as any[]).find(x => x.id === f.targetId);
+  const tf = f.targetType === 'rule' ? { inputs: inputFieldsOf(target), outputs: outputFieldsOf(target) } : f.targetType === 'decision_flow' ? flowFields(target, ruleList) : { inputs: [], outputs: [] };
   const names: Record<string, string> = Object.fromEntries([...targetOpts, ...(flows as any[]).map(x => ({ value: x.id, label: x.name })), ...ruleList.map(r => ({ value: r.id, label: r.name }))].map(o => [o.value, o.label]));
   const inv = () => qc.invalidateQueries({ queryKey: ['tests', projectId] });
   const run = useMutation({ meta: { failLabel: "Couldn't run" }, mutationFn: (id: string) => api.post(`/platform/tests/${id}/run`), onSettled: inv });
   const runSuite = useMutation({ meta: { failLabel: "Couldn't run" }, mutationFn: () => api.post(`/platform/suites/${suite}/run`), onSettled: inv });
   const newSuite = useMutation({ mutationFn: (name: string) => api.post<any>('/platform/suites', { projectId, name }), onSuccess: s => { qc.invalidateQueries({ queryKey: ['suites', projectId] }); setSuite(s.id); } });
-  const create = useMutation({ meta: { silent: true }, mutationFn: () => api.post('/platform/tests', { projectId, name: f.name, targetType: f.targetType, targetId: f.targetId, input: JSON.parse(f.input), expectations: JSON.parse(f.expectations), suiteIds: suite ? [suite] : [] }), onSuccess: () => { setOpen(false); inv(); } });
+  const create = useMutation({ meta: { silent: true }, mutationFn: () => api.post('/platform/tests', { projectId, name: f.name, targetType: f.targetType, targetId: f.targetId, input: f.input, expectations: f.expectations, suiteIds: suite ? [suite] : [] }), onSuccess: () => { setOpen(false); inv(); } });
   const passed = (cases as any[]).filter(c => c.lastStatus === 'PASS').length;
   return (
     <div className="px-8 py-6">
@@ -46,15 +49,13 @@ export default function TestsPage() {
       </div>
       {open && (
         <Modal title="New test case" onClose={() => setOpen(false)} wide onSubmit={() => create.mutate()} submitLabel="Save" submitDisabled={!f.name || !f.targetId || create.isPending} error={create.error ? String((create.error as any).message) : null}>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid gap-4">
             <Input id="tc-name" label="Name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} />
             <div><div className="text-[12px] text-[#525252] mb-1.5">Target type</div><Dropdown value={f.targetType} onChange={v => setF({ ...f, targetType: v, targetId: '' })} options={Object.entries(TT).map(([value, label]) => ({ value, label }))} /></div>
             <div><div className="text-[12px] text-[#525252] mb-1.5">Target</div><Dropdown value={f.targetId} onChange={v => setF({ ...f, targetId: v })} options={targetOpts} /></div>
           </div>
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            <TextArea id="tc-in" label={f.targetType === 'operation' ? 'Request ({ "params", "query", "body" })' : 'Input (JSON)'} rows={10} value={f.input} onChange={(v: string) => setF({ ...f, input: v })} />
-            <TextArea id="tc-exp" label="Expectations: status · equals (path, value) · has_finding / no_finding (code, severity) · max_ms" rows={10} value={f.expectations} onChange={(v: string) => setF({ ...f, expectations: v })} />
-          </div>
+          <InputFields key={`in-${f.targetId}`} title={f.targetType === 'operation' ? 'Request' : 'Input'} fields={tf.inputs} value={f.input} onChange={v => setF({ ...f, input: v })} />
+          <ExpectationRows key={`ex-${f.targetId}`} outputs={tf.outputs} value={f.expectations} onChange={v => setF({ ...f, expectations: v })} />
         </Modal>
       )}
       <Table head={['Case', 'Target', 'Last result', 'Details', '']} empty={!cases.length ? <div className="px-4 py-6 text-[14px] text-[#525252]">No test cases yet</div> : null}>

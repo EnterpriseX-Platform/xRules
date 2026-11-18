@@ -17,6 +17,7 @@ import { STEPS, metaFor, type FlowKindName } from './registry';
 import { StepInspector } from './StepInspector';
 import { TraceView } from './TraceView';
 import { FlowRelations } from './Relations';
+import { InputFields, flowFields } from '@/components/test/FieldsEditor';
 
 type Graph = { nodes: Node[]; edges: Edge[] };
 const EDGE = { type: 'smoothstep', style: { stroke: '#161616', strokeWidth: 1.4 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#161616', width: 18, height: 18 } } as const;
@@ -69,7 +70,9 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
   const [aiMsg, setAiMsg] = useState<string | null>(null);
   const [preview, setPreview] = useState<any | null>(null);
   const [testOpen, setTestOpen] = useState(false);
-  const [testInput, setTestInput] = useState('{\n  \n}');
+  const [testInput, setTestInput] = useState('{}');
+  const { data: projRules } = useQuery({ queryKey: ['rules', flow?.projectId], queryFn: () => api.get<any>(`/rules?project_id=${flow?.projectId}`), enabled: !!flow?.projectId });
+  const ruleList: any[] = Array.isArray(projRules) ? projRules : ((projRules as any)?.data || (projRules as any)?.items || []);
   const [testResult, setTestResult] = useState<any | null>(null);
   const past = useRef<Graph[]>([]); const future = useRef<Graph[]>([]);
 
@@ -272,8 +275,9 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
               <button className="ml-auto h-8 w-8 flex items-center justify-center hover:bg-[#e8e8e8]" onClick={() => setTestOpen(false)} aria-label="Close"><X className="h-4 w-4" /></button>
             </div>
             <div className="p-4 border-b border-[#e0e0e0] space-y-2">
-              <label className="block text-[12px] text-[#525252]" htmlFor="flow-test-input">Input</label>
-              <textarea id="flow-test-input" rows={5} className="w-full bg-[#f4f4f4] border-b border-[#8d8d8d] px-3 py-2 font-mono text-[13px] outline-none resize-y focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2" spellCheck={false} value={testInput} onChange={e => setTestInput(e.target.value)} />
+              <InputFields fields={flowFields({ graph: { nodes } }, ruleList).inputs}
+                value={(() => { try { return JSON.parse(testInput || '{}'); } catch { return {}; } })()}
+                onChange={v => setTestInput(JSON.stringify(v))} />
               <button className="h-10 w-full text-[14px] bg-[#0f62fe] text-white hover:bg-[#0353e9] disabled:bg-[#c6c6c6] flex items-center justify-center gap-2" disabled={testRun.isPending} onClick={() => testRun.mutate()}><Play className="h-4 w-4" /> Run</button>
             </div>
             <div className="flex-1 overflow-y-auto">
