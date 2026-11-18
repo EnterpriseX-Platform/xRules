@@ -15,6 +15,8 @@ const nextConfig = {
         { source: '/connections', destination: `${HUB}/integrations/connections` },
         { source: '/apis', destination: `${HUB}/apis` },
         { source: '/apis/:id', destination: `${HUB}/apis/:id` },
+        { source: '/apis/:id/flows/:flowId', destination: `${HUB}/flows/:flowId` },
+        { source: '/flows/:flowId', destination: `${HUB}/flows/:flowId` },
         { source: '/triggers', destination: `${HUB}/triggers` },
         { source: '/data-sets', destination: `${HUB}/data-sets` },
         { source: '/data-sets/:id', destination: `${HUB}/data-sets/:id` },
