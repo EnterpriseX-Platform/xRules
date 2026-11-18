@@ -34,7 +34,7 @@ export default function BulkPage() {
     <div className="px-8 py-6">
       <PageHead title="Bulk Runs" sub="Run a rule or decision flow over many rows · results as a file · retry only failed rows" actions={perms.write ? (<Btn onClick={() => setOpen(true)}>New Bulk Run</Btn>) : undefined} />
       {open && (
-        <Modal title="New bulk run" onClose={() => setOpen(false)} wide>
+        <Modal title="New bulk run" onClose={() => setOpen(false)} wide onSubmit={() => create.mutate()} submitLabel="Start run" submitDisabled={!f.target || create.isPending || (f.sourceKind === 'file' && !file)} error={create.error ? String((create.error as any).message) : null}>
           <div className="grid grid-cols-3 gap-4">
             <Input id="b-name" label="Name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} placeholder="Check all FY2571 requests" />
             <div><div className="text-[12px] text-[#525252] mb-1.5">Run against</div><Dropdown value={f.targetType} onChange={v => setF({ ...f, targetType: v, target: '' })} options={[{ value: 'decision_flow', label: 'Decision Flow' }, { value: 'rule', label: 'Rule' }]} /></div>
@@ -48,8 +48,6 @@ export default function BulkPage() {
             {f.sourceKind === 'rows' && <TextArea id="b-rows" label="Rows (JSON array)" rows={6} value={f.rowsJson} onChange={(v: string) => setF({ ...f, rowsJson: v })} />}
           </div>
           <div className="mt-4"><TextArea id="b-map" label="Column → input mapping (JSON with {{column}} · leave empty if columns already match the input)" rows={5} value={f.mapping} onChange={(v: string) => setF({ ...f, mapping: v })} /></div>
-          {create.error && <div className="mt-3"><Notice kind="error">{String((create.error as any).message)}</Notice></div>}
-          <div className="mt-4"><Btn onClick={() => create.mutate()} disabled={!f.target || create.isPending || (f.sourceKind === 'file' && !file)}>Start run</Btn></div>
         </Modal>
       )}
       <Table head={['Name', 'Target', 'Status', 'Progress', 'Passed / failed / errors', 'Started']} empty={!runs.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">No bulk runs yet</div> : null}>

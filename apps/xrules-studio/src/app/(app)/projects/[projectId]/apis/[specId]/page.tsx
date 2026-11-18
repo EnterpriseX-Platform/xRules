@@ -57,15 +57,13 @@ function Operations({ spec, projectId, onChange }: any) {
         ))}
       </Table>
       <div><Btn onClick={() => setAddOpen(true)}>Add operation</Btn></div>
-      {addOpen && <Modal title="Add operation" onClose={() => setAddOpen(false)} wide>
+      {addOpen && <Modal title="Add operation" onClose={() => setAddOpen(false)} wide onSubmit={() => add.mutate()} submitLabel="Add" submitDisabled={!f.path || add.isPending} error={add.error ? String((add.error as any).message) : null}>
         <div className="grid gap-4">
           <div><div className="text-[12px] text-[#525252] mb-1.5">Method</div><Dropdown value={f.method} onChange={v => setF({ ...f, method: v })} options={['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map(m => ({ value: m, label: m }))} /></div>
           <Input id="op-path" label="Path (parameters like {itemCode})" mono value={f.path} onChange={(v: string) => setF({ ...f, path: v })} placeholder="/standard-price/{itemCode}" />
           <Input id="op-sum" label="Summary" value={f.summary} onChange={(v: string) => setF({ ...f, summary: v })} />
         </div>
         <div className="mt-4"><TextArea id="op-schema" label="Body JSON Schema (optional)" rows={4} value={f.schema} onChange={(v: string) => setF({ ...f, schema: v })} /></div>
-        {add.error && <div className="mt-3"><Notice kind="error">{String((add.error as any).message)}</Notice></div>}
-        <div className="mt-4"><Btn onClick={() => add.mutate()} disabled={!f.path || add.isPending}>Add</Btn></div>
       </Modal>}
     </div>
   );

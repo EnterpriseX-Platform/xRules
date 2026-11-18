@@ -37,7 +37,7 @@ export default function ApiKeysPage() {
       {tab === 'Keys' && <>
         {created && <div className="mb-4"><Notice kind="success">Key created. Copy it now; it will not be shown again<div className="font-mono text-[13px] mt-2 bg-white px-2 py-1 select-all">{created.key}</div></Notice></div>}
         {open && (
-          <Modal title="New key" onClose={() => setOpen(false)} wide>
+          <Modal title="New key" onClose={() => setOpen(false)} wide onSubmit={() => create.mutate()} submitLabel="Create" submitDisabled={!f.name || create.isPending} error={create.error ? String((create.error as any).message) : null}>
             <div className="grid grid-cols-4 gap-4">
               <Input id="k-name" label="Name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} placeholder="bpn-prod" />
               <Input id="k-sys" label="Calling system" value={f.systemName} onChange={(v: string) => setF({ ...f, systemName: v })} placeholder="BPN" />
@@ -46,8 +46,6 @@ export default function ApiKeysPage() {
             </div>
             <div className="mt-4 text-[12px] text-[#525252] mb-1.5">May call</div>
             <div className="space-y-1">{(specs as any[]).map(s => <label key={s.id} className="flex items-center gap-2 text-[14px]"><input type="checkbox" checked={f.specIds.includes(s.id)} onChange={() => toggleSpec(s.id)} />{s.name} <span className="font-mono text-[12px] text-[#525252]">{s.url}</span></label>)}</div>
-            {create.error && <div className="mt-3"><Notice kind="error">{String((create.error as any).message)}</Notice></div>}
-            <div className="mt-4"><Btn onClick={() => create.mutate()} disabled={!f.name || create.isPending}>Create</Btn></div>
           </Modal>
         )}
         <Table head={['Key', 'System', 'May call', 'Per minute', 'Expires', 'Last used', 'Active']} empty={!keys.length ? <div className="px-4 py-6 text-[14px] text-[#525252]">No keys yet</div> : null}>

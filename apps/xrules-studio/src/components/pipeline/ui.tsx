@@ -115,7 +115,7 @@ export function Modal({ title, onClose, onSubmit, submitLabel = 'Save', submitDi
       onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <Box role="dialog" aria-modal="true"
         className={`w-full ${width} bg-white shadow-xl flex flex-col ${drawer ? 'h-full' : 'mb-10'}`}
-        onSubmit={(e: any) => { e.preventDefault(); if (!submitDisabled) onSubmit?.(); }}
+        onSubmit={(e: any) => { e.preventDefault(); const by = e.nativeEvent?.submitter; if (by && !by.dataset?.modalSubmit) return; if (!submitDisabled) onSubmit?.(); }}
         onKeyDown={(e: any) => { if (e.key === 'Escape') onClose(); }}>
         <div className="pl-6 pr-1 pt-3 pb-2 flex items-center gap-1 shrink-0">
           <span className="flex-1 text-[20px] text-[#161616] pt-2 truncate">{title}</span>
@@ -133,7 +133,7 @@ export function Modal({ title, onClose, onSubmit, submitLabel = 'Save', submitDi
         </div>
         {onSubmit ? <div className={`grid grid-cols-2 shrink-0 ${drawer ? '' : 'mt-6'}`}>
           <button type="button" className="h-12 px-4 text-left text-[14px] bg-[#393939] text-white hover:bg-[#474747]" onClick={onClose}>Cancel</button>
-          <button type="submit" disabled={submitDisabled} className={`h-12 px-4 text-left text-[14px] text-white disabled:bg-[#c6c6c6] ${danger ? 'bg-[#da1e28] hover:bg-[#b81921]' : 'bg-[#0f62fe] hover:bg-[#0353e9]'}`}>{submitLabel}</button>
+          <button type="submit" data-modal-submit="1" disabled={submitDisabled} className={`h-12 px-4 text-left text-[14px] text-white disabled:bg-[#c6c6c6] ${danger ? 'bg-[#da1e28] hover:bg-[#b81921]' : 'bg-[#0f62fe] hover:bg-[#0353e9]'}`}>{submitLabel}</button>
         </div> : !drawer && <div className="h-6" />}
       </Box>
     </div>

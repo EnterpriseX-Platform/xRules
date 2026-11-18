@@ -45,7 +45,7 @@ export default function TestsPage() {
         {perms.write && <Btn kind="ghost" onClick={() => { newSuite.mutate(suiteName); setSuiteName(''); }} disabled={!suiteName.trim()}>Create suite</Btn>}
       </div>
       {open && (
-        <Modal title="New test case" onClose={() => setOpen(false)} wide>
+        <Modal title="New test case" onClose={() => setOpen(false)} wide onSubmit={() => create.mutate()} submitLabel="Save" submitDisabled={!f.name || !f.targetId || create.isPending} error={create.error ? String((create.error as any).message) : null}>
           <div className="grid grid-cols-3 gap-4">
             <Input id="tc-name" label="Name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} />
             <div><div className="text-[12px] text-[#525252] mb-1.5">Target type</div><Dropdown value={f.targetType} onChange={v => setF({ ...f, targetType: v, targetId: '' })} options={Object.entries(TT).map(([value, label]) => ({ value, label }))} /></div>
@@ -55,8 +55,6 @@ export default function TestsPage() {
             <TextArea id="tc-in" label={f.targetType === 'operation' ? 'Request ({ "params", "query", "body" })' : 'Input (JSON)'} rows={10} value={f.input} onChange={(v: string) => setF({ ...f, input: v })} />
             <TextArea id="tc-exp" label="Expectations: status · equals (path, value) · has_finding / no_finding (code, severity) · max_ms" rows={10} value={f.expectations} onChange={(v: string) => setF({ ...f, expectations: v })} />
           </div>
-          {create.error && <div className="mt-3"><Notice kind="error">{String((create.error as any).message)}</Notice></div>}
-          <div className="mt-4"><Btn onClick={() => create.mutate()} disabled={!f.name || !f.targetId || create.isPending}>Save</Btn></div>
         </Modal>
       )}
       <Table head={['Case', 'Target', 'Last result', 'Details', '']} empty={!cases.length ? <div className="px-4 py-6 text-[14px] text-[#525252]">No test cases yet</div> : null}>

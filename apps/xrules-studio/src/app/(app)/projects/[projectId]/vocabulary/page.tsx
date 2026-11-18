@@ -97,13 +97,12 @@ function Terms({ projectId }: { projectId: string }) {
   return (
     <div className="space-y-4">
       <div><Btn onClick={() => setAddOpen(true)}>Add term</Btn></div>
-      {addOpen && <Modal title="Add term" onClose={() => setAddOpen(false)} wide>
+      {addOpen && <Modal title="Add term" onClose={() => setAddOpen(false)} wide onSubmit={() => save.mutate({ term: f.term, path: f.path, type: f.type, values: f.values.split(',').map(s => s.trim()).filter(Boolean) })} submitLabel="Add" submitDisabled={!f.term || !f.path}>
         <div className="grid gap-4">
           <Input id="t-term" label="Term" value={f.term} onChange={(v: string) => setF({ ...f, term: v })} />
           <Input id="t-path" label="Data path" mono value={f.path} onChange={(v: string) => setF({ ...f, path: v })} placeholder="item.unitPrice" />
           <div><div className="text-[12px] text-[#525252] mb-1.5">Type</div><Dropdown value={f.type} onChange={v => setF({ ...f, type: v })} options={[{ value: 'text', label: 'Text' }, { value: 'number', label: 'Number' }, { value: 'money', label: 'Money' }, { value: 'date', label: 'Date' }, { value: 'enum', label: 'List of values' }]} /></div>
           <Input id="t-vals" label="Allowed values (comma separated)" value={f.values} onChange={(v: string) => setF({ ...f, values: v })} />
-          <Btn onClick={() => save.mutate({ term: f.term, path: f.path, type: f.type, values: f.values.split(',').map(s => s.trim()).filter(Boolean) })} disabled={!f.term || !f.path}>Add</Btn>
         </div>
       </Modal>}
       <Table head={['Term', 'Means', 'Type', 'Allowed values', '']}>

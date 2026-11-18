@@ -30,13 +30,12 @@ export default function TriggersPage() {
     <div className="px-8 py-6">
       <PageHead title="Triggers" sub={`${rows.length} triggers · started on a schedule, by webhook or by hand · includes Data Set syncs`} actions={perms.integrate ? (<Btn onClick={() => setOpen(true)}>New Trigger</Btn>) : undefined} />
       {open && (
-        <Modal title="New trigger" onClose={() => setOpen(false)} wide>
+        <Modal title="New trigger" onClose={() => setOpen(false)} wide onSubmit={() => create.mutate()} submitLabel="Create" submitDisabled={(!f.name && f.type !== 'data_sync') || create.isPending}>
           <div className="grid grid-cols-3 gap-4">
             <Input id="tr-name" label="Name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} />
             <div><div className="text-[12px] text-[#525252] mb-1.5">Starts on</div><Dropdown value={f.type} onChange={v => setF({ ...f, type: v })} options={Object.entries(TYPE).map(([value, label]) => ({ value, label }))} /></div>
             {f.type === 'schedule' && <Input id="tr-cron" label="Schedule (cron)" mono value={f.cron} onChange={(v: string) => setF({ ...f, cron: v })} />}
           </div>
-          <div className="mt-4"><Btn onClick={() => create.mutate()} disabled={(!f.name && f.type !== 'data_sync') || create.isPending}>Create</Btn></div>
         </Modal>
       )}
       <Table head={['Name', 'Starts on', 'Status', 'Last run', '']} empty={!rows.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">No triggers yet</div> : null}>
