@@ -3,6 +3,7 @@
 // Credentials (all in Jenkins, never in this repo):
 //   docker-credential   Docker Hub login with push access to avalantoneweb/*
 //   kubeconfig-kt1-qa   Secret file: kubeconfig for kt1-qa (shared with FactoryX); this job only touches namespace xrules
+//   xrules-qa-admin     Username/password: the first admin account (created by the API on start if missing)
 // First run: applies deploy/qa/k8s.yaml and creates Secret xrules-secret with random passwords if it does not exist.
 // Later runs: build → push → set image → rollout (rolled back if it fails) → check the public URLs.
 pipeline {
@@ -58,7 +59,8 @@ pipeline {
         stage('Deploy') {
             when { expression { params.DEPLOY } }
             steps {
-                withCredentials([file(credentialsId: params.KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG')]) {
+                withCredentials([file(credentialsId: params.KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG'),
+                                 usernamePassword(credentialsId: 'xrules-qa-admin', usernameVariable: 'ADMIN_EMAIL', passwordVariable: 'ADMIN_PASSWORD')]) {
                     sh '''
                     set -e
                     NS="$KUBE_NAMESPACE"
@@ -80,6 +82,10 @@ pipeline {
                         echo "First install into $NS"
                         kubectl apply -f deploy/qa/k8s.yaml
                     fi
+                    set +x
+                    kubectl -n "$NS" create secret generic xrules-admin --from-literal=ADMIN_EMAIL="$ADMIN_EMAIL" --from-literal=ADMIN_PASSWORD="$ADMIN_PASSWORD" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+                    kubectl -n "$NS" set env deployment/xrules-api --from=secret/xrules-admin >/dev/null
+                    set -x
                     for p in $PARTS; do
                         kubectl -n "$NS" set image deployment/xrules-$p "xrules-$p=docker.io/$IMAGE_REPO/xrules-$p:$TAG"
                     done

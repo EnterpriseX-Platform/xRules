@@ -40,6 +40,18 @@ app.use('/', routes);
 app.use(errorHandler);
 
 // Start server
+// First admin: created once from ADMIN_EMAIL / ADMIN_PASSWORD when that email has no account yet
+async function ensureAdmin() {
+  const email = process.env.ADMIN_EMAIL?.trim(); const password = process.env.ADMIN_PASSWORD;
+  if (!email || !password) return;
+  const { prisma } = await import('./config/database.js');
+  if (await prisma.user.findUnique({ where: { email } })) return;
+  const { signup } = await import('./services/users.service.js');
+  await signup({ email, password, name: 'Admin', workspaceName: process.env.ADMIN_WORKSPACE || 'xRules' } as any);
+  console.log(`Admin account created: ${email}`);
+}
+ensureAdmin().catch(e => console.error('Admin bootstrap failed:', e.message));
+
 app.listen(env.port, () => {
   // XRULES_BACKGROUND=off: serve the API only (no schedules, no queue workers) — for debug copies and read replicas
   if (process.env.XRULES_BACKGROUND !== 'off') { startScheduler(); startWorkers(); }
