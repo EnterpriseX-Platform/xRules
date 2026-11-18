@@ -112,26 +112,25 @@ function Members({ me, admin }: { me: any; admin: boolean }) {
         </Panel>
       )}
       {err && <Notice kind="error">{err}</Notice>}
-      <Table head={['Name', 'Email', 'Role', 'Approver', 'Joined', '']}>
+      <div className="bg-white border border-[#e0e0e0]">
         {members.map((m: any) => {
           const self = m.userId === user?.id;
           const canEdit = admin && (me.role === 'OWNER' || m.role !== 'OWNER');
+          const always = m.role === 'OWNER' || m.role === 'ADMIN';
           return (
-            <tr key={m.userId}>
-              <Td>{m.name || '—'}{self && <span className="ml-2"><Tag tone="blue">you</Tag></span>}</Td>
-              <Td mono>{m.email}</Td>
-              <Td className="w-56">{canEdit ? <Dropdown value={m.role} options={opts} onChange={v => v !== m.role && roleM.mutate({ userId: m.userId, role: v })} /> : roleLabel(m.role)}</Td>
-              <Td>{m.role === 'OWNER' || m.role === 'ADMIN' ? <span className="text-[#525252]">Always</span>
-                : canEdit ? <label className="inline-flex items-center gap-2 cursor-pointer"><input type="checkbox" aria-label={`Approver ${m.email}`} checked={!!m.canApprove} onChange={e => approveM.mutate({ userId: m.userId, canApprove: e.target.checked })} />{m.canApprove ? 'Yes' : 'No'}</label>
-                : (m.canApprove ? 'Yes' : 'No')}</Td>
-              <Td>{new Date(m.joinedAt).toLocaleDateString('en-GB')}</Td>
-              <Td className="text-right">
-                {(canEdit || self) && <Btn kind="ghost" onClick={() => delM.mutate(m.userId)}>{self ? 'Leave' : 'Remove'}</Btn>}
-              </Td>
-            </tr>
+            <div key={m.userId} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 border-b border-[#e0e0e0] last:border-b-0">
+              <div className="flex-1 min-w-[200px]">
+                <div className="text-[14px] text-[#161616]">{m.name || m.email}{self && <span className="ml-2 text-[12px] text-[#525252]">(you)</span>}</div>
+                <div className="text-[12px] text-[#525252] font-mono truncate">{m.email}</div>
+              </div>
+              <div className="w-[150px]">{canEdit && !self ? <Dropdown value={m.role} options={opts} onChange={v => v !== m.role && roleM.mutate({ userId: m.userId, role: v })} /> : <span className="text-[14px]">{roleLabel(m.role)}</span>}</div>
+              {!always && (canEdit ? <label className="flex items-center gap-2 text-[13px] text-[#525252] cursor-pointer"><input type="checkbox" className="h-4 w-4 accent-[#161616]" aria-label={`Approver ${m.email}`} checked={!!m.canApprove} onChange={e => approveM.mutate({ userId: m.userId, canApprove: e.target.checked })} />Approver</label>
+                : m.canApprove ? <span className="text-[13px] text-[#525252]">Approver</span> : null)}
+              {(canEdit || self) && <Btn kind="ghost" onClick={() => delM.mutate(m.userId)}>{self ? 'Leave' : 'Remove'}</Btn>}
+            </div>
           );
         })}
-      </Table>
+      </div>
     </div>
   );
 }
@@ -150,10 +149,10 @@ const CAN: [string, (boolean | 'flag')[]][] = [
 function Roles() {
   return (
     <div className="bg-white border border-[#e0e0e0] overflow-x-auto">
-      <table className="w-full min-w-[640px] text-[14px]">
+      <table className="w-full min-w-[520px] text-[14px]">
         <thead><tr className="h-11 border-b border-[#e0e0e0] text-left text-[12px] text-[#525252]">
           <th className="px-4 font-normal">Permission</th>
-          {ROLE_OPTS.map(r => <th key={r.value} className="px-3 font-normal text-center w-[96px]">{r.label}</th>)}
+          {ROLE_OPTS.map(r => <th key={r.value} className="px-3 font-normal text-center w-[76px]">{r.label}</th>)}
         </tr></thead>
         <tbody>
           {CAN.map(([what, v]) => (

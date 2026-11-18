@@ -36,7 +36,7 @@ export function Topbar() {
   const name = user?.name || user?.email?.split('@')[0] || '';
   const initials = name.slice(0, 2).toUpperCase() || 'A';
   const role = perms.role ? perms.role[0] + perms.role.slice(1).toLowerCase() : '';
-  const tenantWide = /^\/projects\/(_all|_integration)\b/.test(pathname) || pathname.startsWith('/settings');
+  const tenantWide = /^\/projects\/(_all|_integration)\b/.test(pathname) || pathname.startsWith('/settings') || pathname.startsWith('/admin');
 
   return (
     <header className="h-[48px] shrink-0 bg-[#161616] text-[#c6c6c6] flex items-center pr-2">

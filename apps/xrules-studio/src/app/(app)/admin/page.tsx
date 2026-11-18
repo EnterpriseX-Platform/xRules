@@ -4,7 +4,7 @@ import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageContent } from '@/components/layout/AppShell';
-import { Table, Td, Btn, Input, Panel, Notice, Tag } from '@/components/pipeline/ui';
+import { Btn, Input, Panel, Notice, Tag } from '@/components/pipeline/ui';
 import { api } from '@/lib/api';
 
 const TABS = ['Organizations', 'Users', 'Settings'] as const;
@@ -20,7 +20,7 @@ function AdminPage() {
   return (
     <PageContent>
       <h1 className="text-[24px] leading-8 text-[#161616] mb-3">System admin</h1>
-      <div className="flex border-b border-[#e0e0e0] mb-5 overflow-x-auto">
+      <div className="flex border-b border-[#e0e0e0] mb-5 overflow-x-auto [scrollbar-width:none]">
         {TABS.map(t => (
           <button key={t} onClick={() => router.replace(`/admin?tab=${t}`)}
             className={`h-10 px-4 text-[14px] whitespace-nowrap border-b-2 -mb-px ${tab === t ? 'border-[#161616] text-[#161616] font-semibold' : 'border-transparent text-[#525252] hover:text-[#161616]'}`}>{t}</button>
@@ -70,19 +70,17 @@ function Orgs() {
         </Panel>
       )}
       <Issued v={issued} onHide={() => setIssued(null)} />
-      <div className="overflow-x-auto">
-        <Table head={['Organization', 'Owner', 'Members', 'Projects', 'Status', '']}>
-          {orgs.map((o: any) => (
-            <tr key={o.id}>
-              <Td><div>{o.name}</div><div className="font-mono text-[12px] text-[#525252]">{o.slug}</div></Td>
-              <Td mono>{o.owner || '—'}</Td>
-              <Td className="tabular-nums">{o.members}</Td>
-              <Td className="tabular-nums">{o.projects}</Td>
-              <Td>{o.suspended ? <Tag tone="red">Suspended</Tag> : <Tag tone="green">Active</Tag>}</Td>
-              <Td className="text-right"><Btn kind="ghost" onClick={() => upd.mutate({ id: o.id, body: { suspended: !o.suspended } })}>{o.suspended ? 'Reactivate' : 'Suspend'}</Btn></Td>
-            </tr>
-          ))}
-        </Table>
+      <div className="bg-white border border-[#e0e0e0]">
+        {orgs.map((o: any) => (
+          <div key={o.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 border-b border-[#e0e0e0] last:border-b-0">
+            <div className="flex-1 min-w-[200px]">
+              <div className="text-[14px] text-[#161616]">{o.name}</div>
+              <div className="text-[12px] text-[#525252] truncate"><span className="font-mono">{o.owner || '—'}</span> · {o.members} member{o.members === 1 ? '' : 's'} · {o.projects} project{o.projects === 1 ? '' : 's'}</div>
+            </div>
+            {o.suspended && <Tag tone="red">Suspended</Tag>}
+            <Btn kind="ghost" onClick={() => upd.mutate({ id: o.id, body: { suspended: !o.suspended } })}>{o.suspended ? 'Reactivate' : 'Suspend'}</Btn>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -107,27 +105,30 @@ function Users({ meId }: { meId?: string }) {
       </div>
       {err && <div className="mb-3"><Notice kind="error">{err}</Notice></div>}
       <Issued v={issued} onHide={() => setIssued(null)} />
-      <div className="overflow-x-auto">
-        <Table head={['User', 'Organizations', 'System admin', 'Status', '']}>
-          {list.map((u: any) => (
-            <tr key={u.id}>
-              <Td><div>{u.name || '—'}{u.id === meId && <span className="ml-2"><Tag tone="blue">you</Tag></span>}</div><div className="font-mono text-[12px] text-[#525252]">{u.email}</div></Td>
-              <Td className="!whitespace-normal">{u.orgs.length ? u.orgs.map((o: any) => `${o.name} (${String(o.role).toLowerCase()})`).join(', ') : '—'}</Td>
-              <Td>
-                <button role="switch" aria-checked={u.isSystemAdmin} aria-label={`System admin ${u.email}`} disabled={u.id === meId}
+      <div className="bg-white border border-[#e0e0e0]">
+        {list.map((u: any) => {
+          const self = u.id === meId;
+          return (
+            <div key={u.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 border-b border-[#e0e0e0] last:border-b-0">
+              <div className="flex-1 min-w-[200px]">
+                <div className="text-[14px] text-[#161616]">{u.name || u.email}{self && <span className="ml-2 text-[12px] text-[#525252]">(you)</span>}{u.disabled && <span className="ml-2"><Tag tone="red">Disabled</Tag></span>}</div>
+                <div className="text-[12px] text-[#525252] truncate"><span className="font-mono">{u.email}</span>{u.orgs.length > 0 && <> · {u.orgs.map((o: any) => `${o.name} (${String(o.role).toLowerCase()})`).join(', ')}</>}</div>
+              </div>
+              <label className="flex items-center gap-2 text-[13px] text-[#525252]">
+                System admin
+                <button role="switch" aria-checked={u.isSystemAdmin} aria-label={`System admin ${u.email}`} disabled={self}
                   onClick={() => upd.mutate({ id: u.id, body: { isSystemAdmin: !u.isSystemAdmin } })}
-                  className={`h-6 w-11 relative transition-colors disabled:opacity-40 ${u.isSystemAdmin ? 'bg-[#161616]' : 'bg-[#8d8d8d]'}`}>
-                  <span className={`absolute top-1 h-4 w-4 bg-white transition-all ${u.isSystemAdmin ? 'left-6' : 'left-1'}`} />
+                  className={`h-6 w-11 relative ${u.isSystemAdmin ? 'bg-[#161616]' : 'bg-[#a8a8a8]'} ${self ? 'cursor-not-allowed' : ''}`}>
+                  <span className={`absolute top-1 h-4 w-4 bg-white ${u.isSystemAdmin ? 'left-6' : 'left-1'}`} />
                 </button>
-              </Td>
-              <Td>{u.disabled ? <Tag tone="red">Disabled</Tag> : <Tag tone="green">Active</Tag>}</Td>
-              <Td className="text-right whitespace-nowrap">
+              </label>
+              <div className="flex">
                 <Btn kind="ghost" onClick={() => reset.mutate(u)}>Reset password</Btn>
-                {u.id !== meId && <Btn kind="ghost" onClick={() => upd.mutate({ id: u.id, body: { disabled: !u.disabled } })}>{u.disabled ? 'Enable' : 'Disable'}</Btn>}
-              </Td>
-            </tr>
-          ))}
-        </Table>
+                {!self && <Btn kind="ghost" onClick={() => upd.mutate({ id: u.id, body: { disabled: !u.disabled } })}>{u.disabled ? 'Enable' : 'Disable'}</Btn>}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

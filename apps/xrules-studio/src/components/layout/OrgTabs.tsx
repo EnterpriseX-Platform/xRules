@@ -21,7 +21,7 @@ function Inner({ title }: { title?: string }) {
   return (
     <div className="mb-5">
       <h1 className="text-[24px] leading-8 text-[#161616] mb-3">{title || 'Organization'}</h1>
-      <div className="flex border-b border-[#e0e0e0] overflow-x-auto">
+      <div className="flex border-b border-[#e0e0e0] overflow-x-auto [scrollbar-width:none]">
         {TABS.map(t => (
           <Link key={t.key} href={t.href}
             className={`h-10 px-4 flex items-center text-[14px] whitespace-nowrap border-b-2 -mb-px ${active === t.key ? 'border-[#161616] text-[#161616] font-semibold' : 'border-transparent text-[#525252] hover:text-[#161616]'}`}>
