@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { PageHead, Table, Td, Tag, Btn, Input, TextArea, Panel, Notice, fmtTime } from '@/components/pipeline/ui';
+import { PageHead, Table, Td, Tag, Btn, Input, TextArea, Panel, Notice, fmtTime, Modal } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { usePerms } from '@/lib/perms';
 
@@ -38,14 +38,14 @@ export default function TestsPage() {
     <div className="px-8 py-6">
       <PageHead title="Test Suites" sub={`${cases.length} cases · ${passed} passed · all cases of an item must pass before it can be published`} actions={<>
         {suite && <Btn kind="tertiary" onClick={() => runSuite.mutate()} disabled={runSuite.isPending}>Run suite</Btn>}
-        {perms.write && <Btn onClick={() => setOpen(o => !o)}>New Test Case</Btn>}</>} />
+        {perms.write && <Btn onClick={() => setOpen(true)}>New Test Case</Btn>}</>} />
       <div className="flex gap-2 items-end mb-4">
         <div className="w-80"><div className="text-[12px] text-[#525252] mb-1.5">Test suite</div><Dropdown value={suite} onChange={setSuite} options={[{ value: '', label: 'All cases' }, ...(suites as any[]).map(s => ({ value: s.id, label: s.name }))]} /></div>
         <Input id="suite-new" className="w-64" label="New suite" value={suiteName} onChange={setSuiteName} placeholder="TOR 4.4" />
         {perms.write && <Btn kind="ghost" onClick={() => { newSuite.mutate(suiteName); setSuiteName(''); }} disabled={!suiteName.trim()}>Create suite</Btn>}
       </div>
       {open && (
-        <Panel title="New test case" className="mb-4">
+        <Modal title="New test case" onClose={() => setOpen(false)} wide>
           <div className="grid grid-cols-3 gap-4">
             <Input id="tc-name" label="Name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} />
             <div><div className="text-[12px] text-[#525252] mb-1.5">Target type</div><Dropdown value={f.targetType} onChange={v => setF({ ...f, targetType: v, targetId: '' })} options={Object.entries(TT).map(([value, label]) => ({ value, label }))} /></div>
@@ -57,7 +57,7 @@ export default function TestsPage() {
           </div>
           {create.error && <div className="mt-3"><Notice kind="error">{String((create.error as any).message)}</Notice></div>}
           <div className="mt-4"><Btn onClick={() => create.mutate()} disabled={!f.name || !f.targetId || create.isPending}>Save</Btn></div>
-        </Panel>
+        </Modal>
       )}
       <Table head={['Case', 'Target', 'Last result', 'Details', '']} empty={!cases.length ? <div className="px-4 py-6 text-[14px] text-[#525252]">No test cases yet</div> : null}>
         {(cases as any[]).map(c => (

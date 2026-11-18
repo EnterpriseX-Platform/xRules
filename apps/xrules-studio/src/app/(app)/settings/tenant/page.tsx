@@ -3,7 +3,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, usePathname } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageContent } from '@/components/layout/AppShell';
-import { PageHead, Panel, Table, Td, Btn, Tabs, Input, Notice, Tag } from '@/components/pipeline/ui';
+import { PageHead, Panel, Table, Td, Btn, Tabs, Input, Notice, Tag, Modal } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { tenantApi, api } from '@/lib/api';
 import { useAuth } from '@/lib/store';
@@ -83,37 +83,51 @@ function Members({ me, admin }: { me: any; admin: boolean }) {
   const { data: members = [] } = useQuery({ queryKey: ['tenant-members'], queryFn: tenantApi.members });
   const inv = () => { qc.invalidateQueries({ queryKey: ['tenant-members'] }); qc.invalidateQueries({ queryKey: ['tenant'] }); };
   const [add, setAdd] = useState({ email: '', role: 'MEMBER' });
+  const [open, setOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const onErr = (e: any) => setErr(e.message);
   const [issued, setIssued] = useState<{ email: string; password: string } | null>(null);
-  const addM = useMutation({ mutationFn: () => tenantApi.addMember(add), onSuccess: (m: any) => { setIssued(m?.tempPassword ? { email: m.email, password: m.tempPassword } : null); setAdd({ email: '', role: 'MEMBER' }); setErr(null); inv(); }, onError: onErr });
+  const addM = useMutation({ mutationFn: () => tenantApi.addMember(add), onSuccess: (m: any) => { setIssued(m?.tempPassword ? { email: m.email, password: m.tempPassword } : null); setAdd({ email: '', role: 'MEMBER' }); setErr(null); setOpen(false); inv(); }, onError: onErr });
   const approveM = useMutation({ mutationFn: (v: { userId: string; canApprove: boolean }) => api.put(`/tenant/members/${v.userId}`, { canApprove: v.canApprove }), onSuccess: () => { setErr(null); inv(); }, onError: onErr });
   const roleM = useMutation({ mutationFn: (v: { userId: string; role: string }) => tenantApi.setRole(v.userId, v.role), onSuccess: () => { setErr(null); inv(); }, onError: onErr });
-  const delM = useMutation({ mutationFn: (userId: string) => tenantApi.removeMember(userId), onSuccess: () => { setErr(null); inv(); }, onError: onErr });
+  const delM = useMutation({ mutationFn: (userId: string) => tenantApi.removeMember(userId), onSuccess: () => { setErr(null); setRemoving(null); inv(); qc.invalidateQueries({ queryKey: ['tenant-removed'] }); }, onError: onErr });
+  const [removing, setRemoving] = useState<any>(null);
+  const [showRemoved, setShowRemoved] = useState(false);
+  const { data: removed = [] } = useQuery({ queryKey: ['tenant-removed'], queryFn: () => api.get<any[]>('/tenant/members/removed'), enabled: admin });
+  const restoreM = useMutation({ mutationFn: (id: string) => api.post(`/tenant/members/removed/${id}/restore`, {}), onSuccess: () => { setErr(null); inv(); qc.invalidateQueries({ queryKey: ['tenant-removed'] }); }, onError: onErr });
   const opts = me.role === 'OWNER' ? ROLE_OPTS : ROLE_OPTS.filter(o => o.value !== 'OWNER');
 
   return (
     <div className="space-y-4">
-      {admin && (
-        <Panel title="Add member">
-          <form className="flex flex-wrap items-end gap-3" onSubmit={e => { e.preventDefault(); if (add.email.trim()) addM.mutate(); }}>
-            <div className="flex-1 min-w-[240px]"><Input label="Email" id="m-email" value={add.email} onChange={(v: string) => setAdd({ ...add, email: v })} placeholder="name@agency.go.th" /></div>
-            <div className="w-56">
-              <div className="text-[12px] text-[#525252] mb-1">Role</div>
-              <Dropdown id="m-role" value={add.role} options={opts} onChange={v => setAdd({ ...add, role: v })} />
-            </div>
-            <Btn type="submit" disabled={!add.email.trim() || addM.isPending}>Add</Btn>
-          </form>
-          {issued && (
-            <div className="mt-3 border-l-4 border-[#0f62fe] bg-[#edf5ff] px-4 py-3 text-[14px]">
-              New account <span className="font-mono">{issued.email}</span> · temporary password <span className="font-mono font-semibold select-all">{issued.password}</span>
-              <button type="button" className="ml-3 text-[#0f62fe] hover:underline" onClick={() => navigator.clipboard?.writeText(issued.password)}>Copy</button>
-              <button type="button" className="ml-3 text-[#525252] hover:underline" onClick={() => setIssued(null)}>Hide</button>
-            </div>
-          )}
-        </Panel>
+      <div className="flex items-center justify-between">
+        <span className="text-[13px] text-[#525252] tabular-nums">{members.length} members</span>
+        {admin && <Btn onClick={() => { setErr(null); setOpen(true); }}>Add member</Btn>}
+      </div>
+      {issued && (
+        <div className="border-l-4 border-[#0f62fe] bg-[#edf5ff] px-4 py-3 text-[14px]">
+          New account <span className="font-mono">{issued.email}</span> · temporary password <span className="font-mono font-semibold select-all">{issued.password}</span>
+          <button type="button" className="ml-3 text-[#0f62fe] hover:underline" onClick={() => navigator.clipboard?.writeText(issued.password)}>Copy</button>
+          <button type="button" className="ml-3 text-[#525252] hover:underline" onClick={() => setIssued(null)}>Hide</button>
+        </div>
       )}
-      {err && <Notice kind="error">{err}</Notice>}
+      {open && (
+        <Modal title="Add member" onClose={() => setOpen(false)} onSubmit={() => addM.mutate()} submitLabel="Add" submitDisabled={!add.email.trim() || addM.isPending} error={err}>
+          <Input label="Email" id="m-email" value={add.email} onChange={(v: string) => setAdd({ ...add, email: v })} placeholder="name@agency.go.th" />
+          <div>
+            <div className="text-[12px] text-[#525252] mb-1">Role</div>
+            <Dropdown id="m-role" value={add.role} options={opts} onChange={v => setAdd({ ...add, role: v })} />
+          </div>
+        </Modal>
+      )}
+      {removing && (
+        <Modal title={removing.self ? 'Leave organization' : 'Remove member'} onClose={() => setRemoving(null)} danger
+          onSubmit={() => delM.mutate(removing.userId)} submitLabel={removing.self ? 'Leave' : 'Remove'} submitDisabled={delM.isPending} error={err}>
+          <div>{removing.name || removing.email} <span className="font-mono text-[13px] text-[#525252]">{removing.email}</span></div>
+          <div className="text-[#525252]">The record is kept and can be restored.</div>
+        </Modal>
+      )}
+
+      {err && !open && <Notice kind="error">{err}</Notice>}
       <div className="bg-white border border-[#e0e0e0]">
         {members.map((m: any) => {
           const self = m.userId === user?.id;
@@ -128,11 +142,33 @@ function Members({ me, admin }: { me: any; admin: boolean }) {
               <div className="w-[150px]">{canEdit && !self ? <Dropdown value={m.role} options={opts} onChange={v => v !== m.role && roleM.mutate({ userId: m.userId, role: v })} /> : <span className="text-[14px]">{roleLabel(m.role)}</span>}</div>
               {!always && (canEdit ? <label className="flex items-center gap-2 text-[13px] text-[#525252] cursor-pointer"><input type="checkbox" className="h-4 w-4 accent-[#161616]" aria-label={`Approver ${m.email}`} checked={!!m.canApprove} onChange={e => approveM.mutate({ userId: m.userId, canApprove: e.target.checked })} />Approver</label>
                 : m.canApprove ? <span className="text-[13px] text-[#525252]">Approver</span> : null)}
-              {(canEdit || self) && <Btn kind="ghost" onClick={() => delM.mutate(m.userId)}>{self ? 'Leave' : 'Remove'}</Btn>}
+              {(canEdit || self) && <Btn kind="ghost" onClick={() => { setErr(null); setRemoving({ ...m, self }); }}>{self ? 'Leave' : 'Remove'}</Btn>}
             </div>
           );
         })}
       </div>
+      {admin && (removed as any[]).length > 0 && (
+        <div>
+          <button type="button" className="h-8 text-[13px] text-[#0f62fe] hover:underline" onClick={() => setShowRemoved(v => !v)} aria-expanded={showRemoved}>
+            {showRemoved ? '▾' : '▸'} Removed members ({(removed as any[]).length})
+          </button>
+          {showRemoved && (
+            <div className="bg-white border border-[#e0e0e0]">
+              {(removed as any[]).map((r: any) => (
+                <div key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 border-b border-[#e0e0e0] last:border-b-0">
+                  <div className="flex-1 min-w-[200px]">
+                    <div className="text-[14px] text-[#525252]">{r.name || r.email}</div>
+                    <div className="text-[12px] text-[#6f6f6f] font-mono truncate">{r.email}</div>
+                  </div>
+                  <span className="text-[13px] text-[#525252] w-[150px]">{roleLabel(r.role)}</span>
+                  <span className="text-[12px] text-[#6f6f6f]">Removed {new Date(r.removedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}{r.removedBy ? ` by ${r.removedBy}` : ''}</span>
+                  <Btn kind="ghost" onClick={() => restoreM.mutate(r.id)}>Restore</Btn>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

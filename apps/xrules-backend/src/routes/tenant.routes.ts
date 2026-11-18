@@ -83,11 +83,38 @@ r.delete('/members/:userId', h(async (req, res) => {
   if (!m) throw new NotFoundError('Member');
   if (m.role === 'OWNER' && !self && t.role !== 'OWNER') throw new ForbiddenError('Only an owner can remove owners');
   if (m.role === 'OWNER' && (await owners(t.id)) <= 1) throw new ValidationError('A tenant needs at least one owner');
+  const u = await prisma.user.findUnique({ where: { id: m.userId }, select: { email: true, name: true } });
+  const access = await prisma.projectMember.findMany({ where: { userId: m.userId, project: { workspaceId: t.id } }, select: { projectId: true, role: true } });
   await prisma.$transaction([
+    prisma.memberRemoval.create({ data: { workspaceId: t.id, userId: m.userId, email: u?.email || '', name: u?.name, role: m.role, canApprove: m.canApprove, projectAccess: access as any, removedBy: req.user!.userId } }),
     prisma.projectMember.deleteMany({ where: { userId: m.userId, project: { workspaceId: t.id } } }),
     prisma.workspaceMember.delete({ where: { id: m.id } }),
   ]);
   res.json({ success: true, data: { removed: m.userId } });
+}));
+
+r.get('/members/removed', h(async (req, res) => {
+  needAdmin(req);
+  const rows = await prisma.memberRemoval.findMany({ where: { workspaceId: req.tenant!.id, restoredAt: null }, orderBy: { removedAt: 'desc' }, take: 200 });
+  const by = await prisma.user.findMany({ where: { id: { in: [...new Set(rows.map(r => r.removedBy))] } }, select: { id: true, email: true } });
+  res.json({ success: true, data: rows.map(r => ({ id: r.id, userId: r.userId, email: r.email, name: r.name, role: r.role, removedAt: r.removedAt, removedBy: by.find(b => b.id === r.removedBy)?.email || null })) });
+}));
+
+r.post('/members/removed/:id/restore', h(async (req, res) => {
+  needAdmin(req);
+  const t = req.tenant!;
+  const rec = await prisma.memberRemoval.findFirst({ where: { id: req.params.id, workspaceId: t.id, restoredAt: null } });
+  if (!rec) throw new NotFoundError('Removed member');
+  if (rec.role === 'OWNER' && t.role !== 'OWNER') throw new ForbiddenError('Only an owner can restore owners');
+  await (await import('../services/admin.service.js')).assertNoOtherOrg(rec.userId, rec.email);
+  const access = (rec.projectAccess as any[]) || [];
+  const live = await prisma.project.findMany({ where: { id: { in: access.map(a => a.projectId) }, workspaceId: t.id }, select: { id: true } });
+  await prisma.$transaction([
+    prisma.workspaceMember.create({ data: { workspaceId: t.id, userId: rec.userId, role: rec.role as any, canApprove: rec.canApprove } }),
+    ...access.filter(a => live.some(p => p.id === a.projectId)).map(a => prisma.projectMember.create({ data: { projectId: a.projectId, userId: rec.userId, role: a.role } })),
+    prisma.memberRemoval.update({ where: { id: rec.id }, data: { restoredAt: new Date() } }),
+  ]);
+  res.json({ success: true, data: { restored: rec.userId } });
 }));
 
 export default r;

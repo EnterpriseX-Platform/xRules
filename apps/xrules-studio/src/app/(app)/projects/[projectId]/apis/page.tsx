@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { PageHead, Table, Td, Tag, Btn, Input, Panel, Notice } from '@/components/pipeline/ui';
+import { PageHead, Table, Td, Tag, Btn, Input, Panel, Notice, Modal } from '@/components/pipeline/ui';
 import { usePerms } from '@/lib/perms';
 
 export default function ApisPage() {
@@ -19,9 +19,9 @@ export default function ApisPage() {
   const create = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>('/platform/specs', { projectId, name: f.name, basePath: f.basePath || undefined, version: Number(f.version) || 1, description: f.description }), onSuccess: s => router.push(`/p/${projectId}/apis/${s.id}`) });
   return (
     <div className="px-8 py-6">
-      <PageHead title="REST APIs" sub={`${specs.length} API · served at /api/{base path}/v{version}/…`} actions={perms.integrate ? (<Btn onClick={() => setOpen(o => !o)}>New API</Btn>) : undefined} />
+      <PageHead title="REST APIs" sub={`${specs.length} API · served at /api/{base path}/v{version}/…`} actions={perms.integrate ? (<Btn onClick={() => setOpen(true)}>New API</Btn>) : undefined} />
       {open && (
-        <Panel title="New API" className="mb-4">
+        <Modal title="New API" onClose={() => setOpen(false)} wide>
           <div className="grid grid-cols-4 gap-4">
             <Input id="sp-name" label="Name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} placeholder="NEB Pre-screening API" />
             <Input id="sp-base" label="Base path" mono value={f.basePath} onChange={(v: string) => setF({ ...f, basePath: v })} placeholder="neb-prescreen" />
@@ -30,7 +30,7 @@ export default function ApisPage() {
           </div>
           {create.error && <div className="mt-3"><Notice kind="error">{String((create.error as any).message)}</Notice></div>}
           <div className="mt-4 flex gap-2"><Btn onClick={() => create.mutate()} disabled={!f.name || create.isPending}>Create</Btn><Btn kind="ghost" onClick={() => setOpen(false)}>Cancel</Btn></div>
-        </Panel>
+        </Modal>
       )}
       <Table head={['API', 'Path', 'Operations', 'Status', 'Calls today']} empty={!specs.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">No APIs yet</div> : null}>
         {specs.map((s: any) => (

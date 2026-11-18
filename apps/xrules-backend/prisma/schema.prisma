@@ -1177,3 +1177,21 @@ model SystemSetting {
 
   @@map("system_settings")
 }
+
+// Removed organization members are stamped here instead of being lost: who, which role, project access, when, by whom.
+model MemberRemoval {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  userId        String
+  email         String
+  name          String?
+  role          String
+  canApprove    Boolean  @default(false)
+  projectAccess Json     @default("[]")
+  removedBy     String
+  removedAt     DateTime @default(now())
+  restoredAt    DateTime?
+
+  @@index([workspaceId, removedAt])
+  @@map("member_removals")
+}

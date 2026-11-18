@@ -93,3 +93,33 @@ export function DropZone({ onFile, label = 'Drop a file here or click to choose'
 }
 export const fileToBase64 = (f: File) => new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = rej; r.readAsDataURL(f); });
 export const pct = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : 0);
+
+// Add/edit forms open in a modal instead of sitting on the page. Footer: Cancel left, primary right.
+export function Modal({ title, onClose, onSubmit, submitLabel = 'Save', submitDisabled, danger, error, wide, children }: {
+  title: React.ReactNode; onClose: () => void; onSubmit?: () => void; submitLabel?: string; submitDisabled?: boolean;
+  danger?: boolean; error?: string | null; wide?: boolean; children?: React.ReactNode;
+}) {
+  // a form only when the modal submits itself; pages that bring their own form get a plain box (no nested forms)
+  const Box: any = onSubmit ? 'form' : 'div';
+  return (
+    <div className="fixed inset-0 z-50 bg-[#161616]/50 flex items-start justify-center pt-[10vh] px-4 overflow-y-auto"
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <Box role="dialog" aria-modal="true" className={`w-full ${wide ? 'max-w-[720px]' : 'max-w-[480px]'} bg-white shadow-xl mb-10`}
+        onSubmit={(e: any) => { e.preventDefault(); if (!submitDisabled) onSubmit?.(); }}
+        onKeyDown={(e: any) => { if (e.key === 'Escape') onClose(); }}>
+        <div className="pl-6 pr-2 pt-3 pb-2 flex items-center justify-between">
+          <span className="text-[20px] text-[#161616] pt-2">{title}</span>
+          <button type="button" aria-label="Close" onClick={onClose} className="h-10 w-10 flex items-center justify-center text-[20px] text-[#525252] hover:bg-[#e8e8e8]">×</button>
+        </div>
+        <div className="px-6 space-y-4 text-[14px] text-[#161616]">
+          {children}
+          {error && <div className="border-l-4 border-[#da1e28] bg-[#fff1f1] px-4 py-3">{error}</div>}
+        </div>
+        {onSubmit ? <div className="mt-6 grid grid-cols-2">
+          <button type="button" className="h-12 px-4 text-left text-[14px] bg-[#393939] text-white hover:bg-[#474747]" onClick={onClose}>Cancel</button>
+          <button type="submit" disabled={submitDisabled} className={`h-12 px-4 text-left text-[14px] text-white disabled:bg-[#c6c6c6] ${danger ? 'bg-[#da1e28] hover:bg-[#b81921]' : 'bg-[#0f62fe] hover:bg-[#0353e9]'}`}>{submitLabel}</button>
+        </div> : <div className="h-6" />}
+      </Box>
+    </div>
+  );
+}

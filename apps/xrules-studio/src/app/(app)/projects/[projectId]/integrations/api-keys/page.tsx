@@ -7,7 +7,7 @@ import { useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, apiKeysApi } from '@/lib/api';
 import { useAuth } from '@/lib/store';
-import { PageHead, Table, Td, Tag, Btn, Input, Panel, Notice, Tabs, fmtTime } from '@/components/pipeline/ui';
+import { PageHead, Table, Td, Tag, Btn, Input, Panel, Notice, Tabs, fmtTime, Modal } from '@/components/pipeline/ui';
 import { usePerms } from '@/lib/perms';
 
 export default function ApiKeysPage() {
@@ -32,12 +32,12 @@ export default function ApiKeysPage() {
   return (
     <div className="px-6 lg:px-8 py-6">
       {orgLevel && <OrgTabs />}
-      <PageHead title={orgLevel ? '' : 'API Keys'} sub="One key per calling system · choose which APIs it may call" actions={perms.admin ? (tab === 'Keys' ? <Btn onClick={() => setOpen(o => !o)}>New Key</Btn> : undefined) : undefined} />
+      <PageHead title={orgLevel ? '' : 'API Keys'} sub="One key per calling system · choose which APIs it may call" actions={perms.admin ? (tab === 'Keys' ? <Btn onClick={() => setOpen(true)}>New Key</Btn> : undefined) : undefined} />
       <Tabs tabs={['Keys', 'Webhooks']} value={tab} onChange={setTab} />
       {tab === 'Keys' && <>
         {created && <div className="mb-4"><Notice kind="success">Key created. Copy it now; it will not be shown again<div className="font-mono text-[13px] mt-2 bg-white px-2 py-1 select-all">{created.key}</div></Notice></div>}
         {open && (
-          <Panel title="New key" className="mb-4">
+          <Modal title="New key" onClose={() => setOpen(false)} wide>
             <div className="grid grid-cols-4 gap-4">
               <Input id="k-name" label="Name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} placeholder="bpn-prod" />
               <Input id="k-sys" label="Calling system" value={f.systemName} onChange={(v: string) => setF({ ...f, systemName: v })} placeholder="BPN" />
@@ -48,7 +48,7 @@ export default function ApiKeysPage() {
             <div className="space-y-1">{(specs as any[]).map(s => <label key={s.id} className="flex items-center gap-2 text-[14px]"><input type="checkbox" checked={f.specIds.includes(s.id)} onChange={() => toggleSpec(s.id)} />{s.name} <span className="font-mono text-[12px] text-[#525252]">{s.url}</span></label>)}</div>
             {create.error && <div className="mt-3"><Notice kind="error">{String((create.error as any).message)}</Notice></div>}
             <div className="mt-4"><Btn onClick={() => create.mutate()} disabled={!f.name || create.isPending}>Create</Btn></div>
-          </Panel>
+          </Modal>
         )}
         <Table head={['Key', 'System', 'May call', 'Per minute', 'Expires', 'Last used', 'Active']} empty={!keys.length ? <div className="px-4 py-6 text-[14px] text-[#525252]">No keys yet</div> : null}>
           {(keys as any[]).map(k => {

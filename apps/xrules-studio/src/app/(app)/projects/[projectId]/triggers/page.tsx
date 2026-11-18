@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { PageHead, Table, Td, Tag, Btn, Input, Panel, fmtTime, cronText } from '@/components/pipeline/ui';
+import { PageHead, Table, Td, Tag, Btn, Input, Panel, fmtTime, cronText, Modal } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { usePerms } from '@/lib/perms';
 
@@ -28,16 +28,16 @@ export default function TriggersPage() {
   });
   return (
     <div className="px-8 py-6">
-      <PageHead title="Triggers" sub={`${rows.length} triggers · started on a schedule, by webhook or by hand · includes Data Set syncs`} actions={perms.integrate ? (<Btn onClick={() => setOpen(o => !o)}>New Trigger</Btn>) : undefined} />
+      <PageHead title="Triggers" sub={`${rows.length} triggers · started on a schedule, by webhook or by hand · includes Data Set syncs`} actions={perms.integrate ? (<Btn onClick={() => setOpen(true)}>New Trigger</Btn>) : undefined} />
       {open && (
-        <Panel title="New trigger" className="mb-4">
+        <Modal title="New trigger" onClose={() => setOpen(false)} wide>
           <div className="grid grid-cols-3 gap-4">
             <Input id="tr-name" label="Name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} />
             <div><div className="text-[12px] text-[#525252] mb-1.5">Starts on</div><Dropdown value={f.type} onChange={v => setF({ ...f, type: v })} options={Object.entries(TYPE).map(([value, label]) => ({ value, label }))} /></div>
             {f.type === 'schedule' && <Input id="tr-cron" label="Schedule (cron)" mono value={f.cron} onChange={(v: string) => setF({ ...f, cron: v })} />}
           </div>
           <div className="mt-4"><Btn onClick={() => create.mutate()} disabled={(!f.name && f.type !== 'data_sync') || create.isPending}>Create</Btn></div>
-        </Panel>
+        </Modal>
       )}
       <Table head={['Name', 'Starts on', 'Status', 'Last run', '']} empty={!rows.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">No triggers yet</div> : null}>
         {rows.map((t: any) => (

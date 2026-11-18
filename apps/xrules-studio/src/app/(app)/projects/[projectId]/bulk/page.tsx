@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { PageHead, Table, Td, Tag, Btn, Input, TextArea, Panel, Notice, DropZone, fileToBase64, fmtTime, pct } from '@/components/pipeline/ui';
+import { PageHead, Table, Td, Tag, Btn, Input, TextArea, Panel, Notice, DropZone, fileToBase64, fmtTime, pct, Modal } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { BULK_STATUS as STATUS } from '@/components/pipeline/status';
 import { usePerms } from '@/lib/perms';
@@ -32,9 +32,9 @@ export default function BulkPage() {
   });
   return (
     <div className="px-8 py-6">
-      <PageHead title="Bulk Runs" sub="Run a rule or decision flow over many rows · results as a file · retry only failed rows" actions={perms.write ? (<Btn onClick={() => setOpen(o => !o)}>New Bulk Run</Btn>) : undefined} />
+      <PageHead title="Bulk Runs" sub="Run a rule or decision flow over many rows · results as a file · retry only failed rows" actions={perms.write ? (<Btn onClick={() => setOpen(true)}>New Bulk Run</Btn>) : undefined} />
       {open && (
-        <Panel title="New bulk run" className="mb-4">
+        <Modal title="New bulk run" onClose={() => setOpen(false)} wide>
           <div className="grid grid-cols-3 gap-4">
             <Input id="b-name" label="Name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} placeholder="Check all FY2571 requests" />
             <div><div className="text-[12px] text-[#525252] mb-1.5">Run against</div><Dropdown value={f.targetType} onChange={v => setF({ ...f, targetType: v, target: '' })} options={[{ value: 'decision_flow', label: 'Decision Flow' }, { value: 'rule', label: 'Rule' }]} /></div>
@@ -50,7 +50,7 @@ export default function BulkPage() {
           <div className="mt-4"><TextArea id="b-map" label="Column → input mapping (JSON with {{column}} · leave empty if columns already match the input)" rows={5} value={f.mapping} onChange={(v: string) => setF({ ...f, mapping: v })} /></div>
           {create.error && <div className="mt-3"><Notice kind="error">{String((create.error as any).message)}</Notice></div>}
           <div className="mt-4"><Btn onClick={() => create.mutate()} disabled={!f.target || create.isPending || (f.sourceKind === 'file' && !file)}>Start run</Btn></div>
-        </Panel>
+        </Modal>
       )}
       <Table head={['Name', 'Target', 'Status', 'Progress', 'Passed / failed / errors', 'Started']} empty={!runs.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">No bulk runs yet</div> : null}>
         {runs.map((r: any) => (
