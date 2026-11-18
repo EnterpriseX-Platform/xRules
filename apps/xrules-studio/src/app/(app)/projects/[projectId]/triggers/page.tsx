@@ -19,12 +19,12 @@ export default function TriggersPage() {
   const run = useMutation({ meta: { failLabel: "Couldn't run" }, mutationFn: (id: string) => api.post(`/platform/triggers/${id}/run`), onSettled: () => setTimeout(() => qc.invalidateQueries({ queryKey: ['triggers', projectId] }), 2500) });
   const create = useMutation({
     mutationFn: async () => {
-      if (f.type === 'data_sync') { router.push(`/projects/${projectId}/data-flows`); return null; }
+      if (f.type === 'data_sync') { router.push(`/p/${projectId}/data-flows`); return null; }
       return api.post<any>('/flows', { name: f.name, projectId, kind: 'TRIGGER', graph: { nodes: [
         { id: 'trigger', type: 'trigger', position: { x: 40, y: 60 }, data: { label: TYPE[f.type], type: f.type, cron: f.type === 'schedule' ? f.cron : undefined, secret: f.type === 'webhook' ? Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) : undefined } }],
         edges: [] } });
     },
-    onSuccess: fl => fl && router.push(`/projects/${projectId}/flows/${fl.id}`),
+    onSuccess: fl => fl && router.push(`/p/${projectId}/flows/${fl.id}`),
   });
   return (
     <div className="px-8 py-6">
@@ -41,7 +41,7 @@ export default function TriggersPage() {
       )}
       <Table head={['Name', 'Starts on', 'Status', 'Last run', '']} empty={!rows.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">No triggers yet</div> : null}>
         {rows.map((t: any) => (
-          <tr key={t.id} className="hover:bg-[#e8e8e8] cursor-pointer" onClick={() => router.push(t.kind === 'data' ? `/projects/${projectId}/data-flows/${t.id}` : `/projects/${projectId}/flows/${t.id}`)}>
+          <tr key={t.id} className="hover:bg-[#e8e8e8] cursor-pointer" onClick={() => router.push(t.kind === 'data' ? `/p/${projectId}/data-flows/${t.id}` : `/p/${projectId}/flows/${t.id}`)}>
             <Td><div className="font-semibold">{t.name}</div><div className="font-mono text-[12px] text-[#525252]">{t.slug}</div></Td>
             <Td>{TYPE[t.type] || t.type}{t.cron && <span className="text-[#525252]"> · {cronText(t.cron)}</span>}{t.webhookPath && <span className="font-mono text-[12px] text-[#525252]"> · POST {t.webhookPath}</span>}</Td>
             <Td>{t.status === 'published' ? (t.enabled ? <Tag tone="green">Enabled</Tag> : <Tag>Disabled</Tag>) : <Tag>Draft</Tag>}</Td>

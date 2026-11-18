@@ -17,10 +17,10 @@ export default function DataSetsPage() {
       const b64 = await new Promise<string>((ok, bad) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = bad; r.readAsDataURL(file!); });
       return api.post<any>('/data/datasets/upload', { projectId, name, fileName: file!.name, contentBase64: b64, keyFields: keys.split(',').map(k => k.trim()).filter(Boolean) });
     },
-    onSuccess: (d: any) => { qc.invalidateQueries({ queryKey: ['data-sets', projectId] }); router.push(`/projects/${projectId}/data-sets/${d.id}`); },
+    onSuccess: (d: any) => { qc.invalidateQueries({ queryKey: ['data-sets', projectId] }); router.push(`/p/${projectId}/data-sets/${d.id}`); },
   });
   const { data: sets } = useQuery({ queryKey: ['data-sets', projectId], queryFn: () => api.get<any[]>(`/data/datasets?project_id=${projectId}`) });
-  useEffect(() => { const s = sp.get('slug'); const hit = s && sets?.find(x => x.slug === s); if (hit) router.replace(`/projects/${projectId}/data-sets/${hit.id}`); }, [sp, sets, projectId, router]);
+  useEffect(() => { const s = sp.get('slug'); const hit = s && sets?.find(x => x.slug === s); if (hit) router.replace(`/p/${projectId}/data-sets/${hit.id}`); }, [sp, sets, projectId, router]);
   return (
     <div className="px-8 py-6">
       <PageHead title="Data Sets" sub="Reference and training data in snapshots · from Data Flows or uploaded files" actions={perms.integrate ? <Btn onClick={() => setOpen(o => !o)}>Upload file</Btn> : undefined} />
@@ -36,7 +36,7 @@ export default function DataSetsPage() {
       <Table head={['Data Set', 'Key', 'Rows', 'Active snapshot', 'Latest snapshot']}
         empty={sets && !sets.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">No Data Sets yet. Create one with a Write Data Set step in a Data Flow</div> : null}>
         {(sets || []).map(d => (
-          <tr key={d.id} className="hover:bg-[#e8e8e8] cursor-pointer" onClick={() => router.push(`/projects/${projectId}/data-sets/${d.id}`)}>
+          <tr key={d.id} className="hover:bg-[#e8e8e8] cursor-pointer" onClick={() => router.push(`/p/${projectId}/data-sets/${d.id}`)}>
             <Td><span className="font-semibold font-mono text-[13px]">{d.slug}</span></Td>
             <Td mono>{d.keyFields.join(' + ') || '—'}</Td>
             <Td mono>{d.rowCount.toLocaleString()}</Td>

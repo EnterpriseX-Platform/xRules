@@ -5,19 +5,19 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 
 const TABS = [
-  { key: 'General',  href: '/settings/tenant' },
-  { key: 'Members',  href: '/settings/tenant?tab=Members' },
-  { key: 'Roles',    href: '/settings/tenant?tab=Roles' },
-  { key: 'API Keys', href: '/projects/_integration/integrations/api-keys' },
-  { key: 'Webhooks', href: '/projects/_integration/integrations/webhooks' },
-  { key: 'Audit',    href: '/projects/_all/audit' },
+  { key: 'General',  href: '/settings' },
+  { key: 'Members',  href: '/settings/members' },
+  { key: 'Roles',    href: '/settings/roles' },
+  { key: 'API Keys', href: '/settings/api-keys' },
+  { key: 'Webhooks', href: '/settings/webhooks' },
+  { key: 'Audit',    href: '/settings/audit' },
 ];
 
 function Inner({ title }: { title?: string }) {
   const path = usePathname() || '';
   const tab = useSearchParams()?.get('tab') || '';
-  const active = path.startsWith('/settings/tenant') ? (tab === 'Members' || tab === 'Roles' ? tab : 'General')
-    : path.includes('/api-keys') ? 'API Keys' : path.includes('/webhooks') ? 'Webhooks' : path.includes('/audit') ? 'Audit' : '';
+  const active = TABS.find(t => t.href !== '/settings' && path.startsWith(t.href))?.key
+    ?? (tab === 'Members' || tab === 'Roles' ? tab : path === '/settings' || path === '/settings/tenant' ? 'General' : '');
   return (
     <div className="mb-5">
       <h1 className="text-[24px] leading-8 text-[#161616] mb-3">{title || 'Organization'}</h1>

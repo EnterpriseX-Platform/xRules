@@ -135,8 +135,8 @@ function layoutDrd(nodes: DrdNode[], edges: DrdEdge[], projectId: string): { rfN
     list.forEach((n: DrdNode, i: number) => {
       const color = TYPE_COLOR[n.type] || 'rgb(var(--c-subtle))';
       const href = n.isFlow
-        ? `/projects/${projectId}/flows/${n.id.replace(/^flow:/, '')}`
-        : `/projects/${projectId}/rules/${n.id}`;
+        ? `/p/${projectId}/flows/${n.id.replace(/^flow:/, '')}`
+        : `/p/${projectId}/rules/${n.id}`;
       rfNodes.push({
         id: n.id,
         type: 'default',

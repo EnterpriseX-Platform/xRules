@@ -85,35 +85,35 @@ export function CommandPalette() {
   const sections: Item[] = projectId ? [
     { id: 'sec-dash', title: 'Dashboard', group: 'Go to', icon: LayoutDashboard, href: `/` },
     { id: 'sec-projects', title: 'Projects', group: 'Go to', icon: FolderKanban, href: `/projects` },
-    { id: 'sec-rules', title: 'Rules', group: 'Go to', icon: FileText, href: `/projects/${projectId}/rules` },
-    { id: 'sec-flows', title: 'Flows', group: 'Go to', icon: Workflow, href: `/projects/${projectId}/flows` },
-    { id: 'sec-suites', title: 'Test Suites', group: 'Go to', icon: FlaskConical, href: `/projects/${projectId}/test-suites` },
-    { id: 'sec-sims', title: 'Simulations', group: 'Go to', icon: Sparkles, href: `/projects/${projectId}/simulations` },
-    { id: 'sec-bench', title: 'Bench', group: 'Go to', icon: Gauge, href: `/projects/${projectId}/bench` },
-    { id: 'sec-execs', title: 'Executions', group: 'Go to', icon: Activity, href: `/projects/${projectId}/executions` },
-    { id: 'sec-ds', title: 'Datasets', group: 'Go to', icon: Database, href: `/projects/${projectId}/datasets` },
-    { id: 'sec-rel', title: 'Releases', group: 'Go to', icon: ScrollText, href: `/projects/${projectId}/releases` },
-    { id: 'sec-env', title: 'Environments', group: 'Go to', icon: GitBranch, href: `/projects/${projectId}/environments` },
-    { id: 'sec-ep', title: 'Endpoints', group: 'Integrations', icon: ArrowRight, href: `/projects/${projectId}/integrations/endpoints` },
-    { id: 'sec-keys', title: 'API Keys', group: 'Integrations', icon: KeyRound, href: `/projects/${projectId}/integrations/api-keys` },
-    { id: 'sec-wh', title: 'Webhooks', group: 'Integrations', icon: Webhook, href: `/projects/${projectId}/integrations/webhooks` },
-    { id: 'sec-conn', title: 'Connections', group: 'Integrations', icon: Plug, href: `/projects/${projectId}/integrations/connections` },
-    { id: 'sec-tools', title: 'Tools', group: 'Go to', icon: Wrench, href: `/projects/${projectId}/tools` },
-    { id: 'sec-drd', title: 'DRD', group: 'Go to', icon: Network, href: `/projects/${projectId}/drd` },
+    { id: 'sec-rules', title: 'Rules', group: 'Go to', icon: FileText, href: `/p/${projectId}/rules` },
+    { id: 'sec-flows', title: 'Flows', group: 'Go to', icon: Workflow, href: `/p/${projectId}/flows` },
+    { id: 'sec-suites', title: 'Test Suites', group: 'Go to', icon: FlaskConical, href: `/p/${projectId}/test-suites` },
+    { id: 'sec-sims', title: 'Simulations', group: 'Go to', icon: Sparkles, href: `/p/${projectId}/simulations` },
+    { id: 'sec-bench', title: 'Bench', group: 'Go to', icon: Gauge, href: `/p/${projectId}/bench` },
+    { id: 'sec-execs', title: 'Executions', group: 'Go to', icon: Activity, href: `/p/${projectId}/executions` },
+    { id: 'sec-ds', title: 'Datasets', group: 'Go to', icon: Database, href: `/p/${projectId}/datasets` },
+    { id: 'sec-rel', title: 'Releases', group: 'Go to', icon: ScrollText, href: `/p/${projectId}/releases` },
+    { id: 'sec-env', title: 'Environments', group: 'Go to', icon: GitBranch, href: `/p/${projectId}/environments` },
+    { id: 'sec-ep', title: 'Endpoints', group: 'Integrations', icon: ArrowRight, href: `/p/${projectId}/integrations/endpoints` },
+    { id: 'sec-keys', title: 'API Keys', group: 'Integrations', icon: KeyRound, href: `/p/${projectId}/integrations/api-keys` },
+    { id: 'sec-wh', title: 'Webhooks', group: 'Integrations', icon: Webhook, href: `/p/${projectId}/integrations/webhooks` },
+    { id: 'sec-conn', title: 'Connections', group: 'Integrations', icon: Plug, href: `/p/${projectId}/integrations/connections` },
+    { id: 'sec-tools', title: 'Tools', group: 'Go to', icon: Wrench, href: `/p/${projectId}/tools` },
+    { id: 'sec-drd', title: 'DRD', group: 'Go to', icon: Network, href: `/p/${projectId}/drd` },
   ] : [];
 
   const projectItems: Item[] = (projects as any[]).map((p) => ({
     id: `prj-${p.id}`, title: p.name, subtitle: p.slug, group: 'Projects',
-    icon: FolderKanban, href: `/projects/${p.slug || p.id}`,
+    icon: FolderKanban, href: `/p/${p.id}`,
   }));
   const ruleItems: Item[] = (rules as any[]).map((r) => ({
     id: `rul-${r.id}`, title: r.name, subtitle: `${r.slug} · ${r.type.toLowerCase().replace('_', ' ')}`,
     group: 'Rules', icon: TYPE_ICON[String(r.type).toUpperCase()] || FileText,
-    href: `/projects/${projectId}/rules/${r.slug || r.id}`,
+    href: `/p/${projectId}/rules/${r.id}`,
   }));
   const flowItems: Item[] = (flows as any[]).map((f) => ({
     id: `flw-${f.id}`, title: f.name, subtitle: f.slug, group: 'Flows',
-    icon: Workflow, href: `/projects/${projectId}/flows/${f.slug || f.id}`,
+    icon: Workflow, href: `/p/${projectId}/flows/${f.id}`,
   }));
 
   const all = [...sections, ...projectItems, ...ruleItems, ...flowItems];

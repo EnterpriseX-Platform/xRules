@@ -43,18 +43,18 @@ export function Sidebar() {
   // Follow the project in the URL; drop a stored project that no longer exists
   useEffect(() => {
     if (!projects?.length) return;
-    const fromUrl = pathname.match(/^\/projects\/([^/]+)/)?.[1];
+    const fromUrl = pathname.match(/^\/p\/([^/]+)/)?.[1];
     const urlProject = fromUrl && projects.find((p: any) => p.id === fromUrl || p.slug === fromUrl);
     if (urlProject && urlProject.id !== project) { setProject(urlProject.id); return; }
     if (!project || !projects.some((p: any) => p.id === project)) setProject(projects[0].id);
   }, [projects, project, setProject, pathname]);
 
   const currentProject = projects?.find((p: any) => p.id === project);
-  const projBase = `/projects/${currentProject?.slug || project || '_'}`;   // slug, so it matches the URL
+  const projBase = `/p/${currentProject?.id || project || '_'}`;
 
   const perms = usePerms();
-  const HUB = '/projects/_integration';
-  const ALL = '/projects/_all';
+  const HUB = '';
+  const ALL = '';
 
   // Project level — the daily work, so it sits first
   const engine: NavItem[] = project ? [
@@ -71,7 +71,7 @@ export function Sidebar() {
     { href: `${HUB}/apis`,                     label: 'REST APIs',   icon: Zap },
     { href: `${HUB}/triggers`,                 label: 'Triggers',    icon: Timer },
     { href: `${HUB}/data-sets`,                label: 'Data Sets',   icon: Layers },
-    { href: `${HUB}/integrations/connections`, label: 'Connections', icon: Database },
+    { href: '/connections', label: 'Connections', icon: Database },
   ];
   const testing: NavItem[] = [
     { href: `${ALL}/tests`,     label: 'Test Suites', icon: FlaskConical },
@@ -92,7 +92,7 @@ export function Sidebar() {
     ...(perms.admin ? [
       { href: '/projects', label: 'Projects', icon: FolderKanban },
       ...(project ? [{ href: `${projBase}/access`, label: 'Project access', icon: Lock }] : []),
-      { href: '/settings/tenant', label: 'Organization', icon: Building2 },
+      { href: '/settings', label: 'Organization', icon: Building2 },
     ] : []),
     ...((me as any)?.isSystemAdmin ? [{ href: '/admin', label: 'System admin', icon: Shield }] : []),
   ];
@@ -164,7 +164,8 @@ function bestHref(pathname: string): string | null {
     if (score > bestScore) { best = it; bestScore = score; }
   }
   // pages inside the Integration hub without their own menu item (an API operation's flow) belong to REST APIs
-  if (!best && pathname.startsWith('/projects/_integration/')) return ALL_ITEMS.find(i => i.href.endsWith('/_integration/apis'))?.href ?? null;
+  if (!best && pathname.startsWith('/apis/')) return '/apis';
+  if (!best && pathname.startsWith('/settings')) return '/settings';
   return best?.href ?? null;
 }
 
@@ -199,7 +200,7 @@ export function ProjectPicker({ projects, current, onPick }: {
   function pick(p: any) {
     onPick(p);
     setOpen(false);
-    router.push(`/projects/${p.slug || p.id}/rules`);
+    router.push(`/p/${p.id}/rules`);
   }
 
   return (

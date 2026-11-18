@@ -36,7 +36,7 @@ export function Topbar() {
   const name = user?.name || user?.email?.split('@')[0] || '';
   const initials = name.slice(0, 2).toUpperCase() || 'A';
   const role = perms.role ? perms.role[0] + perms.role.slice(1).toLowerCase() : '';
-  const tenantWide = /^\/projects\/(_all|_integration)\b/.test(pathname) || pathname.startsWith('/settings') || pathname.startsWith('/admin');
+  const tenantWide = !pathname.startsWith('/p/');
 
   return (
     <header className="h-[48px] shrink-0 bg-[#161616] text-[#c6c6c6] flex items-center pr-2">
@@ -81,7 +81,7 @@ export function Topbar() {
               <div className="text-[14px] truncate">{name}</div>
               <div className="text-[12px] text-[#a8a8a8] truncate">{user?.email}</div>
             </div>
-            <button role="menuitem" type="button" onClick={() => { setMenu(false); router.push('/settings/tenant'); }} className="w-full flex items-center gap-2 px-3 h-10 text-[14px] hover:bg-[#393939]"><Settings className="h-4 w-4" />Organization settings</button>
+            <button role="menuitem" type="button" onClick={() => { setMenu(false); router.push('/settings'); }} className="w-full flex items-center gap-2 px-3 h-10 text-[14px] hover:bg-[#393939]"><Settings className="h-4 w-4" />Organization settings</button>
             {isSys && <button role="menuitem" type="button" onClick={() => { setMenu(false); router.push('/admin'); }} className="w-full flex items-center gap-2 px-3 h-10 text-[14px] hover:bg-[#393939]"><Shield className="h-4 w-4" />System admin</button>}
             <button role="menuitem" type="button" onClick={() => { clear(); qc.clear(); router.push('/login'); }} className="w-full flex items-center gap-2 px-3 h-10 text-[14px] hover:bg-[#393939]"><LogOut className="h-4 w-4" />Sign out</button>
           </div>

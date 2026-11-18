@@ -32,7 +32,7 @@ async function loadRows(projectId: string, source: any): Promise<any[]> {
     const { findDataset } = await import('../data/datasets-runtime.js');
     const ds = await findDataset(projectId, source.dataset);
     if (!ds?.activeSnapshotId) throw new ValidationError(`Data Set '${source.dataset}' has no active snapshot`);
-    const rows = await prisma.datasetRow.findMany({ where: { snapshotId: ds.activeSnapshotId }, take: source.limit || MAX_ROWS, orderBy: { id: 'asc' }, select: { data: true } });
+    const rows = await prisma.datasetRow.findMany({ where: { snapshotId: ds.activeSnapshotId }, take: source.limit || MAX_ROWS, orderBy: { idx: 'asc' }, select: { data: true } });
     return rows.map(r => r.data);
   }
   if (source.kind === 'executions') {
@@ -122,9 +122,9 @@ async function refreshCounts(runId: string) {
 
 async function summarize(runId: string) {
   const byRule: Record<string, Record<string, number>> = {};
-  let cursor: bigint | undefined;
+  let cursor: string | undefined;
   for (;;) {
-    const rows = await prisma.bulkRunRow.findMany({ where: { runId, status: { in: ['FAILED', 'PASSED'] } }, take: 2000, orderBy: { id: 'asc' }, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}), select: { id: true, output: true } });
+    const rows = await prisma.bulkRunRow.findMany({ where: { runId, status: { in: ['FAILED', 'PASSED'] } }, take: 2000, orderBy: { idx: 'asc' }, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}), select: { id: true, output: true } });
     if (!rows.length) break;
     for (const r of rows) for (const f of ((r.output as any)?.findings || [])) {
       byRule[f.ruleCode] = byRule[f.ruleCode] || {}; byRule[f.ruleCode][f.severity] = (byRule[f.ruleCode][f.severity] || 0) + 1;
@@ -171,9 +171,9 @@ export async function* resultsCsv(id: string, user: AuthUser) {
   const first = await prisma.bulkRunRow.findFirst({ where: { runId: id }, orderBy: { idx: 'asc' } });
   const cols = Object.keys((first?.input as any) || {});
   yield '﻿' + [...cols, 'result', 'error', 'findings'].map(csvCell).join(',') + '\n';
-  let cursor: bigint | undefined;
+  let cursor: string | undefined;
   for (;;) {
-    const page = await prisma.bulkRunRow.findMany({ where: { runId: id }, orderBy: { id: 'asc' }, take: 2000, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}) });
+    const page = await prisma.bulkRunRow.findMany({ where: { runId: id }, orderBy: { idx: 'asc' }, take: 2000, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}) });
     if (!page.length) break;
     yield page.map(r => [...cols.map(c => (r.input as any)?.[c]), r.status, r.error, ((r.output as any)?.findings || []).map((f: any) => `${f.severity}:${f.ruleCode}`).join(' ')].map(csvCell).join(',')).join('\n') + '\n';
     cursor = page[page.length - 1].id;

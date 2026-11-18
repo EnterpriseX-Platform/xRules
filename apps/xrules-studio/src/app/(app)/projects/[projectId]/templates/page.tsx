@@ -39,7 +39,7 @@ export default function TemplatesPage() {
       output_schema: tpl.outputSchema,
       projectId,
     }),
-    onSuccess: (rule: any) => router.push(`/projects/${projectId}/rules/${rule.slug || rule.id}`),
+    onSuccess: (rule: any) => router.push(`/p/${projectId}/rules/${rule.id}`),
   });
 
   return (

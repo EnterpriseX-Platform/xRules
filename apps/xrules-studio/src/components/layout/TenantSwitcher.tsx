@@ -64,7 +64,7 @@ export function TenantSwitcher() {
           <div className="border-t border-[#393939]">
             {creating ? <CreateTenant onDone={t => { qc.invalidateQueries({ queryKey: ['tenants'] }); switchTo(t); }} />
               : <button type="button" onClick={() => setCreating(true)} className="w-full flex items-center gap-2 px-3 h-10 text-[14px] hover:bg-[#393939]"><Plus className="h-4 w-4" />New organization</button>}
-            <button type="button" onClick={() => { setOpen(false); router.push('/settings/tenant'); }} className="w-full flex items-center gap-2 px-3 h-10 text-[14px] hover:bg-[#393939]"><Settings className="h-4 w-4" />Organization settings</button>
+            <button type="button" onClick={() => { setOpen(false); router.push('/settings'); }} className="w-full flex items-center gap-2 px-3 h-10 text-[14px] hover:bg-[#393939]"><Settings className="h-4 w-4" />Organization settings</button>
           </div>
         </div>
       )}

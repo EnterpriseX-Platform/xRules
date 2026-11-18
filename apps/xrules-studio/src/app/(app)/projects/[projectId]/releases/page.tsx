@@ -28,7 +28,7 @@ export default function ReleasesPage() {
         stats={[{ label: 'Total', value: rows.length }]}
         actions={
           <div className="flex items-center gap-2">
-            <Link href={`/projects/${projectId}/environments`} className="btn-outline" title="Pin a release to an environment">
+            <Link href={`/p/${projectId}/environments`} className="btn-outline" title="Pin a release to an environment">
               <GitBranch className="h-3.5 w-3.5" />
               Environments
             </Link>

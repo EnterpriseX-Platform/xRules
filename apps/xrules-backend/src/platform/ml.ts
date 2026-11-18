@@ -31,7 +31,7 @@ async function datasetRows(datasetId: string, snapshotId?: string) {
   if (!ds) throw new NotFoundError('Data Set');
   const sid = snapshotId || ds.activeSnapshotId;
   if (!sid) throw new ValidationError(`Data Set ${ds.slug} has no active snapshot yet`);
-  const rows = await prisma.datasetRow.findMany({ where: { snapshotId: sid }, select: { data: true }, take: MAX_ROWS, orderBy: { id: 'asc' } });
+  const rows = await prisma.datasetRow.findMany({ where: { snapshotId: sid }, select: { data: true }, take: MAX_ROWS, orderBy: { idx: 'asc' } });
   return { ds, snapshotId: sid, rows: rows.map(r => r.data as any) };
 }
 

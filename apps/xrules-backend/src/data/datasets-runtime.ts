@@ -44,10 +44,10 @@ export async function writeSnapshot(datasetId: string, jobId: string | null, row
   const snap = await prisma.datasetSnapshot.create({ data: { datasetId, jobId, status: 'RUNNING', qualityReport: report, rejectedCount: rejected } });
   const strip = new Set(piiFields.flatMap(f => [f, f.toUpperCase(), f.toLowerCase()]));
   for (let i = 0; i < rows.length; i += 1000) {
-    const chunk = rows.slice(i, i + 1000).map(r => {
+    const chunk = rows.slice(i, i + 1000).map((r, k) => {
       const data: any = {};
       for (const [k, v] of Object.entries(r)) if (!strip.has(k)) data[k] = v;
-      return { snapshotId: snap.id, key: keyOf(r, keyFields), data };
+      return { snapshotId: snap.id, idx: i + k, key: keyOf(r, keyFields), data };
     });
     await prisma.datasetRow.createMany({ data: chunk });
   }
@@ -111,6 +111,6 @@ export async function listSnapshots(datasetId: string) {
 }
 
 export async function previewRows(snapshotId: string, limit = 100) {
-  const rows = await prisma.datasetRow.findMany({ where: { snapshotId }, take: limit, orderBy: { id: 'asc' }, select: { key: true, data: true } });
+  const rows = await prisma.datasetRow.findMany({ where: { snapshotId }, take: limit, orderBy: { idx: 'asc' }, select: { key: true, data: true } });
   return rows;
 }

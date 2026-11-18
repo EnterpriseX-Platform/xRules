@@ -611,13 +611,15 @@ model DatasetSnapshot {
 }
 
 model DatasetRow {
-  id         BigInt          @id @default(autoincrement())
+  id         String          @id @default(cuid())
   snapshotId String
   snapshot   DatasetSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  idx        Int
   key        String
   data       Json
 
   @@index([snapshotId, key])
+  @@index([snapshotId, idx])
   @@map("dataset_rows")
 }
 
@@ -1039,7 +1041,7 @@ model BulkRun {
 }
 
 model BulkRunRow {
-  id     BigInt  @id @default(autoincrement())
+  id     String  @id @default(cuid())
   runId  String
   run    BulkRun @relation(fields: [runId], references: [id], onDelete: Cascade)
   idx    Int

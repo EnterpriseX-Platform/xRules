@@ -50,7 +50,7 @@ export default function SimulationsPage() {
       <Table head={['Run', 'Status', 'Progress', '']} empty={!pairs.length ? <div className="px-4 py-6 text-[14px] text-[#525252]">None yet</div> : null}>
         {pairs.map((r: any) => (
           <tr key={r.id}><Td>{r.name}</Td><Td><Tag tone={r.status === 'COMPLETED' ? 'green' : 'blue'}>{r.status === 'COMPLETED' ? 'Completed' : 'Running'}</Tag></Td>
-            <Td mono>{r.processed}/{r.total}</Td><Td><Link className="text-[#0f62fe] hover:underline" href={`/projects/${projectId}/bulk/${r.id}`}>View differences</Link></Td></tr>
+            <Td mono>{r.processed}/{r.total}</Td><Td><Link className="text-[#0f62fe] hover:underline" href={`/p/${projectId}/bulk/${r.id}`}>View differences</Link></Td></tr>
         ))}
       </Table>
     </div>

@@ -28,7 +28,7 @@ export default function BulkPage() {
         : f.sourceKind === 'dataset' ? { kind: 'dataset', dataset: f.dataset } : { kind: 'rows', rows: JSON.parse(f.rowsJson) };
       return api.post<any>('/platform/bulk', { projectId, name: f.name || undefined, targetType: f.targetType, target: f.target, source, mapping: f.mapping ? JSON.parse(f.mapping) : undefined, concurrency: Number(f.concurrency) || 8 });
     },
-    onSuccess: r => router.push(`/projects/${projectId}/bulk/${r.id}`),
+    onSuccess: r => router.push(`/p/${projectId}/bulk/${r.id}`),
   });
   return (
     <div className="px-8 py-6">
@@ -54,7 +54,7 @@ export default function BulkPage() {
       )}
       <Table head={['Name', 'Target', 'Status', 'Progress', 'Passed / failed / errors', 'Started']} empty={!runs.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">No bulk runs yet</div> : null}>
         {runs.map((r: any) => (
-          <tr key={r.id} className="hover:bg-[#e8e8e8] cursor-pointer" onClick={() => router.push(`/projects/${projectId}/bulk/${r.id}`)}>
+          <tr key={r.id} className="hover:bg-[#e8e8e8] cursor-pointer" onClick={() => router.push(`/p/${projectId}/bulk/${r.id}`)}>
             <Td><span className="font-semibold">{r.name || r.id.slice(0, 8)}</span></Td>
             <Td>{r.targetType === 'rule' ? 'Rule' : 'Decision Flow'}{r.targetVersion ? ` v${r.targetVersion}` : ' (draft)'}</Td>
             <Td><Tag tone={STATUS[r.status][0]}>{STATUS[r.status][1]}</Tag></Td>

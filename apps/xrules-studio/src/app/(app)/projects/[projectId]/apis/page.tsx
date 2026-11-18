@@ -16,7 +16,7 @@ export default function ApisPage() {
   const { data: traffic } = useQuery({ queryKey: ['traffic', projectId, 24], queryFn: () => api.get<any>(`/platform/monitor/traffic?project_id=${projectId}&hours=24`) });
   const callsBySpec: Record<string, number> = {};
   for (const o of traffic?.operations || []) callsBySpec[`${o.basePath}/v${o.version}`] = (callsBySpec[`${o.basePath}/v${o.version}`] || 0) + o.calls;
-  const create = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>('/platform/specs', { projectId, name: f.name, basePath: f.basePath || undefined, version: Number(f.version) || 1, description: f.description }), onSuccess: s => router.push(`/projects/${projectId}/apis/${s.id}`) });
+  const create = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>('/platform/specs', { projectId, name: f.name, basePath: f.basePath || undefined, version: Number(f.version) || 1, description: f.description }), onSuccess: s => router.push(`/p/${projectId}/apis/${s.id}`) });
   return (
     <div className="px-8 py-6">
       <PageHead title="REST APIs" sub={`${specs.length} API · served at /api/{base path}/v{version}/…`} actions={perms.integrate ? (<Btn onClick={() => setOpen(o => !o)}>New API</Btn>) : undefined} />
@@ -34,7 +34,7 @@ export default function ApisPage() {
       )}
       <Table head={['API', 'Path', 'Operations', 'Status', 'Calls today']} empty={!specs.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">No APIs yet</div> : null}>
         {specs.map((s: any) => (
-          <tr key={s.id} className="hover:bg-[#e8e8e8] cursor-pointer" onClick={() => router.push(`/projects/${projectId}/apis/${s.id}`)}>
+          <tr key={s.id} className="hover:bg-[#e8e8e8] cursor-pointer" onClick={() => router.push(`/p/${projectId}/apis/${s.id}`)}>
             <Td><div className="font-semibold">{s.name}</div><div className="text-[12px] text-[#525252]">{s.description}</div></Td>
             <Td mono>{s.url}</Td>
             <Td>{(s.operations || []).map((o: any) => <span key={o.id} className="mr-2 font-mono text-[12px]"><b>{o.method}</b> {o.path}</span>)}</Td>

@@ -18,7 +18,7 @@ export function TestNav() {
   return (
     <div className="tabs-row mb-5">
       {TABS.map((t) => {
-        const href = `/projects/${projectId}/${t.key}`;
+        const href = `/p/${projectId}/${t.key}`;
         const active = pathname === href || pathname.startsWith(href + '/');
         return (
           <Link key={t.key} href={href} className={cn('tab', active && 'tab-active')}>

@@ -1,6 +1,6 @@
 'use client';
 import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, usePathname } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageContent } from '@/components/layout/AppShell';
 import { PageHead, Panel, Table, Td, Btn, Tabs, Input, Notice, Tag } from '@/components/pipeline/ui';
@@ -24,7 +24,9 @@ export default function TenantSettingsPageWrapper() {
 
 function TenantSettingsPage() {
   const sp = useSearchParams();
-  const tab = sp.get('tab') === 'Members' ? 'Members' : sp.get('tab') === 'Roles' ? 'Roles' : 'General';
+  const path = usePathname() || '';
+  const q = sp.get('tab');
+  const tab = path.endsWith('/members') || q === 'Members' ? 'Members' : path.endsWith('/roles') || q === 'Roles' ? 'Roles' : 'General';
   const { data: t } = useQuery({ queryKey: ['tenant'], queryFn: tenantApi.current });
   const admin = t && (t.role === 'OWNER' || t.role === 'ADMIN');
   return (

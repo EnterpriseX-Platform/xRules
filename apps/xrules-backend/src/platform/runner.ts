@@ -1,3 +1,4 @@
+import { cuid } from '../utils/cuid.js';
 // Runs published artifacts. Every call uses one fixed version per flow and records an Execution
 // with findings, lineage and (sampled) Rule Trace. Used by the API gateway, triggers, bulk runs,
 // test cases and challenger runs.
@@ -106,4 +107,4 @@ export async function challengerSummary(flowId: string) {
   return { total: rows.length, same, different: rows.length - same, examples: rows.filter(r => !(r.lineage as any)?.same).slice(0, 50) };
 }
 
-export const newRequestId = () => crypto.randomUUID();
+export const newRequestId = () => cuid();

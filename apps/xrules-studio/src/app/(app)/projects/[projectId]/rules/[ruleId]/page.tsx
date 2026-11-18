@@ -58,7 +58,7 @@ export default function RuleDetailPage() {
       <div className="flex items-start gap-4 mb-6">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <Link href={`/projects/${projectId}/rules`} className="text-xs text-subtle font-mono hover:text-text">RULES</Link>
+            <Link href={`/p/${projectId}/rules`} className="text-xs text-subtle font-mono hover:text-text">RULES</Link>
             <span className="text-subtle/50">/</span>
             <span className="font-mono text-xs text-subtle">{rule.slug}</span>
             <span className="text-subtle/50">·</span>
@@ -550,7 +550,7 @@ function ApiTab({ rule }: { rule: any }) {
       {ops.length === 0 && (
         <div className="card p-4 flex items-center justify-between gap-4">
           <div className="text-[14px] text-[#161616]">Not on a REST API yet</div>
-          <Link href="/projects/_integration/apis" className="btn-primary">REST APIs</Link>
+          <Link href="/apis" className="btn-primary">REST APIs</Link>
         </div>
       )}
       {ops.map((o: any) => {
@@ -560,7 +560,7 @@ function ApiTab({ rule }: { rule: any }) {
           <div key={o.id} className="card p-4 space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div className="font-mono text-[14px] break-all"><span className="text-[#0f62fe]">{o.method}</span> {url}</div>
-              <Link href={`/projects/_integration/apis/${o.spec.id}`} className="btn-ghost">Open API</Link>
+              <Link href={`/apis/${o.spec.id}`} className="btn-ghost">Open API</Link>
             </div>
             <pre className="p-3 overflow-x-auto text-xs font-mono text-text bg-[#f4f4f4] m-0">{curl}</pre>
           </div>

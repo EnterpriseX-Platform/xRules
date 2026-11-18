@@ -93,7 +93,7 @@ function LookupTab({ datasetId, keyFields }: { datasetId: string; keyFields: str
 
 function UsedBy({ datasetId, projectId }: { datasetId: string; projectId: string }) {
   const { data } = useQuery({ queryKey: ['ds-used', datasetId], queryFn: () => api.get<any[]>(`/data/datasets/${datasetId}/used-by`) });
-  const href = (u: any) => u.type === 'rule' ? `/projects/${projectId}/rules/${u.id}` : u.type === 'data_flow' ? `/projects/${projectId}/data-flows/${u.id}` : `/projects/${projectId}/flows/${u.id}`;
+  const href = (u: any) => u.type === 'rule' ? `/p/${projectId}/rules/${u.id}` : u.type === 'data_flow' ? `/p/${projectId}/data-flows/${u.id}` : `/p/${projectId}/flows/${u.id}`;
   return (
     <Table head={['Type', 'Name']} empty={data && !data.length ? <div className="px-4 py-6 text-[14px] text-[#525252]">No rule or flow uses this Data Set yet</div> : null}>
       {(data || []).map(u => <tr key={u.id}><Td><Tag tone={u.type === 'data_flow' ? 'green' : 'blue'}>{u.type === 'rule' ? 'Rule' : u.type === 'data_flow' ? 'Data Flow' : 'Decision Flow'}</Tag></Td><Td><Link className="text-[#0f62fe] hover:underline" href={href(u)}>{u.name}</Link> <span className="font-mono text-[12px] text-[#525252]">{u.slug}</span></Td></tr>)}

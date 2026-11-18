@@ -119,7 +119,7 @@ export default function FlowsPage() {
             {meta?.cta || 'Create your first flow'}
           </button>) : undefined
         }
-        hrefFor={(f) => `/projects/${projectId}/flows/${f.id}`}
+        hrefFor={(f) => `/p/${projectId}/flows/${f.id}`}
         columns={[
           {
             header: 'Flow',

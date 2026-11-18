@@ -9,7 +9,7 @@ export default function ApiDocsRedirect() {
   const { projectId } = useParams<{ projectId: string }>();
   const router = useRouter();
   useEffect(() => {
-    router.replace(`/projects/${projectId}/integrations/endpoints`);
+    router.replace(`/p/${projectId}/integrations/endpoints`);
   }, [projectId, router]);
   return null;
 }

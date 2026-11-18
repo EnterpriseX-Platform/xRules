@@ -104,8 +104,8 @@ export default function RulesPage() {
         <span className="text-[13px] text-[#525252] tabular-nums whitespace-nowrap">{stats.total} · {stats.published} published</span>
         <div className="ml-auto flex items-center gap-1 shrink-0">
           {!folders.length && perms.write && <button className="h-9 px-3 text-[14px] text-[#161616] hover:bg-[#e8e8e8] hidden xl:flex items-center gap-1.5" onClick={() => setFoldersOpen(o => !o)}><FolderPlus className="h-4 w-4" />Folders</button>}
-          <Link href={`/projects/${projectId}/templates`} className="h-9 px-3 text-[14px] text-[#161616] hover:bg-[#e8e8e8] flex items-center gap-1.5"><Sparkles className="h-4 w-4" />Templates</Link>
-          <Link href={`/projects/${projectId}/drd`} className="h-9 px-3 text-[14px] text-[#161616] hover:bg-[#e8e8e8] flex items-center gap-1.5"><Network className="h-4 w-4" />Graph</Link>
+          <Link href={`/p/${projectId}/templates`} className="h-9 px-3 text-[14px] text-[#161616] hover:bg-[#e8e8e8] flex items-center gap-1.5"><Sparkles className="h-4 w-4" />Templates</Link>
+          <Link href={`/p/${projectId}/drd`} className="h-9 px-3 text-[14px] text-[#161616] hover:bg-[#e8e8e8] flex items-center gap-1.5"><Network className="h-4 w-4" />Graph</Link>
           {perms.write && <button className="h-9 pl-3 pr-4 text-[14px] bg-[#0f62fe] text-white hover:bg-[#0353e9] flex items-center gap-1.5 whitespace-nowrap" onClick={() => setShowCreate(true)}><Plus className="h-4 w-4" />New rule</button>}
         </div>
       </div>
@@ -119,7 +119,7 @@ export default function RulesPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#525252]" />
               <input className="input w-full pl-9" placeholder="Search" aria-label="Search rules" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
-            <div className="w-[160px]"><Dropdown value={typeFilter} onChange={v => router.push(v ? `/projects/${projectId}/rules?type=${v}` : `/projects/${projectId}/rules`)} options={[{ value: '', label: 'All types' }, { value: 'DECISION_TABLE', label: 'Decision Table' }, { value: 'DECISION_TREE', label: 'Decision Tree' }, { value: 'SCORECARD', label: 'Scorecard' }, { value: 'FORMULA', label: 'Formula' }, { value: 'SCRIPT', label: 'Scripting' }, { value: 'LOOKUP', label: 'Lookup' }, { value: 'AI_AGENT', label: 'AI Agent' }, { value: 'MODEL_CALL', label: 'Model Call' }]} /></div>
+            <div className="w-[160px]"><Dropdown value={typeFilter} onChange={v => router.push(v ? `/p/${projectId}/rules?type=${v}` : `/p/${projectId}/rules`)} options={[{ value: '', label: 'All types' }, { value: 'DECISION_TABLE', label: 'Decision Table' }, { value: 'DECISION_TREE', label: 'Decision Tree' }, { value: 'SCORECARD', label: 'Scorecard' }, { value: 'FORMULA', label: 'Formula' }, { value: 'SCRIPT', label: 'Scripting' }, { value: 'LOOKUP', label: 'Lookup' }, { value: 'AI_AGENT', label: 'AI Agent' }, { value: 'MODEL_CALL', label: 'Model Call' }]} /></div>
             {folders.length > 0 && <div className="w-[160px] xl:hidden"><Dropdown value={folderId || ''} onChange={v => setFolderId(v || null)} options={[{ value: '', label: 'All folders' }, ...flatten(folders).map((f: any) => ({ value: f.id, label: f.name }))]} /></div>}
             <div className="flex border border-[#c6c6c6] h-10">
               {['all', 'published', 'draft', 'archived'].map((t) => (
@@ -168,7 +168,7 @@ export default function RulesPage() {
                   </div>
                 </td>
                 <td className="py-3 px-4">
-                  <Link href={`/projects/${projectId}/rules/${r.slug || r.id}`} className="block group">
+                  <Link href={`/p/${projectId}/rules/${r.id}`} className="block group">
                     <div className="text-sm font-medium group-hover:text-accent">{r.name}</div>
                     <div className="text-xs text-subtle font-mono">{r.slug}</div>
                   </Link>
@@ -187,7 +187,7 @@ export default function RulesPage() {
                 <td className="py-3 px-4"><StatusPill status={r.status} /></td>
                 <td className="py-3 px-4 text-right font-mono text-xs text-subtle tabular-nums">v{r.version}</td>
                 <td className="py-3 px-4 text-right">
-                  <Link href={`/projects/${projectId}/rules/${r.slug || r.id}`}>
+                  <Link href={`/p/${projectId}/rules/${r.id}`}>
                     <ChevronRight className="h-4 w-4 text-subtle inline" />
                   </Link>
                 </td>
@@ -221,8 +221,8 @@ function TypeChip({ current, value, projectId, tone, children }: {
 }) {
   const active = current === value;
   const href = value
-    ? `/projects/${projectId}/rules?type=${value}`
-    : `/projects/${projectId}/rules`;
+    ? `/p/${projectId}/rules?type=${value}`
+    : `/p/${projectId}/rules`;
   const toneCls = active
     ? tone === 'info'   ? 'bg-info/15 text-info border-info/40'
     : tone === 'mint'   ? 'bg-mint/15 text-mint border-mint/40'

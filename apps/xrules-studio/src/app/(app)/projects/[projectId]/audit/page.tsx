@@ -42,7 +42,7 @@ export default function AuditPage() {
         description="Every rule execution recorded with input, output, duration, correlation ID, and API key."
         stats={[{ label: 'Rows', value: rows.length }]}
         actions={
-          <Link href={`/projects/${projectId}/tools`} className="btn-ghost" title="Project utilities — DRD JSON, schema bundles, debug helpers">
+          <Link href={`/p/${projectId}/tools`} className="btn-ghost" title="Project utilities — DRD JSON, schema bundles, debug helpers">
             <Wrench className="h-3.5 w-3.5" />
             Tools
           </Link>

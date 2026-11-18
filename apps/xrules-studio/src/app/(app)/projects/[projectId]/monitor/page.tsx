@@ -8,7 +8,7 @@ import { PageHead, Panel, Tag, Notice, fmtTime } from '@/components/pipeline/ui'
 export default function MonitorOverview() {
   const { projectId } = useParams<{ projectId: string }>();
   const { data: o } = useQuery({ queryKey: ['mon-ov', projectId], queryFn: () => api.get<any>(`/platform/monitor/overview?project_id=${projectId}`), refetchInterval: 15000 });
-  const base = `/projects/${projectId}/monitor`;
+  const base = `/p/${projectId}/monitor`;
   if (!o) return <div className="px-8 py-6" />;
   const diff = o.callsYesterday ? Math.round(((o.callsToday - o.callsYesterday) / o.callsYesterday) * 100) : null;
   const clean = !o.slowOrFailing.length && !o.staleData.length && !o.connectionsDown.length && !o.alerts.length;

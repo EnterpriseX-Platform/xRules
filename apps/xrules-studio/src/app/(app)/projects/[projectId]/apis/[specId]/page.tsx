@@ -50,7 +50,7 @@ function Operations({ spec, projectId, onChange }: any) {
             <Td><Tag tone={METHOD_TONE[o.method]}>{o.method}</Tag></Td>
             <Td mono>{o.path}</Td>
             <Td>{o.summary}</Td>
-            <Td><Link className="text-[#0f62fe] hover:underline" href={`/projects/${projectId}/flows/${o.flowId}`}>Edit flow ({o.flow?.nodes} steps)</Link></Td>
+            <Td><Link className="text-[#0f62fe] hover:underline" href={`/p/${projectId}/flows/${o.flowId}`}>Edit flow ({o.flow?.nodes} steps)</Link></Td>
             <Td><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={() => del.mutate(o.id)}>Delete</button></Td>
           </tr>
         ))}

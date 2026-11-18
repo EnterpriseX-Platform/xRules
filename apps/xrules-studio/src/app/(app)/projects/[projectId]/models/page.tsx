@@ -36,7 +36,7 @@ export default function ModelsPage() {
       <EntityTable
         rows={rows}
         isLoading={isLoading}
-        hrefFor={(m: any) => `/projects/${projectId}/models/${m.id}`}
+        hrefFor={(m: any) => `/p/${projectId}/models/${m.id}`}
         emptyText="No models yet"
         emptyIcon={Brain}
         emptyBody="Register an ML or PMML artifact, then call it from a Rule of type MODEL_CALL."

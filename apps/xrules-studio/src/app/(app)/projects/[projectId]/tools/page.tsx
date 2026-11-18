@@ -97,7 +97,7 @@ function DuplicatesCard({ rule, projectId }: { rule: any; projectId: string }) {
   const totalDups = dupGroups.reduce((s: number, g: any) => s + g.rowIndices.length, 0);
 
   return (
-    <Link href={`/projects/${projectId}/rules/${rule.slug || rule.id}`} className="block">
+    <Link href={`/p/${projectId}/rules/${rule.id}`} className="block">
       <div className="card p-3 hover:border-accent/40 transition-colors flex items-center gap-3">
         <div className="flex-1">
           <div className="text-sm font-medium">{rule.name}</div>
@@ -136,7 +136,7 @@ function DependenciesCard({ rule, projectId }: { rule: any; projectId: string })
   const isolated = !isLoading && upCount === 0 && downCount === 0 && flowCount === 0;
 
   return (
-    <Link href={`/projects/${projectId}/rules/${rule.slug || rule.id}`} className="block">
+    <Link href={`/p/${projectId}/rules/${rule.id}`} className="block">
       <div className="card p-3 hover:border-accent/40 transition-colors flex items-center gap-3">
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium truncate">{rule.name}</div>

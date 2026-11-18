@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
-const flowHref = (f: any) => `/projects/${f.project?.slug}/flows/${f.id}`;
-const ruleHref = (r: any) => `/projects/${r.project?.slug}/rules/${r.slug || r.id}`;
+const flowHref = (f: any) => `/p/${f.project?.id || f.projectId}/flows/${f.id}`;
+const ruleHref = (r: any) => `/p/${r.project?.id || r.projectId}/rules/${r.id}`;
 const label = (x: any, home?: string) => `${x.name || x.slug}${x.project?.slug && x.project.slug !== home ? ` · ${x.project.name}` : ''}`;
 
 function Chip({ href, children }: { href: string; children: React.ReactNode }) {
@@ -30,7 +30,7 @@ export function RuleRelations({ ruleId, home }: { ruleId: string; home?: string 
   return (
     <div className="bg-white border border-[#e0e0e0] px-4 py-3 mb-4 space-y-2" data-testid="relations">
       <Row title="Used in">{data.flows.length ? data.flows.map((f: any) => <Chip key={f.id} href={flowHref(f)}>{label(f, home)}</Chip>) : <None />}</Row>
-      {data.operations.length > 0 && <Row title="REST API">{data.operations.map((o: any) => <Chip key={o.id} href={`/projects/_integration/apis/${o.spec.id}`}>{o.method} /api/…/{o.spec.basePath}/v{o.spec.version}{o.path}</Chip>)}</Row>}
+      {data.operations.length > 0 && <Row title="REST API">{data.operations.map((o: any) => <Chip key={o.id} href={`/apis/${o.spec.id}`}>{o.method} /api/…/{o.spec.basePath}/v{o.spec.version}{o.path}</Chip>)}</Row>}
     </div>
   );
 }
@@ -49,7 +49,7 @@ export function FlowRelations({ flowId, home }: { flowId: string; home?: string 
       {flows.length > 0 && <Row title="Calls flows">{flows.map((f: any) => <Chip key={f.id} href={flowHref(f)}>{label(f, home)}</Chip>)}</Row>}
       {(by.flows.length > 0 || by.operations.length > 0) && <Row title="Used by">
         {by.flows.map((f: any) => <Chip key={f.id} href={flowHref(f)}>{label(f, home)}</Chip>)}
-        {by.operations.map((o: any) => <Chip key={o.id} href={`/projects/_integration/apis/${o.spec.id}`}>{o.method} {o.spec.basePath}{o.path}</Chip>)}
+        {by.operations.map((o: any) => <Chip key={o.id} href={`/apis/${o.spec.id}`}>{o.method} {o.spec.basePath}{o.path}</Chip>)}
       </Row>}
     </div>
   );

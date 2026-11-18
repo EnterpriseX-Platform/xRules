@@ -1,7 +1,7 @@
 'use client';
 // System admin — every organization, every user, platform settings. System admins only (API enforces it).
 import { Suspense, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageContent } from '@/components/layout/AppShell';
 import { Btn, Input, Panel, Notice, Tag } from '@/components/pipeline/ui';
@@ -13,8 +13,9 @@ type Tab = typeof TABS[number];
 export default function AdminPageWrapper() { return <Suspense><AdminPage /></Suspense>; }
 
 function AdminPage() {
-  const sp = useSearchParams(); const router = useRouter();
-  const tab = (TABS.includes(sp.get('tab') as Tab) ? sp.get('tab') : 'Organizations') as Tab;
+  const router = useRouter(); const path = usePathname() || '';
+  const seg = path.split('/')[2] || 'orgs';
+  const tab: Tab = seg === 'users' ? 'Users' : seg === 'settings' ? 'Settings' : 'Organizations';
   const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => api.get<any>('/auth/me') });
   if (me && !(me as any).isSystemAdmin) return <PageContent><Notice kind="error">System admins only.</Notice></PageContent>;
   return (
@@ -22,7 +23,7 @@ function AdminPage() {
       <h1 className="text-[24px] leading-8 text-[#161616] mb-3">System admin</h1>
       <div className="flex border-b border-[#e0e0e0] mb-5 overflow-x-auto [scrollbar-width:none]">
         {TABS.map(t => (
-          <button key={t} onClick={() => router.replace(`/admin?tab=${t}`)}
+          <button key={t} onClick={() => router.replace(`/admin/${t === 'Organizations' ? 'orgs' : t.toLowerCase()}`)}
             className={`h-10 px-4 text-[14px] whitespace-nowrap border-b-2 -mb-px ${tab === t ? 'border-[#161616] text-[#161616] font-semibold' : 'border-transparent text-[#525252] hover:text-[#161616]'}`}>{t}</button>
         ))}
       </div>
