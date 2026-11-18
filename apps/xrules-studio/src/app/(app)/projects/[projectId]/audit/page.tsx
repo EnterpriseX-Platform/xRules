@@ -34,10 +34,11 @@ export default function AuditPage() {
     (r.id || '').includes(search),
   );
 
+  const orgLevel = String(useOrgParams<any>()?.projectId || '').startsWith('_');
   return (
     <PageContent>
-      {String(useOrgParams<any>()?.projectId || '').startsWith('_') && <OrgTabs />}
-      <PageHeader
+      {orgLevel && <OrgTabs />}
+      {!orgLevel && <PageHeader
         title="Audit Log"
         description="Every rule execution recorded with input, output, duration, correlation ID, and API key."
         stats={[{ label: 'Rows', value: rows.length }]}
@@ -47,7 +48,7 @@ export default function AuditPage() {
             Tools
           </Link>
         }
-      />
+      />}
 
       <div className="flex items-center gap-3 mb-4">
         <div className="flex-1 relative">

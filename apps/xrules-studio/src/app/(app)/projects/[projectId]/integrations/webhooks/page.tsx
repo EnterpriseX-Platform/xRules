@@ -35,15 +35,16 @@ export default function WebhooksPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['webhooks'] }),
   });
 
+  const orgLevel = String(useOrgParams<any>()?.projectId || '').startsWith('_');
   return (
     <PageContent>
-      {String(useOrgParams<any>()?.projectId || '').startsWith('_') && <OrgTabs />}
-      <PageHeader
+      {orgLevel && <OrgTabs />}
+      {!orgLevel && <PageHeader
         title="Webhooks"
         description="HMAC-SHA256 signed callbacks delivered when chosen events occur. Retried with exponential backoff up to 5 times."
         stats={[{ label: 'Active', value: hooks.filter((h: any) => h.active).length }, { label: 'Total', value: hooks.length }]}
         actions={perms.integrate ? (<button className="btn-primary" onClick={() => setShowCreate(true)}><Plus className="h-3.5 w-3.5" />New Webhook</button>) : undefined}
-      />
+      />}
 
       {revealedSecret && (
         <div className="card p-4 mb-4 border-warn/40 bg-warn/5">
