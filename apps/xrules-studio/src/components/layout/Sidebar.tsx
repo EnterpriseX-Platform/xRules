@@ -31,6 +31,7 @@ function writeCollapsed(v: Record<string, boolean>) {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const project = useProject((s) => s.currentProjectId);
   const setProject = useProject((s) => s.setCurrentProject);
 
@@ -45,6 +46,8 @@ export function Sidebar() {
     if (!projects?.length) return;
     const fromUrl = pathname.match(/^\/p\/([^/]+)/)?.[1];
     const urlProject = fromUrl && projects.find((p: any) => p.id === fromUrl || p.slug === fromUrl);
+    // an old link with the project's slug: show the CUID in the address bar instead
+    if (urlProject && fromUrl !== urlProject.id) router.replace(pathname.replace(`/p/${fromUrl}`, `/p/${urlProject.id}`) + window.location.search);
     if (urlProject && urlProject.id !== project) { setProject(urlProject.id); return; }
     if (!project || !projects.some((p: any) => p.id === project)) setProject(projects[0].id);
   }, [projects, project, setProject, pathname]);
