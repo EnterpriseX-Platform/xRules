@@ -11,6 +11,7 @@ const h = (fn: (req: Request) => Promise<any>, code = 200) => async (req: Reques
 };
 router.get('/orgs', h(() => admin.listOrgs()));
 router.post('/orgs', h(req => admin.createOrg(req.body), 201));
+router.get('/orgs/:id', h(req => admin.getOrg(req.params.id)));
 router.patch('/orgs/:id', h(req => admin.updateOrg(req.params.id, req.body)));
 router.get('/users', h(() => admin.listUsers()));
 router.patch('/users/:id', h(req => admin.updateUser(req.params.id, req.body, req.user!.userId)));

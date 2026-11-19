@@ -65,6 +65,17 @@ export async function createOrg(data: { name: string; ownerEmail: string }) {
   return { id: ws.id, slug: ws.slug, ownerEmail: email, tempPassword: password };
 }
 
+export async function getOrg(id: string) {
+  const w = await prisma.workspace.findUnique({ where: { id }, include: {
+    members: { include: { user: { select: { id: true, email: true, name: true, disabled: true } } }, orderBy: { createdAt: 'asc' } },
+    projects: { select: { id: true, name: true, createdAt: true, _count: { select: { rules: true } } }, orderBy: { createdAt: 'asc' } },
+  } });
+  if (!w) throw new NotFoundError('Organization');
+  return { id: w.id, name: w.name, suspended: w.suspended, createdAt: w.createdAt,
+    members: w.members.map(m => ({ userId: m.userId, email: m.user.email, name: m.user.name, role: m.role, disabled: m.user.disabled })),
+    projects: w.projects.filter(p => !p.name.startsWith('_')).map(p => ({ id: p.id, name: p.name, rules: p._count.rules })) };
+}
+
 export async function updateOrg(id: string, data: { suspended?: boolean; name?: string }) {
   const ws = await prisma.workspace.findUnique({ where: { id } });
   if (!ws) throw new NotFoundError('Organization');

@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 // System admin — every organization, every user, platform settings. System admins only (API enforces it).
 import { Suspense, useState } from 'react';
@@ -16,13 +17,15 @@ export default function AdminPageWrapper() { return <Suspense><AdminPage /></Sus
 function AdminPage() {
   const router = useRouter(); const path = usePathname() || '';
   const seg = path.split('/')[2] || 'orgs';
+  const orgId = seg === 'orgs' ? path.split('/')[3] || '' : '';
   const tab: Tab = seg === 'users' ? 'Users' : seg === 'settings' ? 'Settings' : 'Organizations';
   const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => api.get<any>('/auth/me') });
   if (me && !(me as any).isSystemAdmin) return <PageContent><Notice kind="error">System admins only.</Notice></PageContent>;
   return (
     <PageContent>
+      {orgId ? <OrgDetail id={orgId} /> : <>
       <h1 className="text-[24px] leading-8 text-[#161616] mb-4">{tab}</h1>
-      {tab === 'Organizations' ? <Orgs /> : tab === 'Users' ? <Users meId={(me as any)?.id} /> : <Settings />}
+      {tab === 'Organizations' ? <Orgs /> : tab === 'Users' ? <Users meId={(me as any)?.id} /> : <Settings />}</>}
     </PageContent>
   );
 }
@@ -66,13 +69,51 @@ function Orgs() {
         {orgs.map((o: any) => (
           <div key={o.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 border-b border-[#e0e0e0] last:border-b-0">
             <div className="flex-1 min-w-[200px]">
-              <div className="text-[14px] text-[#161616]">{o.name}</div>
+              <Link href={`/admin/orgs/${o.id}`} className="text-[14px] text-[#0f62fe] hover:underline">{o.name}</Link>
               <div className="text-[12px] text-[#525252] truncate"><span className="font-mono">{o.owner || '—'}</span> · {o.members} member{o.members === 1 ? '' : 's'} · {o.projects} project{o.projects === 1 ? '' : 's'}</div>
             </div>
             {o.suspended && <Tag tone="red">Suspended</Tag>}
             <Btn kind="ghost" onClick={() => upd.mutate({ id: o.id, body: { suspended: !o.suspended } })}>{o.suspended ? 'Reactivate' : 'Suspend'}</Btn>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function OrgDetail({ id }: { id: string }) {
+  const { data: o } = useQuery({ queryKey: ['admin-org', id], queryFn: () => api.get<any>(`/admin/orgs/${id}`) });
+  if (!o) return null;
+  const role = (r: string) => r[0] + r.slice(1).toLowerCase();
+  return (
+    <div>
+      <div className="text-[13px] mb-1"><Link href="/admin/orgs" className="text-[#0f62fe] hover:underline">Organizations</Link></div>
+      <h1 className="text-[24px] leading-8 text-[#161616] mb-4 flex items-center gap-3">{o.name}{o.suspended && <Tag tone="red">Suspended</Tag>}</h1>
+      <div className="grid gap-6 xl:grid-cols-2">
+        <div>
+          <div className="text-[16px] text-[#161616] mb-2">Members <span className="text-[#525252] tabular-nums">{o.members.length}</span></div>
+          <div className="bg-white border border-[#e0e0e0]">
+            {o.members.map((m: any) => (
+              <div key={m.userId} className="flex items-center gap-4 px-4 py-3 border-b border-[#e0e0e0] last:border-b-0">
+                <div className="flex-1 min-w-0"><div className="text-[14px] text-[#161616] truncate">{m.name || m.email}</div><div className="text-[12px] text-[#525252] font-mono truncate">{m.email}</div></div>
+                <span className="text-[13px] text-[#525252]">{role(m.role)}</span>
+                {m.disabled && <Tag tone="red">Disabled</Tag>}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div>
+          <div className="text-[16px] text-[#161616] mb-2">Projects <span className="text-[#525252] tabular-nums">{o.projects.length}</span></div>
+          <div className="bg-white border border-[#e0e0e0]">
+            {o.projects.map((p: any) => (
+              <div key={p.id} className="flex items-center gap-4 px-4 py-3 border-b border-[#e0e0e0] last:border-b-0">
+                <span className="flex-1 text-[14px] text-[#161616] truncate">{p.name}</span>
+                <span className="text-[13px] text-[#525252] tabular-nums">{p.rules} rules</span>
+              </div>
+            ))}
+            {!o.projects.length && <div className="px-4 py-3 text-[14px] text-[#525252]">No projects</div>}
+          </div>
+        </div>
       </div>
     </div>
   );

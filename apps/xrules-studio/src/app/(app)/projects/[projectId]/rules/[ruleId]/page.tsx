@@ -3,7 +3,7 @@ import { InputFields, ResultView, inputFieldsOf, outputFieldsOf } from '@/compon
 import { TestSheet } from '@/components/test/TestSheet';
 import { TestBadge } from '@/components/test/TestBadge';
 
-import { useParams } from 'next/navigation';
+import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -39,7 +39,13 @@ const TABS: { key: TabKey; label: string; icon: any }[] = [
 export default function RuleDetailPage() {
   const { projectId, ruleId } = useParams<{ projectId: string; ruleId: string }>();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<TabKey>('definition');
+  // the open tab lives in the URL: /p/{project}/rules/{rule}/{tab}
+  const pathname = usePathname() || '';
+  const router = useRouter();
+  const sp = useSearchParams();
+  const seg = pathname.split('/')[5] || sp?.get('tab') || '';
+  const tab: TabKey = (seg === 'tests' ? 'test' : (TABS.some(t => t.key === seg) ? seg : 'definition')) as TabKey;
+  const setTab = (t: TabKey) => router.replace(`/p/${projectId}/rules/${ruleId}${t === 'definition' ? '' : `/${t === 'test' ? 'tests' : t}`}`, { scroll: false });
 
   const { data: rule, isLoading } = useQuery({
     queryKey: ['rule', ruleId],
