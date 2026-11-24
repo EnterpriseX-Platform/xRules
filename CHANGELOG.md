@@ -6,6 +6,7 @@ All notable changes to XRules will be documented in this file. The format follow
 
 ### Added
 
+- Read-only catalogue for calling systems (API key with `read` scope): `GET /api/v1/rules`, `GET /api/v1/rules/{idOrAlias}/versions`, `GET /api/v1/rules/{idOrAlias}/versions/{version}` (input/output schema per published version); API key form chooses scopes
 - AGPL-3.0 license
 - README, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY documents
 - GitHub Actions CI for backend (TypeScript) + studio (Next.js) + engine (Rust)
