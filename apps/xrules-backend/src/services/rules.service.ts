@@ -341,7 +341,7 @@ export async function publishRule(id: string, user: AuthUser) {
       definition: (rule.definition || {}) as any,
       inputSchema: rule.inputSchema as any,
       outputSchema: rule.outputSchema as any,
-      status: rule.status,
+      status: 'PUBLISHED',
       message: `Version ${rule.version}`,
       ruleId: rule.id,
       createdById: user.userId,

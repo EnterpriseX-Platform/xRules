@@ -15,6 +15,7 @@ import dataRoutes from './data.routes.js';
 import platformRoutes from './platform.routes.js';
 import gatewayRoutes from './gateway.routes.js';
 import publicExecuteRoutes from './publicExecute.routes.js';
+import publicReadRoutes from './publicRead.routes.js';
 import testcasesRoutes from './testcases.routes.js';
 import testsuitesRoutes from './testsuites.routes.js';
 import datasetsRoutes from './datasets.routes.js';
@@ -44,6 +45,7 @@ router.use('/auth', usersRoutes);
 
 // Public API (Solver / API key)
 router.use('/api/v1', publicExecuteRoutes);
+router.use('/api/v1', publicReadRoutes);
 router.use('/api/v1', openapiRoutes);
 router.use('/api', gatewayRoutes);
 

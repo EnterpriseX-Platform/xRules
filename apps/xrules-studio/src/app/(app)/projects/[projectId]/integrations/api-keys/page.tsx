@@ -10,6 +10,9 @@ import { useAuth } from '@/lib/store';
 import { PageHead, Table, Td, Tag, Btn, Input, Panel, Notice, Tabs, fmtTime, Modal } from '@/components/pipeline/ui';
 import { usePerms } from '@/lib/perms';
 
+// execute = call rules and flows · read = list published rules, their versions and input/output schema
+const SCOPES = [{ id: 'execute', label: 'Execute' }, { id: 'read', label: 'Read rule catalogue' }];
+
 export default function ApiKeysPage() {
   const perms = usePerms();
   const { projectId } = useParams<{ projectId: string }>();
@@ -19,14 +22,15 @@ export default function ApiKeysPage() {
   const wsSlug = ws?.slug || tenant || '';
   const [tab, setTab] = useState('Keys');
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState<any>({ name: '', systemName: '', specIds: [] as string[], rate: '600', days: '' });
+  const [f, setF] = useState<any>({ name: '', systemName: '', specIds: [] as string[], scopes: ['execute'] as string[], rate: '600', days: '' });
   const [created, setCreated] = useState<any>(null);
   const { data: keys = [] } = useQuery({ queryKey: ['keys', wsSlug], queryFn: () => apiKeysApi.list(wsSlug) });
   const { data: specs = [] } = useQuery({ queryKey: ['specs', projectId], queryFn: () => api.get<any[]>(`/platform/specs?project_id=${projectId}`) });
   const specName: Record<string, string> = Object.fromEntries((specs as any[]).map(s => [s.id, `${s.name} (${s.url})`]));
   const inv = () => qc.invalidateQueries({ queryKey: ['keys', wsSlug] });
-  const create = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>('/api-keys', { name: f.name, systemName: f.systemName, specIds: f.specIds, rateLimitPerMin: Number(f.rate) || 600, expiresInDays: f.days ? Number(f.days) : undefined, workspaceSlug: wsSlug }), onSuccess: k => { setCreated(k); setOpen(false); inv(); } });
+  const create = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>('/api-keys', { name: f.name, systemName: f.systemName, specIds: f.specIds, scopes: f.scopes, rateLimitPerMin: Number(f.rate) || 600, expiresInDays: f.days ? Number(f.days) : undefined, workspaceSlug: wsSlug }), onSuccess: k => { setCreated(k); setOpen(false); inv(); } });
   const upd = useMutation({ mutationFn: ({ id, body }: any) => api.put(`/api-keys/${id}`, body), onSuccess: inv });
+  const toggleScope = (sc: string) => setF({ ...f, scopes: f.scopes.includes(sc) ? f.scopes.filter((x: string) => x !== sc) : [...f.scopes, sc] });
   const toggleSpec = (id: string) => setF({ ...f, specIds: f.specIds.includes(id) ? f.specIds.filter((x: string) => x !== id) : [...f.specIds, id] });
   const orgLevel = String(useOrgParams<any>()?.projectId || '').startsWith('_');
   return (
@@ -37,24 +41,27 @@ export default function ApiKeysPage() {
       {tab === 'Keys' && <>
         {created && <div className="mb-4"><Notice kind="success">Key created. Copy it now; it will not be shown again<div className="font-mono text-[13px] mt-2 bg-white px-2 py-1 select-all">{created.key}</div></Notice></div>}
         {open && (
-          <Modal title="New key" onClose={() => setOpen(false)} wide onSubmit={() => create.mutate()} submitLabel="Create" submitDisabled={!f.name || create.isPending} error={create.error ? String((create.error as any).message) : null}>
+          <Modal title="New key" onClose={() => setOpen(false)} wide onSubmit={() => create.mutate()} submitLabel="Create" submitDisabled={!f.name || !f.scopes.length || create.isPending} error={create.error ? String((create.error as any).message) : null}>
             <div className="grid grid-cols-4 gap-4">
               <Input id="k-name" label="Name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} placeholder="bpn-prod" />
               <Input id="k-sys" label="Calling system" value={f.systemName} onChange={(v: string) => setF({ ...f, systemName: v })} placeholder="BPN" />
               <Input id="k-rate" label="Requests per minute" mono value={f.rate} onChange={(v: string) => setF({ ...f, rate: v })} />
               <Input id="k-days" label="Expires in (days)" mono value={f.days} onChange={(v: string) => setF({ ...f, days: v })} placeholder="Never" />
             </div>
+            <div className="mt-4 text-[12px] text-[#525252] mb-1.5">Scopes</div>
+            <div className="flex gap-6 text-[14px]">{SCOPES.map(sc => <label key={sc.id} className="flex items-center gap-2"><input type="checkbox" checked={f.scopes.includes(sc.id)} onChange={() => toggleScope(sc.id)} />{sc.label} <span className="font-mono text-[12px] text-[#525252]">{sc.id}</span></label>)}</div>
             <div className="mt-4 text-[12px] text-[#525252] mb-1.5">May call</div>
             <div className="space-y-1">{(specs as any[]).map(s => <label key={s.id} className="flex items-center gap-2 text-[14px]"><input type="checkbox" checked={f.specIds.includes(s.id)} onChange={() => toggleSpec(s.id)} />{s.name} <span className="font-mono text-[12px] text-[#525252]">{s.url}</span></label>)}</div>
           </Modal>
         )}
-        <Table head={['Key', 'System', 'May call', 'Per minute', 'Expires', 'Last used', 'Active']} empty={!keys.length ? <div className="px-4 py-6 text-[14px] text-[#525252]">No keys yet</div> : null}>
+        <Table head={['Key', 'System', 'Scopes', 'May call', 'Per minute', 'Expires', 'Last used', 'Active']} empty={!keys.length ? <div className="px-4 py-6 text-[14px] text-[#525252]">No keys yet</div> : null}>
           {(keys as any[]).map(k => {
             const expiring = k.expiresAt && new Date(k.expiresAt).getTime() - Date.now() < 14 * 86400_000;
             return (
               <tr key={k.id}>
                 <Td><div className="font-semibold">{k.name}</div><div className="font-mono text-[12px] text-[#525252]">{k.prefix}</div></Td>
                 <Td>{k.systemName || '—'}</Td>
+                <Td mono className="text-[12px]">{(k.scopes || []).join(', ')}</Td>
                 <Td className="!whitespace-normal text-[13px]">{(k.specIds || []).map((id: string) => specName[id] || id.slice(0, 8)).join(', ') || <span className="text-[#a2191f]">No APIs allowed yet</span>}</Td>
                 <Td mono>{k.rateLimitPerMin}</Td>
                 <Td>{k.expiresAt ? (expiring ? <Tag tone="orange">{fmtTime(k.expiresAt)}</Tag> : fmtTime(k.expiresAt)) : 'Never'}</Td>
