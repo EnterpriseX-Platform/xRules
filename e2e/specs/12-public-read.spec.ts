@@ -19,7 +19,8 @@ async function pub(page: Page, apiKey: string, method: string, path: string, bod
   }, { apiKey, method, path, body });
 }
 
-test('read key: list published rules, versions, schema; execute a pinned version', async ({ page }) => {
+test('read key: list published rules, versions, schema; execute a pinned version', async ({ page, watch }) => {
+  watch.allow(/\/api\/v1\/rules\/[^/]+\/versions/); // 404s below are asserted on purpose
   await page.goto(`projects/${PROJECT}/rules`);
   const t = TEMPLATES.find(x => x.slug === 'fraud-score')!;
   const c = await api(page, 'POST', '/rules', { name: `e2e read ${stamp}`, type: t.type, projectId: PROJECT, definition: t.definition, input_schema: t.inputSchema, output_schema: t.outputSchema });
