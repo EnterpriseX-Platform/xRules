@@ -76,7 +76,7 @@ export function RuleSentences({ def, onChange, label, term, terms }: {
             <div key={r.id || ri} className="group flex items-start gap-3 px-4 py-2 border-b border-[#e0e0e0] last:border-b-0 text-[15px] text-[#161616] leading-8">
               <span className="w-6 shrink-0 text-right text-[13px] text-[#6f6f6f] tabular-nums pt-px">{ri + 1}</span>
               <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-1.5">
-                {conds.length === 0 ? <span>กรณีอื่น</span> : <span>ถ้า</span>}
+                {conds.length === 0 && ri === rules.length - 1 ? <span>กรณีอื่น</span> : <span>ถ้า</span>}
                 {conds.map(({ c, ci, cell }, k) => {
                   const { operator, args } = parseCellExpression(cell);
                   const spec = OP_TH.find(o => o.value === operator) || OP_TH[0];
