@@ -96,27 +96,27 @@ export function Sidebar() {
     areas = [
       { id: 'home', label: '', items: [
         { href: '/projects', label: 'Projects', icon: FolderKanban },
-        { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+        { href: '/', label: 'Home', icon: LayoutDashboard },
       ] },
-      { id: 'shared', label: 'Shared', items: [
+      ...(!perms.integrate ? [] : [{ id: 'shared', label: 'Shared', items: [
         { href: '/apis',        label: 'REST APIs',   icon: Zap },
         { href: '/triggers',    label: 'Triggers',    icon: Timer },
         { href: '/data-sets',   label: 'Data Sets',   icon: Layers },
         { href: '/connections', label: 'Connections', icon: Database },
-      ] },
+      ] }]),
       { id: 'testing', label: 'Testing', items: [
         { href: '/tests',     label: 'Test Suites', icon: FlaskConical },
         { href: '/test-runs', label: 'Test Runs',   icon: ListChecks },
         { href: '/approvals', label: 'Approvals',   icon: BadgeCheck },
       ] },
-      { id: 'monitor', label: 'Monitor', items: [
+      ...(!perms.integrate && !perms.admin ? [] : [{ id: 'monitor', label: 'Monitor', items: [
         { href: '/monitor',             label: 'Overview',    icon: Gauge },
         { href: '/monitor/traffic',     label: 'API Traffic', icon: Activity },
         { href: '/monitor/decisions',   label: 'Decisions',   icon: PieChart },
         { href: '/monitor/data-health', label: 'Data Health', icon: HeartPulse },
         { href: '/monitor/alerts',      label: 'Alerts',      icon: Bell },
         { href: '/executions',          label: 'Executions',  icon: History },
-      ] },
+      ] }])
     ];
     if (perms.admin) foot = { href: '/settings', label: 'Organization settings', icon: Settings };
   }

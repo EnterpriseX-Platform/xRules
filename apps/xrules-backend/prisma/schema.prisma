@@ -1221,3 +1221,25 @@ model Topic {
   @@index([projectId])
   @@map("topics")
 }
+
+// "Request this data": a business user asks for a term the rules need but the system does not have yet
+model DataRequest {
+  id          String    @id @default(cuid())
+  projectId   String
+  term        String
+  path        String?
+  note        String?
+  sampleValue String?
+  ruleId      String?
+  topicId     String?
+  status      String    @default("OPEN") // OPEN | DONE | DECLINED
+  requestedBy String
+  answer      String?
+  doneBy      String?
+  doneAt      DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([projectId, status])
+  @@map("data_requests")
+}

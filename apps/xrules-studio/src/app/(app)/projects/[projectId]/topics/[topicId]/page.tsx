@@ -8,6 +8,7 @@ import { api, rulesApi, flowsApi } from '@/lib/api';
 import { Btn, Input, Modal, Tag, fmtTime } from '@/components/pipeline/ui';
 import { usePerms } from '@/lib/perms';
 import { TopicSimulate } from '@/components/topic/TopicSimulate';
+import { RequestData } from '@/components/topic/RequestData';
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
@@ -77,7 +78,7 @@ export default function TopicPage() {
   return (
     <div className="px-8 py-6">
       <div className="text-[13px] mb-1"><Link href={`/p/${projectId}/topics`} className="text-[#0f62fe] hover:underline">Topics</Link></div>
-      <h1 className="text-[28px] leading-9 text-[#161616]">{t.name}</h1>
+      <div className="flex items-start gap-4"><h1 className="flex-1 text-[28px] leading-9 text-[#161616]">{t.name}</h1>{perms.write && <RequestData projectId={projectId} topicId={topicId} />}</div>
       {t.goal && <div className="text-[15px] text-[#525252] mt-1">{t.goal}</div>}
       <div className="flex border-b border-[#e0e0e0] mt-5 mb-6 overflow-x-auto" role="tablist">
         {TABS.map(x => (

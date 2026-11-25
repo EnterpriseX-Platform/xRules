@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { useTerms, showValue, type Term } from '@/lib/terms';
 import { InputFields } from '@/components/test/FieldsEditor';
 import { useQueryClient } from '@tanstack/react-query';
+import { RequestData } from '@/components/topic/RequestData';
 
 type Line = { name: string; expr: string };
 const FUNCS: { name: string; insert: string; label: string }[] = [
@@ -116,6 +117,7 @@ export function CalcDesigner({ rule, projectId, onChange }: { rule: any; project
             {terms.filter(t => !produced.includes(t.path) || lines.findIndex(l => l.name === t.path) < focus).map(t => (
               <button key={t.id} type="button" onMouseDown={e => e.preventDefault()} onClick={() => insert(t.term)} className="h-8 px-2 text-[13px] border border-[#c6c6c6] bg-white text-[#0f62fe] hover:bg-[#edf5ff]">{t.term}</button>
             ))}
+            <RequestData projectId={projectId} ruleId={rule.id} />
           </div>
           <div className="flex flex-wrap gap-1">
             {OPS.map(o => <button key={o} type="button" onMouseDown={e => e.preventDefault()} onClick={() => insert(` ${o} `)} className="h-8 w-9 text-[14px] border border-[#c6c6c6] bg-white hover:bg-[#e8e8e8]">{o}</button>)}

@@ -31,6 +31,10 @@ r.post('/operations/:opId/try', authMiddleware, h(req => specs.tryOperation(req.
 
 // ---- Reviews
 // ---- Topics (business units)
+r.get('/home', authMiddleware, h(async req => (await import('../platform/home.js')).home(req.user)));
+r.get('/data-requests', authMiddleware, h(async req => (await import('../platform/home.js')).listRequests(String(req.query.project_id), req.user)));
+r.post('/data-requests', authMiddleware, h(async req => (await import('../platform/home.js')).requestData(req.body, req.user), 201));
+r.post('/data-requests/:id/close', authMiddleware, h(async req => (await import('../platform/home.js')).closeRequest(req.params.id, req.body, req.user)));
 r.get('/topics/templates', authMiddleware, h(async () => (await import('../platform/topic-templates.js')).list()));
 r.post('/topics/start', authMiddleware, h(async req => (await import('../platform/topic-templates.js')).start(req.body, req.user), 201));
 r.get('/topics', authMiddleware, h(async req => (await import('../platform/topics.js')).list(String(req.query.project_id), req.user)));

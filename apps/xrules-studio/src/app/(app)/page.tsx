@@ -1,155 +1,95 @@
 'use client';
-
-import { useQuery } from '@tanstack/react-query';
-import { Activity, FileText, Workflow, FolderKanban, Brain } from 'lucide-react';
-import { PageContent, PageHeader } from '@/components/layout/AppShell';
-import { dashboardApi } from '@/lib/api';
+// Home by role: what needs this person now. Business: topics and failing tests. Approver: changes to decide.
+// Developer: data requests and API errors. Everyone: their own approval requests.
+import Link from 'next/link';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/api';
+import { PageHead, Tag, fmtTime } from '@/components/pipeline/ui';
+import { usePerms } from '@/lib/perms';
 import { useAuth } from '@/lib/store';
 
-export default function DashboardPage() {
-  const wsSlug = useAuth((s: any) => s.workspace?.slug || s.user?.tenantId || '');
+function Section({ title, count, children, empty }: { title: string; count?: number; children: React.ReactNode; empty: string }) {
+  const has = (count ?? 0) > 0;
+  return (
+    <section>
+      <div className="flex items-baseline gap-2 mb-2"><h2 className="text-[16px] text-[#161616]">{title}</h2>{count ? <span className="text-[13px] text-[#6f6f6f] tabular-nums">{count}</span> : null}</div>
+      <div className="bg-white border border-[#e0e0e0]">{has ? children : <div className="px-5 py-6 text-[14px] text-[#525252]">{empty}</div>}</div>
+    </section>
+  );
+}
+const Row = ({ href, children }: { href: string; children: React.ReactNode }) => (
+  <Link href={href} className="flex flex-wrap items-center gap-x-6 gap-y-1 px-5 py-3.5 border-b border-[#e0e0e0] last:border-b-0 hover:bg-[#f4f4f4]">{children}</Link>
+);
+const REVIEW: Record<string, [string, any]> = { PENDING: ['In review', 'blue'], APPROVED: ['Approved', 'green'], REJECTED: ['Sent back', 'red'], WITHDRAWN: ['Withdrawn', 'gray'] };
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['dashboard', wsSlug],
-    queryFn: () => dashboardApi.get(wsSlug),
-    retry: false,
-  });
-
-  const raw = data?.stats || {};
-  const stats = {
-    projects:   raw.projects   ?? raw.projectCount   ?? 0,
-    rules:      raw.rules      ?? raw.ruleCount      ?? 0,
-    flows:      raw.flows      ?? raw.flowCount      ?? 0,
-    models:     raw.models     ?? raw.modelCount     ?? 0,
-    executions: raw.executions ?? raw.executionCount ?? 0,
-  };
+export default function HomePage() {
+  const perms = usePerms();
+  const user = useAuth((s: any) => s.user);
+  const qc = useQueryClient();
+  const { data: h } = useQuery({ queryKey: ['home'], queryFn: () => api.get<any>('/platform/home') });
+  const close = useMutation({ meta: { silent: true }, mutationFn: (id: string) => api.post(`/platform/data-requests/${id}/close`, { status: 'DONE' }), onSuccess: () => qc.invalidateQueries({ queryKey: ['home'] }) });
+  if (!h) return null;
+  const me = user?.email;
+  const dev = perms.integrate;
+  const myData = (h.dataRequests as any[]).filter(d => d.requestedBy === me);
+  const dataRows = dev ? h.dataRequests : myData;
 
   return (
-    <PageContent>
-      <PageHeader
-        title="Dashboard"
-        description="Overview of decisions executed across your tenant"
-        stats={[
-          { label: 'Projects',    value: stats.projects },
-          { label: 'Rules',       value: stats.rules },
-          { label: 'Flows',       value: stats.flows },
-          { label: 'Models',      value: stats.models },
-          { label: 'Executions',  value: stats.executions },
-        ]}
-      />
-
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 card p-5">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-[15px] font-semibold tracking-tight">Recent executions</h2>
-            <span className="text-[11px] text-subtle tabular-nums">{Number(stats.executions).toLocaleString()} total</span>
-          </div>
-          <RecentTable rows={data?.recentExecutions || []} loading={isLoading} />
-        </div>
-
-        <div className="card p-5">
-          <h2 className="text-[15px] font-semibold tracking-tight mb-5">Recent projects</h2>
-          <ProjectList rows={data?.recentProjects || []} loading={isLoading} />
-        </div>
+    <div className="px-8 py-6 max-w-[1200px]">
+      <PageHead title={`Hello${user?.name ? `, ${String(user.name).split(' ')[0]}` : ''}`} />
+      <div className="grid gap-8 lg:grid-cols-2">
+        {perms.approve && (
+          <Section title="Waiting for your approval" count={h.toApprove.length} empty="Nothing to approve">
+            {h.toApprove.map((r: any) => (
+              <Row key={r.id} href={`/p/${r.projectId}/approvals`}>
+                <span className="flex-1 min-w-[200px] text-[15px]">{r.title}</span><span className="text-[13px] text-[#525252]">{r.submittedBy}</span><span className="text-[12px] text-[#6f6f6f] w-[140px]">{fmtTime(r.createdAt)}</span>
+              </Row>))}
+          </Section>
+        )}
+        {perms.write && (
+          <Section title="Your topics" count={h.topics.length} empty="No topics yet">
+            {h.topics.map((t: any) => (
+              <Row key={t.id} href={`/p/${t.projectId}/topics/${t.id}`}>
+                <div className="flex-1 min-w-[200px]"><div className="text-[15px]">{t.name}</div>{t.goal && <div className="text-[12px] text-[#525252] truncate">{t.goal}</div>}</div>
+                <span className="text-[13px] text-[#525252]">{t.project}</span>
+              </Row>))}
+          </Section>
+        )}
+        {perms.write && (
+          <Section title="Failing tests" count={h.failingTests.length} empty="All tests pass">
+            {h.failingTests.map((c: any) => (
+              <Row key={c.id} href={c.targetType === 'rule' ? `/p/${c.projectId}/rules/${c.targetId}/tests` : `/p/${c.projectId}/flows/${c.targetId}`}>
+                <span className="flex-1 min-w-[200px] text-[15px]">{c.name}</span><span className="text-[13px] text-[#525252]">{c.target}</span><span className="text-[13px] text-[#da1e28]">Fails</span>
+              </Row>))}
+          </Section>
+        )}
+        <Section title="Your approval requests" count={h.myRequests.length} empty="You have not asked for any approval">
+          {h.myRequests.map((r: any) => (
+            <Row key={r.id} href={`/p/${r.projectId}/approvals`}>
+              <span className="flex-1 min-w-[200px] text-[15px]">{r.title}</span>{REVIEW[r.status] && <Tag tone={REVIEW[r.status][1]}>{REVIEW[r.status][0]}</Tag>}<span className="text-[12px] text-[#6f6f6f] w-[140px]">{fmtTime(r.createdAt)}</span>
+            </Row>))}
+        </Section>
+        {(dev || myData.length > 0) && (
+          <Section title={dev ? 'Data requests' : 'Your data requests'} count={dataRows.length} empty="No open data requests">
+            {dataRows.map((d: any) => (
+              <div key={d.id} className="flex flex-wrap items-center gap-x-6 gap-y-1 px-5 py-3.5 border-b border-[#e0e0e0] last:border-b-0">
+                <div className="flex-1 min-w-[200px]"><div className="text-[15px]">{d.term}</div>{d.note && <div className="text-[12px] text-[#525252]">{d.note}</div>}</div>
+                <span className="text-[13px] text-[#525252]">{dev ? d.requestedBy : d.project}</span>
+                <span className="text-[12px] text-[#6f6f6f] w-[140px]">{fmtTime(d.createdAt)}</span>
+                {dev && <button className="h-8 px-3 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => close.mutate(d.id)}>Mark done</button>}
+              </div>))}
+          </Section>
+        )}
+        {dev && (
+          <Section title="API errors, last 7 days" count={h.apiErrors.length} empty="No errors">
+            {h.apiErrors.map((e: any) => (
+              <Row key={e.id} href={e.kind === 'rule' ? `/p/${e.projectId}/rules/${e.targetId}` : `/p/${e.projectId}/flows/${e.targetId}`}>
+                <div className="flex-1 min-w-[200px]"><div className="text-[15px]">{e.name}</div><div className="text-[12px] text-[#a2191f] truncate">{e.error}</div></div>
+                <span className="text-[12px] text-[#6f6f6f] w-[140px]">{fmtTime(e.at)}</span>
+              </Row>))}
+          </Section>
+        )}
       </div>
-    </PageContent>
-  );
-}
-
-function KpiCard({ label, value, icon: Icon, tone }: { label: string; value: number; icon: any; tone: 'info' | 'mint' | 'warn' | 'accent' }) {
-  const toneCls = {
-    info:   'text-info bg-info/10',
-    mint:   'text-mint bg-mint/10',
-    warn:   'text-warn bg-warn/10',
-    accent: 'text-accent bg-accent/10',
-  }[tone];
-  return (
-    <div className="card p-5 flex items-center gap-4 card-hover">
-      <div className={`h-11 w-11 rounded-xl flex items-center justify-center ${toneCls}`}>
-        <Icon className="h-5 w-5" strokeWidth={1.8} />
-      </div>
-      <div>
-        <div className="kpi-num">{value}</div>
-        <div className="text-[12px] text-subtle mt-1">{label}</div>
-      </div>
-    </div>
-  );
-}
-
-function RecentTable({ rows, loading }: { rows: any[]; loading: boolean }) {
-  if (loading) return <SkeletonRows />;
-  if (!rows.length) return <Empty icon={Activity} text="No recent executions" />;
-  return (
-    <table className="w-full text-sm">
-      <thead className="border-b border-border/60">
-        <tr className="text-left">
-          <th className="py-2 pr-4 label-section">#</th>
-          <th className="py-2 pr-4 label-section">Rule</th>
-          <th className="py-2 pr-4 label-section">Status</th>
-          <th className="py-2 pr-4 label-section text-right">Duration</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.slice(0, 5).map((r, i) => (
-          <tr key={r.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
-            <td className="py-3 pr-4 row-index">{String(i + 1).padStart(2, '0')}</td>
-            <td className="py-3 pr-4 truncate max-w-[260px] font-medium">{r.ruleName || r.rule?.name || r.flow?.name || '—'}</td>
-            <td className="py-3 pr-4">
-              <span className={`pill ${String(r.status).toUpperCase() === 'SUCCESS' ? 'pill-ok' : String(r.status).toUpperCase() === 'FAILED' ? 'pill-danger' : 'pill-warn'}`}>
-                <span className={`dot ${String(r.status).toUpperCase() === 'SUCCESS' ? 'bg-ok' : String(r.status).toUpperCase() === 'FAILED' ? 'bg-danger' : 'bg-warn'}`} />
-                {r.status.toLowerCase()}
-              </span>
-            </td>
-            <td className="py-3 pr-4 text-right text-xs text-subtle tabular-nums">
-              {r.duration ? `${r.duration} ms` : '—'}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-function ProjectList({ rows, loading }: { rows: any[]; loading: boolean }) {
-  if (loading) return <SkeletonRows />;
-  if (!rows.length) return <Empty icon={FolderKanban} text="No projects yet" />;
-  return (
-    <div className="space-y-1">
-      {rows.slice(0, 6).map((p) => (
-        <a
-          key={p.id}
-          href={`/p/${p.id}/topics`}
-          className="flex items-center gap-3 p-2.5 -mx-2 rounded-lg hover:bg-muted/60 transition-colors group"
-        >
-          <span className="h-2.5 w-2.5 rounded-full shrink-0 ring-2 ring-offset-2 ring-offset-surface" style={{ background: p.color || 'rgb(var(--c-mint))' }} />
-          <div className="min-w-0 flex-1">
-            <div className="text-[14px] font-medium truncate group-hover:text-accent transition-colors">{p.name}</div>
-            <div className="text-[11.5px] text-subtle truncate">{p.slug}</div>
-          </div>
-        </a>
-      ))}
-    </div>
-  );
-}
-
-function SkeletonRows() {
-  return (
-    <div className="space-y-2">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="h-10 rounded-lg bg-muted animate-pulse" />
-      ))}
-    </div>
-  );
-}
-
-function Empty({ icon: Icon, text }: { icon: any; text: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-12 text-subtle">
-      <div className="h-12 w-12 rounded-full bg-muted/60 flex items-center justify-center mb-3">
-        <Icon className="h-5 w-5 text-subtle/70" />
-      </div>
-      <div className="text-sm">{text}</div>
     </div>
   );
 }
