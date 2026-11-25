@@ -79,11 +79,13 @@ function normalizeRow(r: Row): Row {
   return out;
 }
 
-export async function query(rc: ResolvedConfig, sql: string, params: any[] | Record<string, any> = [], limit?: number): Promise<Row[]> {
+/** timeoutMs stops the statement on the database side (Oracle call timeout / Postgres statement_timeout). */
+export async function query(rc: ResolvedConfig, sql: string, params: any[] | Record<string, any> = [], limit?: number, timeoutMs?: number): Promise<Row[]> {
   const safe = assertReadOnlySql(sql, rc.allowedObjects);
   if (rc.type === 'oracle') {
     const c = await oracleConn(rc.cfg);
     try {
+      if (timeoutMs) (c as any).callTimeout = Math.max(1000, Math.floor(timeoutMs));
       const r = await c.execute(safe, params, { maxRows: limit || 0 });
       return (r.rows || []).map(normalizeRow);
     } finally { await c.close(); }
@@ -93,6 +95,7 @@ export async function query(rc: ResolvedConfig, sql: string, params: any[] | Rec
     await c.connect();
     try {
       await c.query('BEGIN READ ONLY');
+      if (timeoutMs) await c.query(`SET LOCAL statement_timeout = ${Math.max(1000, Math.floor(Number(timeoutMs)))}`);
       const r = await c.query(limit ? `SELECT * FROM (${safe}) q LIMIT ${Number(limit)}` : safe, Array.isArray(params) ? params : Object.values(params));
       await c.query('ROLLBACK');
       return r.rows.map(normalizeRow);

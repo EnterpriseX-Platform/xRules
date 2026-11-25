@@ -45,14 +45,14 @@ export async function tryLocalExecutor(rule: any, input: any, context: any): Pro
     case 'FORMULA':   return runFormula(rule.definition, input, rule.ruleVariables);
     case 'LOOKUP':    return runLookup(rule.definition, input);
     case 'MODEL_CALL': {
-      // { model: "<slug>", forEach?: "items", fields?: [...] } — predictions from the model's published version
+      // { model: "<slug>", version?: 3, forEach?: "items", fields?: [...] } — predictions from the pinned version, else the published one
       const d: any = rule.definition || {};
       if (!d.model) throw new Error('Model Call rule needs definition.model (the model slug)');
       const pick = (o: any) => (Array.isArray(d.fields) && d.fields.length ? Object.fromEntries(d.fields.map((f: string) => [f, o?.[f]])) : o);
       const list = d.forEach ? String(d.forEach).split('.').reduce((o: any, k: string) => o?.[k], input) : null;
       const rows = Array.isArray(list) ? list.map(pick) : [pick(input)];
       const { predict } = await import('../platform/ml.js');
-      const r = await predict(rule.projectId, String(d.model), rows);
+      const r = await predict(rule.projectId, String(d.model), rows, d.version ? { version: Number(d.version) } : {});
       return Array.isArray(list) ? { model: r.model, version: r.version, results: r.results } : { model: r.model, version: r.version, ...r.results[0] };
     }
     case 'RULE_FLOW': {

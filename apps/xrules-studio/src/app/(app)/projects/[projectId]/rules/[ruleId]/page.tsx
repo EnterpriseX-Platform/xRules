@@ -231,23 +231,37 @@ function DefinitionTab({ rule, projectId }: { rule: any; projectId: string }) {
 
 function ModelCallDefinition({ rule, projectId, onSave, saving }: { rule: any; projectId: string; onSave: (d: any) => void; saving: boolean }) {
   const d0 = rule.definition || {};
-  const [d, setD] = useState({ model: d0.model || '', forEach: d0.forEach || '', fields: (d0.fields || []).join(', ') });
+  const [d, setD] = useState({ model: d0.model || '', version: d0.version ? String(d0.version) : '', forEach: d0.forEach || '', fields: (d0.fields || []).join(', ') });
   const { data: models = [] } = useQuery({ queryKey: ['models', projectId], queryFn: () => api.get<any[]>(`/models?project_id=${projectId}`) });
+  const picked = (models as any[]).find(m => m.slug === d.model);
+  const { data: versions = [] } = useQuery({ queryKey: ['model-versions', picked?.id], queryFn: () => api.get<any[]>(`/models/${picked.id}/versions`), enabled: !!picked?.id });
+  const usable = (versions as any[]).filter(v => ['published', 'retired'].includes(v.status));
   return (
     <div className="card p-5 space-y-4 max-w-3xl">
       <div>
         <label className="label-section block mb-1.5">Model</label>
         <div className="flex flex-wrap gap-1.5">{(models as any[]).map(m => (
-          <button key={m.id} type="button" aria-pressed={d.model === m.slug} onClick={() => setD({ ...d, model: m.slug })}
+          <button key={m.id} type="button" aria-pressed={d.model === m.slug} onClick={() => setD({ ...d, model: m.slug, version: '' })}
             className={`h-8 px-3 text-[13px] border ${d.model === m.slug ? 'bg-[#0f62fe] text-white border-[#0f62fe]' : 'bg-white border-[#c6c6c6] hover:bg-[#e8e8e8]'}`}>{m.name}</button>
         ))}</div>
       </div>
+      {d.model && <div>
+        <label className="label-section block mb-1.5">Version</label>
+        <div className="flex flex-wrap gap-1.5">
+          <button type="button" aria-pressed={!d.version} onClick={() => setD({ ...d, version: '' })}
+            className={`h-8 px-3 text-[13px] border ${!d.version ? 'bg-[#0f62fe] text-white border-[#0f62fe]' : 'bg-white border-[#c6c6c6] hover:bg-[#e8e8e8]'}`}>Published (follows new publishes)</button>
+          {usable.map(v => (
+            <button key={v.id} type="button" aria-pressed={d.version === String(v.version)} onClick={() => setD({ ...d, version: String(v.version) })}
+              className={`h-8 px-3 text-[13px] border font-mono ${d.version === String(v.version) ? 'bg-[#0f62fe] text-white border-[#0f62fe]' : 'bg-white border-[#c6c6c6] hover:bg-[#e8e8e8]'}`}>v{v.version} · {v.status}</button>
+          ))}
+        </div>
+      </div>}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div><label htmlFor="mc-each" className="label-section block mb-1.5">Predict for each item in (optional)</label><input id="mc-each" className="input w-full font-mono" value={d.forEach} onChange={e => setD({ ...d, forEach: e.target.value })} placeholder="items" /></div>
         <div><label htmlFor="mc-fields" className="label-section block mb-1.5">Input fields (comma separated, optional)</label><input id="mc-fields" className="input w-full font-mono" value={d.fields} onChange={e => setD({ ...d, fields: e.target.value })} placeholder="amount, qty, strategy" /></div>
       </div>
       <button className="btn-primary disabled:opacity-50" disabled={!d.model || saving}
-        onClick={() => onSave({ model: d.model, ...(d.forEach ? { forEach: d.forEach } : {}), ...(d.fields.trim() ? { fields: d.fields.split(',').map((x: string) => x.trim()).filter(Boolean) } : {}) })}>Save</button>
+        onClick={() => onSave({ model: d.model, ...(d.version ? { version: Number(d.version) } : {}), ...(d.forEach ? { forEach: d.forEach } : {}), ...(d.fields.trim() ? { fields: d.fields.split(',').map((x: string) => x.trim()).filter(Boolean) } : {}) })}>Save</button>
     </div>
   );
 }
