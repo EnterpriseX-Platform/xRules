@@ -81,9 +81,23 @@ export function CommandPalette() {
     staleTime: 30_000,
   });
 
+  const { data: topics = [] } = useQuery({
+    queryKey: ['topics', projectId],
+    queryFn: () => projectId ? (import('@/lib/api').then(m => m.api.get<any[]>(`/platform/topics?project_id=${projectId}`))) : Promise.resolve([]),
+    enabled: open && !!projectId,
+    staleTime: 30_000,
+  });
+  const actions: Item[] = [
+    ...(projectId ? [{ id: 'act-topic', title: 'New topic', group: 'Actions', icon: Sparkles, href: `/p/${projectId}/topics?new=1` }] : []),
+    { id: 'act-approvals', title: 'Approvals waiting', group: 'Actions', icon: ScrollText, href: projectId ? `/p/${projectId}/approvals` : '/approvals' },
+    { id: 'act-home', title: 'Home', group: 'Actions', icon: LayoutDashboard, href: '/' },
+  ];
+  const topicItems: Item[] = (topics as any[]).map((t) => ({ id: `tp-${t.id}`, title: t.name, subtitle: t.goal || undefined, group: 'Topics', icon: FolderKanban, href: `/p/${projectId}/topics/${t.id}` }));
+
   // Build static section items
   const sections: Item[] = projectId ? [
-    { id: 'sec-dash', title: 'Dashboard', group: 'Go to', icon: LayoutDashboard, href: `/` },
+    { id: 'sec-topics', title: 'Topics', group: 'Go to', icon: FolderKanban, href: `/p/${projectId}/topics` },
+    { id: 'sec-dash', title: 'Home', group: 'Go to', icon: LayoutDashboard, href: `/` },
     { id: 'sec-projects', title: 'Projects', group: 'Go to', icon: FolderKanban, href: `/projects` },
     { id: 'sec-rules', title: 'Rules', group: 'Go to', icon: FileText, href: `/p/${projectId}/rules` },
     { id: 'sec-flows', title: 'Flows', group: 'Go to', icon: Workflow, href: `/p/${projectId}/flows` },
@@ -116,7 +130,7 @@ export function CommandPalette() {
     icon: Workflow, href: `/p/${projectId}/flows/${f.id}`,
   }));
 
-  const all = [...sections, ...projectItems, ...ruleItems, ...flowItems];
+  const all = [...actions, ...topicItems, ...sections, ...projectItems, ...ruleItems, ...flowItems];
   const q = query.trim().toLowerCase();
   const filtered = q
     ? all.filter(i => i.title.toLowerCase().includes(q) || (i.subtitle || '').toLowerCase().includes(q))

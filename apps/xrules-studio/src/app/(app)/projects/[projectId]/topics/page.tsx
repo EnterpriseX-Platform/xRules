@@ -2,7 +2,8 @@
 // Topics (เรื่อง): the business user's home in a project.
 import { useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { PageHead, Btn, Input, Modal, fmtTime } from '@/components/pipeline/ui';
@@ -14,6 +15,8 @@ export default function TopicsPage() {
   const qc = useQueryClient();
   const perms = usePerms();
   const [open, setOpen] = useState(false);
+  const sp = useSearchParams();
+  useEffect(() => { if (sp?.get('new') === '1') { setOpen(true); router.replace(`/p/${projectId}/topics`); } }, [sp]); // eslint-disable-line react-hooks/exhaustive-deps
   const [f, setF] = useState({ name: '', goal: '', from: 'blank', description: '' });
   const { data: tpls = [] } = useQuery({ queryKey: ['topic-templates'], queryFn: () => api.get<any[]>('/platform/topics/templates'), enabled: open });
   const { data: topics = [], isFetched } = useQuery({ queryKey: ['topics', projectId], queryFn: () => api.get<any[]>(`/platform/topics?project_id=${projectId}`) });

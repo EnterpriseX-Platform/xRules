@@ -3,6 +3,7 @@
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { CommandPalette } from './CommandPalette';
+import { Shortcuts } from './Shortcuts';
 import { AssistantPanel } from '@/components/assistant/AssistantPanel';
 import { ScopeBar } from './ScopeBar';
 
@@ -18,6 +19,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <CommandPalette />
+      <Shortcuts />
       <AssistantPanel />
     </div>
   );

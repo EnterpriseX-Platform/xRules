@@ -377,27 +377,20 @@ export async function getRuleVersions(id: string, user: AuthUser) {
     include: { createdBy: true },
   });
 
-  // Always include current version at the top
+  // one row per version: a draft newer than the last published version is shown on top; otherwise the stored rows
+  const latest = versions[0];
+  const draftOnTop = rule.status !== 'PUBLISHED' && (!latest || JSON.stringify(latest.definition) !== JSON.stringify(rule.definition));
   const result = [
-    {
-      version: rule.version,
-      ruleId: rule.id,
-      message: rule.status === 'PUBLISHED' ? 'Current published version' : 'Current draft',
-      author: { id: rule.createdBy.id, name: rule.createdBy.name, email: rule.createdBy.email },
-      createdAt: rule.updatedAt.toISOString(),
-      timestamp: rule.updatedAt.toISOString(),
-      changeStats: { added: 0, modified: 0, deleted: 0 },
-      isActive: true,
-    },
+    ...(draftOnTop ? [{ id: `draft-${rule.id}`, version: (latest?.version ?? 0) + 1, ruleId: rule.id, status: 'DRAFT', message: 'Draft, not live yet', definition: rule.definition,
+      author: { id: rule.createdBy.id, name: rule.createdBy.name, email: rule.createdBy.email }, createdAt: rule.updatedAt.toISOString(), timestamp: rule.updatedAt.toISOString(), changeStats: { added: 0, modified: 0, deleted: 0 }, isActive: false }] : []),
     ...versions.map((v) => ({
-      version: v.version,
-      ruleId: v.ruleId,
-      message: v.message || `Version ${v.version}`,
+      id: v.id, version: v.version, ruleId: v.ruleId, status: v.status, definition: v.definition,
+      message: v.message || '',
       author: { id: v.createdBy.id, name: v.createdBy.name, email: v.createdBy.email },
       createdAt: v.createdAt.toISOString(),
       timestamp: v.createdAt.toISOString(),
       changeStats: v.changeStats || { added: 0, modified: 0, deleted: 0 },
-      isActive: false,
+      isActive: v.version === rule.version && rule.status === 'PUBLISHED',
     })),
   ];
 

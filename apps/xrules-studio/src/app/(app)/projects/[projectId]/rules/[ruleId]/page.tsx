@@ -606,37 +606,29 @@ function ApiTab({ rule }: { rule: any }) {
 }
 
 function VersionsTab({ ruleId }: { ruleId: string }) {
-  const { data: versions = [] } = useQuery({
-    queryKey: ['rule-versions', ruleId],
-    queryFn: () => rulesApi.versions(ruleId),
-  });
-  if (!versions.length) return <div className="card p-8 text-center text-subtle text-sm">No published versions yet</div>;
+  const { data: versions = [] } = useQuery({ queryKey: ['rule-versions', ruleId], queryFn: () => rulesApi.versions(ruleId) });
+  const [all, setAll] = useState(false);
+  if (!versions.length) return <div className="bg-white border border-[#e0e0e0] px-5 py-8 text-[14px] text-[#525252]">No published versions yet</div>;
+  // versions whose content is the same as the one before them add nothing; fold them into it
+  const sorted = [...(versions as any[])].sort((a, b) => b.version - a.version);
+  const key = (v: any) => JSON.stringify(v.definition ?? null);
+  const rows = sorted.map((v, i) => ({ ...v, same: sorted.slice(i + 1).find(o => v.definition !== undefined && key(o) === key(v))?.version }));
+  const shown = all ? rows : rows.filter(r => !r.same || r.status === 'PUBLISHED' || r.status === 'published');
+  const hidden = rows.length - shown.length;
   return (
-    <div className="card overflow-hidden">
-      <table className="w-full">
-        <thead className="bg-muted/30 border-b border-border">
-          <tr className="text-left">
-            <th className="py-3 px-4 label-section w-12">#</th>
-            <th className="py-3 px-4 label-section">Version</th>
-            <th className="py-3 px-4 label-section">Status</th>
-            <th className="py-3 px-4 label-section">Message</th>
-            <th className="py-3 px-4 label-section text-right">Created</th>
-          </tr>
-        </thead>
-        <tbody>
-          {versions.map((v: any, i: number) => (
-            <tr key={v.id} className="border-b border-border/50">
-              <td className="py-3 px-4 row-index">{String(i + 1).padStart(2, '0')}</td>
-              <td className="py-3 px-4 font-mono">v{v.version}</td>
-              <td className="py-3 px-4"><StatusPill status={v.status} /></td>
-              <td className="py-3 px-4 text-sm text-subtle">{v.message || '—'}</td>
-              <td className="py-3 px-4 text-right font-mono text-xs text-subtle tabular-nums">
-                {fmtTime(v.createdAt)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="space-y-2">
+      <div className="bg-white border border-[#e0e0e0]">
+        <div className="grid grid-cols-[90px_130px_1fr_170px] bg-[#e0e0e0] text-[12px] font-semibold"><div className="px-4 h-10 flex items-center">Version</div><div className="px-4 h-10 flex items-center">Status</div><div className="px-4 h-10 flex items-center">Change</div><div className="px-4 h-10 flex items-center justify-end">Published</div></div>
+        {shown.map((v: any) => (
+          <div key={v.id} className="grid grid-cols-[90px_130px_1fr_170px] border-t border-[#e0e0e0] text-[14px]">
+            <div className="px-4 py-3 tabular-nums">v{v.version}</div>
+            <div className="px-4 py-3"><StatusPill status={v.status} /></div>
+            <div className="px-4 py-3 text-[#525252]">{v.message || (v.same ? `Same content as v${v.same}` : '—')}</div>
+            <div className="px-4 py-3 text-right text-[13px] text-[#525252] tabular-nums">{fmtTime(v.createdAt)}</div>
+          </div>
+        ))}
+      </div>
+      {(hidden > 0 || all) && <button className="h-8 px-2 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => setAll(!all)}>{all ? 'Hide versions with no change' : `Show ${hidden} version${hidden === 1 ? '' : 's'} with no change`}</button>}
     </div>
   );
 }
