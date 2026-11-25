@@ -54,7 +54,7 @@ export default function ProjectsPage() {
             {projects.map((p: any, i: number) => (
               <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                 <td className="py-3 px-4">
-                  <Link href={`/p/${p.id}/rules`} className="flex items-center gap-3 group">
+                  <Link href={`/p/${p.id}/topics`} className="flex items-center gap-3 group">
                     <span className="h-8 w-8 rounded flex items-center justify-center" style={{ background: p.color ? `${p.color}33` : 'rgb(var(--c-mint) / 0.2)' }}>
                       <FolderKanban className="h-4 w-4 text-text" />
                     </span>
@@ -70,7 +70,7 @@ export default function ProjectsPage() {
                 <td className="py-3 px-4 text-sm">{p.visibility === 'PRIVATE' ? 'Private' : 'Tenant'}</td>
                 <td className="py-3 px-4 text-sm">{p.myRole ? p.myRole[0] + p.myRole.slice(1).toLowerCase() : '—'}</td>
                 <td className="py-3 px-4 text-right">
-                  <Link href={`/p/${p.id}/rules`}>
+                  <Link href={`/p/${p.id}/topics`}>
                     <ChevronRight className="h-4 w-4 text-subtle inline" />
                   </Link>
                 </td>

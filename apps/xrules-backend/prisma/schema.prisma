@@ -190,6 +190,8 @@ model Folder {
 
 model Rule {
   id            String            @id @default(cuid())
+  // the business topic (เรื่อง) this rule answers a question for
+  topicId       String?
   name          String
   slug          String
   // User-mutable identifier — drop-in replacement for id in solver requests.
@@ -313,6 +315,7 @@ model RuleDependency {
 
 model Flow {
   id           String        @id @default(cuid())
+  topicId      String?
   name         String
   slug         String
   alias        String?
@@ -1199,4 +1202,21 @@ model MemberRemoval {
 
   @@index([workspaceId, removedAt])
   @@map("member_removals")
+}
+
+// A business topic (เรื่อง): the unit business users work in. Groups the decisions that answer its questions
+// (who qualifies, how much, which one), with their test cases, results and approvals.
+model Topic {
+  id          String    @id @default(cuid())
+  projectId   String
+  name        String
+  description String?
+  goal        String?
+  createdById String?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([projectId])
+  @@map("topics")
 }

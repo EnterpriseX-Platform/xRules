@@ -30,6 +30,13 @@ r.delete('/operations/:opId', authMiddleware, h(async req => { await specs.remov
 r.post('/operations/:opId/try', authMiddleware, h(req => specs.tryOperation(req.params.opId, req.body || {}, req.user)));
 
 // ---- Reviews
+// ---- Topics (business units)
+r.get('/topics', authMiddleware, h(async req => (await import('../platform/topics.js')).list(String(req.query.project_id), req.user)));
+r.post('/topics', authMiddleware, h(async req => (await import('../platform/topics.js')).create(req.body, req.user), 201));
+r.get('/topics/:id', authMiddleware, h(async req => (await import('../platform/topics.js')).get(req.params.id, req.user)));
+r.post('/topics/:id/update', authMiddleware, h(async req => (await import('../platform/topics.js')).update(req.params.id, req.body, req.user)));
+r.post('/topics/:id/remove', authMiddleware, h(async req => (await import('../platform/topics.js')).remove(req.params.id, req.user)));
+r.post('/topics/assign', authMiddleware, h(async req => (await import('../platform/topics.js')).assign(req.body, req.user)));
 r.get('/reviews', authMiddleware, h(req => gov.list(String(req.query.project_id), req.user, req.query.status as string | undefined)));
 r.post('/reviews', authMiddleware, h(req => gov.submit(req.body, req.user), 201));
 r.post('/reviews/:id/approve', authMiddleware, h(req => gov.decide(req.params.id, 'APPROVED', req.body?.note, req.user)));

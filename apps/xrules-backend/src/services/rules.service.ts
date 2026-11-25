@@ -231,6 +231,7 @@ export async function createRule(
       slug, alias,
       description: data.description,
       ...((data as any).folder_id ? { folderId: (data as any).folder_id } : {}),
+      ...((data as any).topic_id ? { topicId: (data as any).topic_id } : {}),
       type: ruleType,
       engine: solver, solver,
       definition: data.definition || STARTER_DEFINITION[ruleType] || {},

@@ -119,7 +119,7 @@ function ProjectList({ rows, loading }: { rows: any[]; loading: boolean }) {
       {rows.slice(0, 6).map((p) => (
         <a
           key={p.id}
-          href={`/p/${p.id}/rules`}
+          href={`/p/${p.id}/topics`}
           className="flex items-center gap-3 p-2.5 -mx-2 rounded-lg hover:bg-muted/60 transition-colors group"
         >
           <span className="h-2.5 w-2.5 rounded-full shrink-0 ring-2 ring-offset-2 ring-offset-surface" style={{ background: p.color || 'rgb(var(--c-mint))' }} />

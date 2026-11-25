@@ -73,6 +73,7 @@ export async function createFlow(
       outputSchema: data.outputSchema,
       tags: data.tags || [],
       schedule: (data as any).schedule,
+      ...((data as any).topicId ? { topicId: (data as any).topicId } : {}),
       projectId: data.projectId,
       folderId: (data as any).folderId,
     },

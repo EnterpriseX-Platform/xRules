@@ -20,6 +20,7 @@ import { GoLive } from '@/components/GoLive';
 import { RuleRelations } from '@/components/pipeline/Relations';
 import { TreeDesigner } from '@/components/rule/TreeDesigner';
 import { ScriptingDesigner } from '@/components/rule/ScriptingDesigner';
+import { CalcDesigner } from '@/components/rule/CalcDesigner';
 import { LookupDesigner } from '@/components/rule/LookupDesigner';
 import { AIAgentDesigner } from '@/components/rule/AIAgentDesigner';
 import { ScorecardDesigner } from '@/components/rule/ScorecardDesigner';
@@ -172,6 +173,9 @@ function DefinitionTab({ rule, projectId }: { rule: any; projectId: string }) {
         onChange={(def) => mut.mutate({ definition: def })}
       />
     );
+  }
+  if (t === 'FORMULA' && (Array.isArray(rule.definition?.lines) || !rule.definition?.code)) {
+    return <CalcDesigner rule={rule} projectId={projectId} onChange={(def) => mut.mutate({ definition: def })} />;
   }
   if (t === 'SCRIPT' || t === 'FORMULA') {
     return (

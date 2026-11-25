@@ -79,6 +79,7 @@ export function Sidebar() {
     title = currentProject?.name || '';
     areas = [
       { id: 'engine', label: '', items: [
+        { href: `${projBase}/topics`,              label: 'Topics',         icon: FolderKanban },
         { href: `${projBase}/rules`,               label: 'Rules',          icon: FileText },
         { href: `${projBase}/flows?kind=DECISION`, label: 'Decision Flows', icon: Workflow },
         { href: `${projBase}/vocabulary`,          label: 'Vocabulary',     icon: BookA },
@@ -221,7 +222,7 @@ export function ProjectPicker({ projects, current, onPick }: {
   function pick(p: any) {
     onPick(p);
     setOpen(false);
-    router.push(`/p/${p.id}/rules`);
+    router.push(`/p/${p.id}/topics`);
   }
 
   return (

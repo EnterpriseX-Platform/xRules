@@ -99,7 +99,33 @@ function matchBand(value: any, m: any): boolean {
 
 // Formula: { source: '<expression>' } — single expression returning a value.
 // Distinguished from SCRIPT in that the source is an EXPRESSION (no braces, no return).
+// Business calculations: lines "result term = expression over terms", worked out in order; each result can be
+// used by the lines after it. Functions business users pick: SUM AVG MIN MAX COUNT ROUND ROUNDDOWN ROUNDUP IF.
+export const CALC_FUNCS = {
+  SUM: (a: any, k?: string) => (Array.isArray(a) ? a : [a]).reduce((s: number, x: any) => s + (Number(k ? x?.[k] : x) || 0), 0),
+  AVG: (a: any, k?: string) => { const xs = (Array.isArray(a) ? a : [a]).map((x: any) => Number(k ? x?.[k] : x)).filter((n: number) => !isNaN(n)); return xs.length ? xs.reduce((s: number, n: number) => s + n, 0) / xs.length : 0; },
+  COUNT: (a: any) => (Array.isArray(a) ? a.length : a == null ? 0 : 1),
+  MIN: (...a: any[]) => Math.min(...a.flat().map(Number)),
+  MAX: (...a: any[]) => Math.max(...a.flat().map(Number)),
+  ROUND: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.round(Number(x) * f) / f; },
+  ROUNDDOWN: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.floor(Number(x) * f) / f; },
+  ROUNDUP: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.ceil(Number(x) * f) / f; },
+  IF: (c: any, a: any, b: any) => (c ? a : b),
+};
+export function calcExpr(e: string) { return String(e).replace(/×/g, '*').replace(/÷/g, '/').replace(/≥/g, '>=').replace(/≤/g, '<=').replace(/≠/g, '!=').replace(/(^|[^=!<>])=(?!=)/g, '$1=='); }
+function runCalc(def: any, input: any): any {
+  const ctx: Record<string, any> = { ...(input || {}) };
+  const out: Record<string, any> = {};
+  for (const line of def.lines || []) {
+    if (!line?.name || !String(line.expr || '').trim()) continue;
+    const v = evalExpression(calcExpr(line.expr), { ...ctx, input: ctx, ...CALC_FUNCS, Math });
+    ctx[line.name] = v; out[line.name] = v;
+  }
+  return out;
+}
+
 function runFormula(def: any, input: any, vars?: any): any {
+  if (Array.isArray(def?.lines)) return runCalc(def, input);
   const src = def?.source ?? def?.expression;
   if (!src) throw new Error('Formula rule has no source');
   // fields are reachable both as input.x and as bare x

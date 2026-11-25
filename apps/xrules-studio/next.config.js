@@ -37,6 +37,7 @@ const nextConfig = {
         { source: '/settings/audit', destination: `${ALL}/audit` },
         { source: '/admin/:tab(orgs|users|settings)', destination: '/admin' },
         { source: '/admin/orgs/:orgId', destination: '/admin' },
+        { source: '/p/:project/topics/:topic/:tab(qualify|amount|choose|tests|simulate|approval)', destination: '/projects/:project/topics/:topic' },
         { source: '/p/:project/rules/:rule/:tab(definition|schemas|tests|simulate|api|versions|settings)', destination: '/projects/:project/rules/:rule?tab=:tab' },
         { source: '/p/:project', destination: '/projects/:project' },
         { source: '/p/:project/:path*', destination: '/projects/:project/:path*' },
