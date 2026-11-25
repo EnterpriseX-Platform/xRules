@@ -69,21 +69,17 @@ export default function RuleDetailPage() {
   return (
     <PageContent>
       {/* Compact header — rule meta + actions */}
-      <div className="flex items-start gap-4 mb-6">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <Link href={`/p/${projectId}/rules`} className="text-xs text-subtle font-mono hover:text-text">RULES</Link>
-            <span className="text-subtle/50">/</span>
-            <span className="font-mono text-xs text-subtle">{rule.slug}</span>
-            <span className="text-subtle/50">·</span>
-            <span className="text-xs text-subtle">{String(rule.type || '').replace(/_/g, ' ').toLowerCase()}</span>
-            {rule.alias && rule.alias !== rule.slug && <span className="font-mono text-xs text-subtle">@{rule.alias}</span>}
-            {rule.strategy && rule.strategy !== 'standard' && <span className="text-xs text-subtle">· {rule.strategy}</span>}
+      <div className="flex flex-wrap items-start gap-4 mb-6">
+        <div className="flex-1 min-w-[min(100%,320px)]">
+          <div className="flex items-center gap-2 mb-1 text-[13px]">
+            {rule.topicId ? <Link href={`/p/${projectId}/topics/${rule.topicId}`} className="text-[#0f62fe] hover:underline">Topic</Link> : <Link href={`/p/${projectId}/rules`} className="text-[#0f62fe] hover:underline">Rules</Link>}
+            <span className="text-[#6f6f6f]">/</span>
+            <span className="text-[#525252]">{({ DECISION_TABLE: 'Who qualifies', DECISION_TREE: 'Who qualifies', FORMULA: 'Calculation', SCORECARD: 'Scorecard', SCRIPT: 'Script', LOOKUP: 'Lookup', MODEL_CALL: 'Model', AI_AGENT: 'AI agent' } as any)[String(rule.type).toUpperCase()] || rule.type}</span>
           </div>
-          <div className="flex items-center gap-2 min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight truncate min-w-0">{rule.name}</h1>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
+            <h1 className="text-[28px] leading-9 font-normal text-[#161616] min-w-0 break-words">{rule.name}</h1>
             <StatusPill status={rule.status} />
-            <span className="text-xs text-subtle font-mono shrink-0">v{rule.version}</span>
+            <span className="text-[13px] text-[#525252] shrink-0 tabular-nums">v{rule.version}</span>
             {rule.locked && <Pill tone="warn"><Lock className="h-2.5 w-2.5 inline mr-0.5" />locked</Pill>}
           </div>
           {rule.description && <p className="text-sm text-subtle mt-1">{rule.description}</p>}

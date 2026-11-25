@@ -175,7 +175,7 @@ export function TestSheet({ targetType, targetId, inputs, outputs, projectId }: 
               <th className={`${th} w-10 bg-[#f4f4f4] text-[#6f6f6f]`}>#</th>
               {cols.map(c => (
                 <th key={`${c.kind}-${c.name}`} className={`${th} ${c.kind === 'out' ? 'bg-[#defbe6] text-[#044317]' : c.kind === 'in' ? 'bg-[#edf5ff] text-[#002d9c]' : 'bg-[#f4f4f4] text-[#161616]'}`}>
-                  <span title={c.name}>{c.kind === 'out' ? <>คาดหวัง · {label(c.name)}</> : c.kind === 'in' ? label(c.name) : 'ชื่อเคส'}</span>
+                  <span title={c.name}>{c.kind === 'out' ? <>Expected · {label(c.name)}</> : c.kind === 'in' ? label(c.name) : 'Case'}</span>
                 </th>
               ))}
               <th className={`${th} bg-[#f4f4f4] text-[#161616]`}>ผล</th>

@@ -39,7 +39,7 @@ const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function toLabels(expr: string, terms: Term[]) {
   let out = expr;
   [...terms].sort((a, b) => b.path.length - a.path.length).forEach(t => { if (t.term !== t.path) out = out.replace(new RegExp(`(?<![\\w.])${esc(t.path)}(?![\\w])`, 'g'), `⟦${t.term}⟧`); });
-  return out.replace(/⟦|⟧/g, '');
+  return out.replace(/⟦|⟧/g, '').replace(/\s*\*\s*/g, ' × ').replace(/\s*\/\s*/g, ' ÷ ').replace(/\s*>=\s*/g, ' ≥ ').replace(/\s*<=\s*/g, ' ≤ ');
 }
 function toPaths(text: string, terms: Term[]) {
   let out = text;
@@ -86,6 +86,9 @@ export function CalcDesigner({ rule, projectId, onChange }: { rule: any; project
   const scope: Record<string, any> = { ...sample };
   const results = lines.map(l => {
     if (!l.name || !l.expr.trim()) return { ok: true, value: undefined as any };
+    // nothing to show until every value the line uses has been given
+    const needs = (l.expr.match(/[A-Za-z_][\w]*/g) || []).filter(w => !F[w] && w !== 'true' && w !== 'false');
+    if (needs.some(w => scope[w] === undefined || scope[w] === '')) return { ok: true, value: undefined as any };
     try { const v = evaluate(l.expr, scope); scope[l.name] = v; return { ok: true, value: v }; }
     catch (e: any) { return { ok: false, error: String(e?.message || e) }; }
   });
@@ -96,7 +99,7 @@ export function CalcDesigner({ rule, projectId, onChange }: { rule: any; project
         <div className="bg-white border border-[#e0e0e0]">
           {lines.map((l, i) => (
             <div key={i} className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-[#e0e0e0] last:border-b-0">
-              <input aria-label={`Result ${i + 1}`} className="h-10 w-[220px] px-3 bg-[#f4f4f4] border-b border-[#8d8d8d] text-[15px] text-[#0f62fe] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2"
+              <input key={`r${i}-${l.name ? label(l.name) : ""}`} aria-label={`Result ${i + 1}`} className="h-10 w-[220px] px-3 bg-[#f4f4f4] border-b border-[#8d8d8d] text-[15px] text-[#0f62fe] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2"
                 defaultValue={l.name ? label(l.name) : ''} placeholder="Result" onBlur={e => nameLine(i, e.target.value)} />
               <span className="text-[18px] text-[#525252]">=</span>
               <input ref={el => { refs.current[i] = el; }} aria-label={`Formula ${i + 1}`} onFocus={() => setFocus(i)}

@@ -30,7 +30,6 @@ export default function TopicsPage() {
       {isFetched && !topics.length ? (
         <div className="bg-white border border-[#e0e0e0] px-8 py-12 text-center">
           <div className="text-[16px] text-[#161616]">No topics yet</div>
-          <div className="text-[14px] text-[#525252] mt-1">A topic holds the decisions for one business question, such as loan approval or budget screening.</div>
           {perms.write && <div className="mt-5 flex justify-center"><Btn onClick={() => setOpen(true)}>New topic</Btn></div>}
         </div>
       ) : (
@@ -53,7 +52,7 @@ export default function TopicsPage() {
         <Modal title="New topic" onClose={() => setOpen(false)} onSubmit={() => create.mutate()} submitLabel="Create"
           submitDisabled={create.isPending || (f.from === 'blank' && !f.name.trim()) || (f.from === 'describe' && !f.description.trim())} error={create.error ? String((create.error as any).message) : null}>
           <div role="radiogroup" aria-label="Start from" className="grid gap-px bg-[#e0e0e0] border border-[#e0e0e0] sm:grid-cols-2">
-            {[{ key: 'blank', name: 'Empty topic', goal: 'Add decisions yourself' }, { key: 'describe', name: 'Describe it', goal: 'Type what the topic decides' }, ...(tpls as any[]).map(t => ({ key: t.key, name: t.name, goal: `${t.decisions} decisions · ${t.terms} terms` }))].map(o => (
+            {[{ key: 'blank', name: 'Empty topic', goal: 'Add decisions yourself' }, { key: 'describe', name: 'Describe it', goal: 'Type what the topic decides' }, ...(tpls as any[]).map(t => ({ key: t.key, name: t.name, goal: `${t.decisions} decision${t.decisions === 1 ? "" : "s"} · ${t.terms} terms` }))].map(o => (
               <button key={o.key} type="button" role="radio" aria-checked={f.from === o.key} onClick={() => setF({ ...f, from: o.key })}
                 className={`text-left p-4 ${f.from === o.key ? 'bg-[#edf5ff] outline outline-2 outline-[#0f62fe] -outline-offset-2' : 'bg-white hover:bg-[#f4f4f4]'}`}>
                 <div className="text-[14px] text-[#161616]">{o.name}</div><div className="text-[12px] text-[#525252] mt-0.5">{o.goal}</div>

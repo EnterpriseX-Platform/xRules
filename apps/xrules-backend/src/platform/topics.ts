@@ -14,8 +14,8 @@ export const QUESTION: Record<string, 'qualify' | 'amount' | 'choose'> = {
 async function testsFor(targetType: string, ids: string[]) {
   if (!ids.length) return new Map<string, { total: number; pass: number }>();
   const cases = await prisma.testCase.findMany({ where: { deletedAt: null, targetType, targetId: { in: ids } }, select: { targetId: true, lastStatus: true } });
-  const m = new Map<string, { total: number; pass: number }>();
-  for (const c of cases) { const k = c.targetId!; const v = m.get(k) || { total: 0, pass: 0 }; v.total++; if (c.lastStatus === 'PASS') v.pass++; m.set(k, v); }
+  const m = new Map<string, { total: number; pass: number; fail?: number }>();
+  for (const c of cases) { const k = c.targetId!; const v = m.get(k) || { total: 0, pass: 0, fail: 0 }; v.total++; if (c.lastStatus === 'PASS') v.pass++; else if (c.lastStatus) v.fail = (v.fail || 0) + 1; m.set(k, v); }
   return m;
 }
 

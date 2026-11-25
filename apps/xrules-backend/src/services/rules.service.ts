@@ -9,6 +9,7 @@ function formatRule(rule: any) {
     id: rule.id,
     name: rule.name,
     slug: rule.slug,
+    topicId: rule.topicId ?? null,
     alias: rule.alias,
     description: rule.description,
     type: rule.type.toLowerCase(),

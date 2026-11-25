@@ -102,8 +102,13 @@ export async function start(data: { projectId: string; template?: string; descri
   const { createCase } = await import('./testing.js');
 
   const topic = await prisma.topic.create({ data: { projectId: p.id, name: (data.name || '').trim() || tpl.name, goal: tpl.goal, description: data.description?.trim() || null, createdById: user.userId } });
-  const have = new Set((await prisma.vocabularyTerm.findMany({ where: { projectId: p.id }, select: { path: true } })).map(x => x.path));
-  for (const t of tpl.terms) if (!have.has(t.path)) await upsertTerm({ projectId: p.id, term: t.term, path: t.path, type: t.type, unit: t.unit, values: t.values }, user).catch(() => {});
+  // existing terms are kept; a placeholder term (named like its field) gets the template's business name
+  const have = new Map((await prisma.vocabularyTerm.findMany({ where: { projectId: p.id }, select: { id: true, path: true, term: true } })).map(x => [x.path, x]));
+  for (const t of tpl.terms) {
+    const ex = have.get(t.path);
+    if (!ex) await upsertTerm({ projectId: p.id, term: t.term, path: t.path, type: t.type, unit: t.unit, values: t.values }, user).catch(() => {});
+    else if (ex.term === ex.path) await prisma.vocabularyTerm.update({ where: { id: ex.id }, data: { term: t.term, type: t.type, unit: t.unit || null, values: t.values || [] } }).catch(() => {});
+  }
 
   for (const r of tpl.rules) {
     const rule: any = await createRule({ project_id: p.id, name: r.name, type: r.type, definition: r.definition } as any, user);
@@ -127,5 +132,11 @@ export async function start(data: { projectId: string; template?: string; descri
       await ds.activate(d.id, snap.id);
     }
   }
+  // run the new test cases so the topic opens with real results
+  const { runForTarget } = await import('./testing.js');
+  const rs = await prisma.rule.findMany({ where: { topicId: topic.id }, select: { id: true } });
+  const fs = await prisma.flow.findMany({ where: { topicId: topic.id }, select: { id: true } });
+  for (const r of rs) await runForTarget('rule', r.id).catch(() => {});
+  for (const f of fs) await runForTarget('decision_flow', f.id).catch(() => {});
   return topic;
 }

@@ -65,7 +65,7 @@ export default function TopicPage() {
           <Link key={d.id} href={href(d)} className="flex flex-wrap items-center gap-x-6 gap-y-1 px-5 py-4 border-b border-[#e0e0e0] last:border-b-0 hover:bg-[#f4f4f4]">
             <span className="flex-1 min-w-[220px] text-[15px] text-[#161616]">{d.name}</span>
             <span className="text-[13px] text-[#525252] w-[130px]">{d.type === 'FLOW' ? 'Strategy' : d.type === 'FORMULA' ? 'Calculation' : d.type === 'SCORECARD' ? 'Scorecard' : 'Rules'}</span>
-            <span className={`text-[13px] w-[120px] tabular-nums ${!d.tests.total ? 'text-[#6f6f6f]' : d.tests.pass === d.tests.total ? 'text-[#198038]' : 'text-[#da1e28]'}`}>{d.tests.total ? `${d.tests.pass}/${d.tests.total} pass` : 'No tests'}</span>
+            <span className={`text-[13px] w-[120px] tabular-nums ${!d.tests.total || (!d.tests.fail && d.tests.pass < d.tests.total) ? 'text-[#6f6f6f]' : d.tests.pass === d.tests.total ? 'text-[#198038]' : 'text-[#da1e28]'}`}>{!d.tests.total ? 'No tests' : !d.tests.fail && d.tests.pass < d.tests.total ? `${d.tests.total - d.tests.pass} not run` : `${d.tests.pass}/${d.tests.total} pass`}</span>
             <span className="w-[110px]">{STATUS(d)}</span>
             <span className="text-[12px] text-[#6f6f6f] w-[150px]">{fmtTime(d.updatedAt)}</span>
           </Link>
