@@ -1,7 +1,7 @@
 'use client';
 // Changes waiting to go live. A reviewer opens one, sees what changes as sentences (live vs draft)
 // and the test result, then approves (which puts it live) or sends it back with a reason.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -51,6 +51,12 @@ function Review({ r, onClose }: { r: any; onClose: () => void }) {
   const after = isTable ? tableSentences(snap.definition, label) : [];
   const before = isTable && snap.live ? tableSentences(snap.live, label) : [];
   const { data: cases = [] } = useQuery({ queryKey: ['test-sheet', r.targetType, r.targetId], queryFn: () => api.get<any[]>(`/platform/tests/target/${r.targetType}/${r.targetId}`), enabled: r.targetType !== 'api_spec' });
+  // the result shown must be for the change under review, not an older run
+  const [fresh, setFresh] = useState(r.targetType === 'api_spec' || r.status !== 'PENDING');
+  useEffect(() => {
+    if (fresh) return;
+    api.post(`/platform/tests/target/${r.targetType}/${r.targetId}/run`, {}).catch(() => {}).finally(() => { qc.invalidateQueries({ queryKey: ['test-sheet', r.targetType, r.targetId] }); setFresh(true); });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const passed = (cases as any[]).filter(c => c.lastStatus === 'PASS').length;
   const own = r.submittedBy === (me?.email || me?.id);
   const decide = useMutation({ meta: { silent: true }, mutationFn: (ok: boolean) => api.post<any>(`/platform/reviews/${r.id}/${ok ? 'approve' : 'reject'}`, { note }),
@@ -77,8 +83,9 @@ function Review({ r, onClose }: { r: any; onClose: () => void }) {
       )}
 
       {r.targetType !== 'api_spec' && (
-        <div className={`border-l-4 px-4 py-2.5 text-[14px] ${!cases.length ? 'border-[#8d8d8d] bg-[#f4f4f4]' : passed === cases.length ? 'border-[#24a148] bg-[#defbe6]' : 'border-[#da1e28] bg-[#fff1f1]'}`}>
-          {!cases.length ? 'No test cases' : `${passed} of ${cases.length} test cases pass`}
+        <div className={`border-l-4 px-4 py-2.5 text-[14px] ${!fresh || !cases.length ? 'border-[#8d8d8d] bg-[#f4f4f4]' : passed === cases.length ? 'border-[#24a148] bg-[#defbe6]' : 'border-[#da1e28] bg-[#fff1f1]'}`}>
+          {!fresh ? 'Running test cases on this change' : !cases.length ? 'No test cases' : `${passed} of ${cases.length} test cases pass`}
+          {fresh && passed < cases.length && <div className="mt-1 text-[13px]">{(cases as any[]).filter(c => c.lastStatus !== 'PASS').map(c => c.name).join(', ')}</div>}
         </div>
       )}
 
