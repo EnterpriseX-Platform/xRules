@@ -135,7 +135,7 @@ export async function test(rc: ResolvedConfig): Promise<TestResult> {
         for (const r of sp.rows as any[]) if (ORACLE_WRITE_PRIVS.includes(r.PRIVILEGE)) problems.push(`account has system privilege ${r.PRIVILEGE}`);
         const own = await c.execute("SELECT COUNT(*) N FROM USER_OBJECTS WHERE OBJECT_TYPE IN ('TABLE','VIEW')");
         if ((own.rows as any[])[0].N > 0) problems.push('account owns tables or views (it could write to them)');
-        const tp = await c.execute("SELECT OWNER || '.' || TABLE_NAME OBJ, PRIVILEGE FROM ALL_TAB_PRIVS WHERE GRANTEE IN (USER, 'PUBLIC') AND PRIVILEGE IN ('INSERT','UPDATE','DELETE','ALTER') AND ROWNUM <= 20");
+        const tp = await c.execute("SELECT TABLE_SCHEMA || '.' || TABLE_NAME OBJ, PRIVILEGE FROM ALL_TAB_PRIVS WHERE GRANTEE IN (USER, 'PUBLIC') AND PRIVILEGE IN ('INSERT','UPDATE','DELETE','ALTER') AND ROWNUM <= 20");
         for (const r of tp.rows as any[]) if (r.OBJ && !String(r.OBJ).startsWith('SYS.')) problems.push(`${r.PRIVILEGE} on ${r.OBJ}`);
         return { ok: true, env: rc.env, ms: Date.now() - t0, readOnly: { verified: problems.length === 0, problems } };
       } finally { await c.close(); }
