@@ -10,6 +10,7 @@ import { usePerms } from '@/lib/perms';
 import { useAuth } from '@/lib/store';
 import { useTerms } from '@/lib/terms';
 import { tableSentences } from '@/components/review/sentences';
+import { SimResult } from '@/components/topic/TopicSimulate';
 
 const TYPE: Record<string, string> = { rule: 'Rule', decision_flow: 'Decision flow', api_spec: 'REST API', release: 'Release' };
 const ST: Record<string, [any, string]> = { PENDING: ['blue', 'In review'], APPROVED: ['green', 'Approved'], REJECTED: ['red', 'Sent back'], WITHDRAWN: ['gray', 'Withdrawn'] };
@@ -87,6 +88,11 @@ function Review({ r, onClose }: { r: any; onClose: () => void }) {
           {!fresh ? 'Running test cases on this change' : !cases.length ? 'No test cases' : `${passed} of ${cases.length} test cases pass`}
           {fresh && passed < cases.length && <div className="mt-1 text-[13px]">{(cases as any[]).filter(c => c.lastStatus !== 'PASS').map(c => c.name).join(', ')}</div>}
         </div>
+      )}
+
+      {r.evidence?.simulation && (
+        <div><div className="text-[14px] text-[#161616] mb-2">Simulation · {fmtTime(r.evidence.simulation.at)}{r.evidence.simulation.dataset ? ` · ${r.evidence.simulation.dataset}` : ''}</div>
+          <SimResult r={r.evidence.simulation} label={label} /></div>
       )}
 
       {pending && (own

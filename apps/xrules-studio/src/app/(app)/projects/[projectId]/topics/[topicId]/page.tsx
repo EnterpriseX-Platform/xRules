@@ -102,7 +102,7 @@ export default function TopicPage() {
       )}
       {(tab === 'qualify' || tab === 'amount' || tab === 'choose') && list(by(tab), tab)}
       {tab === 'tests' && list(ds.filter(d => true))}
-      {tab === 'simulate' && <TopicSimulate projectId={projectId} decisions={ds} />}
+      {tab === 'simulate' && <TopicSimulate projectId={projectId} topicId={topicId} decisions={ds} last={t.lastSimulation} />}
       {tab === 'approval' && <TopicApprovals projectId={projectId} ids={ds.map(d => d.id)} />}
 
       {creating && (
