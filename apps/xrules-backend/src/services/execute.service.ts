@@ -308,14 +308,14 @@ export async function executeRule(ruleId: string, input: any, context: any, user
 //   ARRAY        matches folded into column arrays → COLLECT, then reshaped here
 //   EVALUATE_ALL every row with a _match flag      → evaluated in the API (no engine policy)
 const HIT_POLICY_TO_DMN: Record<string, string> = { STANDARD: 'COLLECT', FIRST_MATCH: 'FIRST', ARRAY: 'COLLECT' };
-function engineHitPolicy(p?: string): string {
+export function engineHitPolicy(p?: string): string {
   const k = String(p || 'FIRST').toUpperCase();
   return HIT_POLICY_TO_DMN[k] ?? k;
 }
 const isElseCell = (c: any) => typeof c === 'string' && ['else', '_else_'].includes(c.trim().toLowerCase());
 function isElseRow(r: any): boolean { return Array.isArray(r?.inputs) && r.inputs.length > 0 && r.inputs.some(isElseCell); }
 // Decision Table Else row: its results are the answer when no other row matched.
-function applyElseRow(rule: any, out: any): any {
+export function applyElseRow(rule: any, out: any): any {
   if (rule.type !== 'DECISION_TABLE') return out;
   const def = rule.definition as any;
   const row = (def?.rules || []).find(isElseRow);
@@ -326,7 +326,7 @@ function applyElseRow(rule: any, out: any): any {
   names.forEach((n, i) => { value[n] = row.outputs?.[i] ?? null; });
   return engineHitPolicy(def?.hitPolicy) === 'COLLECT' || Array.isArray(out) ? [value] : value;
 }
-function shapeByHitPolicy(rule: any, out: any): any {
+export function shapeByHitPolicy(rule: any, out: any): any {
   const p = String((rule.definition as any)?.hitPolicy || '').toUpperCase();
   if (p !== 'ARRAY') return out;
   const rows: any[] = Array.isArray(out) ? out : out && typeof out === 'object' ? [out] : [];
@@ -410,7 +410,7 @@ function transformDefinitionForEngine(rule: any): any {
   return def;
 }
 
-function executeDmnLocally(rule: any, input: any): any {
+export function executeDmnLocally(rule: any, input: any): any {
   if (rule.type !== 'DECISION_TABLE') {
     return { message: 'Execution not implemented for this rule type (Engine Hub unavailable)', input };
   }

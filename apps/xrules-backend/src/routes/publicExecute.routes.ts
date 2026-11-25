@@ -5,7 +5,7 @@ import { env } from '../config/env.js';
 import { apiKeyAuthMiddleware } from '../middleware/apiKeyAuth.js';
 import { NotFoundError } from '../utils/errors.js';
 import { parseSolverHeaders } from '../middleware/solverHeaders.js';
-import { tryLocalExecutor } from '../services/execute.service.js';
+import { tryLocalExecutor, engineHitPolicy, applyElseRow, shapeByHitPolicy, executeDmnLocally } from '../services/execute.service.js';
 import { runFlow } from '../services/flow-runtime.service.js';
 import { dispatch as dispatchWebhook } from '../services/webhooks.service.js';
 
@@ -61,7 +61,10 @@ async function solveOne(rule: any, input: any, context: any, headers: ReturnType
 
   // 1) In-process executors (AI_AGENT / SCORECARD / SCRIPT / FORMULA / LOOKUP).
   let output: any;
-  const local = await tryLocalExecutor(rule, input, fullContext);
+  // EVALUATE_ALL has no engine policy: evaluated in the API, as on the Studio path
+  const local = rule.type === 'DECISION_TABLE' && String((rule.definition as any)?.hitPolicy).toUpperCase() === 'EVALUATE_ALL'
+    ? executeDmnLocally(rule, input || {})
+    : await tryLocalExecutor(rule, input, fullContext);
   if (local !== null) {
     output = local;
   } else {
@@ -76,7 +79,8 @@ async function solveOne(rule: any, input: any, context: any, headers: ReturnType
       },
       { timeout: 30000 },
     );
-    output = engineResponse.data.output ?? engineResponse.data;
+    // same hit-policy handling as the Studio path: Else row fallback, ARRAY reshaped into columns
+    output = shapeByHitPolicy(rule, applyElseRow(rule, engineResponse.data.output ?? engineResponse.data));
   }
   const duration = Date.now() - startTime;
 
@@ -303,7 +307,8 @@ function transformForEngine(rule: any): any {
       nodes: [],
       edges: [],
       dmn: {
-        hit_policy: (def?.hitPolicy || 'FIRST').toUpperCase(),
+        // Studio hit policies (STANDARD/FIRST_MATCH/ARRAY) → DMN names the engine knows
+        hit_policy: engineHitPolicy(def?.hitPolicy),
         inputs: inputs.map((i: any) => ({ name: i.name, expression: i.name, type: i.type || 'string' })),
         outputs: outputs.map((o: any) => ({ name: o.name, label: o.label || o.name, type: o.type || 'string' })),
         rules: (def?.rules || []).map((r: any) => ({ id: r.id, inputs: r.inputs || [], outputs: r.outputs || [] })),
