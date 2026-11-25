@@ -8,6 +8,7 @@ import { Dropdown } from '@/components/pipeline/Dropdown';
 import { parseCellExpression, formatCellExpression } from './operators';
 import { tableChecks } from './tableChecks';
 import { showValue, type Term } from '@/lib/terms';
+import { FmtInput } from '@/components/ui/FmtInput';
 
 export const OP_TH: { value: string; label: string; args: 0 | 1 | 2 }[] = [
   { value: '=', label: 'เท่ากับ', args: 1 },
@@ -91,8 +92,8 @@ export function RuleSentences({ def, onChange, label, term, terms }: {
                       </span>
                       {spec.args >= 1 && (t?.type === 'enum' && t.values?.length && spec.args === 1 && (operator === '=' || operator === '!=')
                         ? <span className="inline-block min-w-[120px]"><Dropdown value={String(args[0] ?? '')} placeholder="เลือก" options={t.values.map(v => ({ value: v, label: v }))} onChange={v => set(operator, [v])} /></span>
-                        : <input className={`${plain} w-[110px] text-right`} value={args[0] ?? ''} aria-label={`${label(c.name)} value`} onChange={e => set(operator, spec.args === 2 ? [e.target.value, args[1] ?? ''] : [e.target.value])} />)}
-                      {spec.args === 2 && <><span>ถึง</span><input className={`${plain} w-[110px] text-right`} value={args[1] ?? ''} aria-label={`${label(c.name)} to`} onChange={e => set(operator, [args[0] ?? '', e.target.value])} /></>}
+                        : <FmtInput className={`${plain} text-right`} value={args[0] ?? ''} aria-label={`${label(c.name)} value`} onChange={v => set(operator, spec.args === 2 ? [v, args[1] ?? ''] : [v])} />)}
+                      {spec.args === 2 && <><span>ถึง</span><FmtInput className={`${plain} text-right`} value={args[1] ?? ''} aria-label={`${label(c.name)} to`} onChange={v => set(operator, [args[0] ?? '', v])} /></>}
                       {spec.args >= 1 && t?.unit && <span className="text-[#525252]">{t.unit}</span>}
                       <button type="button" aria-label="Remove condition" className="h-6 w-6 text-[#8d8d8d] hover:text-[#da1e28] opacity-0 group-hover:opacity-100" onClick={() => setCell(ri, 'inputs', ci, '-')}>×</button>
                     </span>
@@ -111,8 +112,8 @@ export function RuleSentences({ def, onChange, label, term, terms }: {
                     <span key={oi} className="inline-flex items-center gap-x-1.5">
                       {oi > 0 && <span>,</span>}
                       <Chip>{label(o.name)}</Chip><span>=</span>
-                      <input className={`${plain} w-[130px] text-right`} value={r.outputs?.[oi] ?? ''} aria-label={`${label(o.name)} result`}
-                        onChange={e => { const v = e.target.value; setCell(ri, 'outputs', oi, v === '' ? null : /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : v === 'true' ? true : v === 'false' ? false : v); }} />
+                      <FmtInput className={`${plain} text-right`} value={r.outputs?.[oi] ?? ''} aria-label={`${label(o.name)} result`}
+                        onChange={v => { setCell(ri, 'outputs', oi, v === '' ? null : /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : v === 'true' ? true : v === 'false' ? false : v); }} />
                       {t?.unit && <span className="text-[#525252]">{t.unit}</span>}
                     </span>
                   );

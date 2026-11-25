@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { Modal, DropZone } from '@/components/pipeline/ui';
 import { toText, fromText, type Field } from './FieldsEditor';
 import { useTerms } from '@/lib/terms';
+import { FmtInput } from '@/components/ui/FmtInput';
 
 type Row = { key: string; id?: string; name: string; input: Record<string, any>; expect: Record<string, string>; other: any[]; status?: string; checks?: any[]; output?: any };
 const read = (o: any, path: string) => path.split('.').filter(Boolean).reduce((a, k) => a?.[k], o);
@@ -189,9 +190,11 @@ export function TestSheet({ targetType, targetId, inputs, outputs, projectId }: 
                   <td className={`${td} text-center text-[12px] text-[#6f6f6f] tabular-nums bg-[#f4f4f4]`}>{ri + 1}</td>
                   {cols.map((c, ci) => (
                     <td key={ci} className={td}>
-                      <input data-cell={`${ri}-${ci}`} className={`${inp} ${c.kind !== 'name' ? 'text-right tabular-nums' : ''}`} value={getCell(r, ci)}
-                        aria-label={`${c.kind === 'out' ? 'Expected ' : ''}${c.name} row ${ri + 1}`}
-                        onChange={e => setCell(ri, ci, e.target.value)} onPaste={e => onPaste(e, ri, ci)} onKeyDown={e => move(e, ri, ci)} />
+                      {c.kind === 'name'
+                        ? <input data-cell={`${ri}-${ci}`} className={inp} value={getCell(r, ci)} aria-label={`Case name row ${ri + 1}`}
+                            onChange={e => setCell(ri, ci, e.target.value)} onPaste={e => onPaste(e, ri, ci)} onKeyDown={e => move(e, ri, ci)} />
+                        : <FmtInput data-cell={`${ri}-${ci}`} className={`${inp} text-right tabular-nums`} size={1} value={getCell(r, ci)} aria-label={`${c.kind === 'out' ? 'Expected ' : ''}${c.name} row ${ri + 1}`}
+                            onChange={v => setCell(ri, ci, v)} onPaste={e => onPaste(e, ri, ci)} onKeyDown={e => move(e, ri, ci)} />}
                     </td>
                   ))}
                   <td className={`${td} px-2 whitespace-nowrap`}>
