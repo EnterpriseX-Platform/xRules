@@ -100,7 +100,7 @@ export default function RuleDetailPage() {
           }} title={rule.locked ? 'Unlock' : 'Lock'}>
             {rule.locked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
           </button>
-          <TestBadge targetType="rule" targetId={rule.id} onOpen={() => setTab('test')} />
+          <TestBadge targetType="rule" targetId={rule.id} onOpen={() => setTab('test')} changedAt={rule.updatedAt} />
           <GoLive targetType="rule" targetId={rule.id} reviewState={rule.reviewState} onPublish={() => publish.mutate()} publishing={publish.isPending} disabled={rule.locked} invalidate={[['rule', rule.id]]} />
         </div>
       </div>

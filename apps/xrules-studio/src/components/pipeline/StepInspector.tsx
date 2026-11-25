@@ -7,6 +7,8 @@ import { api, rulesApi } from '@/lib/api';
 import { Dropdown } from './Dropdown';
 import { ConditionBuilder } from './ConditionBuilder';
 import { metaFor } from './registry';
+import { flowFields } from '@/components/test/FieldsEditor';
+import { useTerms } from '@/lib/terms';
 
 const csv = (v: any) => (Array.isArray(v) ? v.join(', ') : v || '');
 const fromCsv = (s: string) => s.split(',').map(x => x.trim()).filter(Boolean);
@@ -39,11 +41,12 @@ export function StepInspector({ node, nodes = [], projectId, onChange, onRemove,
   const { data: sets } = useQuery({ queryKey: ['datasets', projectId], queryFn: () => api.get<any[]>(`/datasets?project_id=${projectId}`), enabled: needsSets });
   // rules from every project the user can see; another project's rule is referenced as <project>/<slug>
   const isResponse = k === 'apiResponse' || k === 'apiresponse';
-  const { data: rules } = useQuery({ queryKey: ['rules', '_all'], queryFn: () => rulesApi.list('_all'), enabled: k === 'ruleCall' || k === 'rulecall' || isResponse });
+  const { data: rules } = useQuery({ queryKey: ['rules', '_all'], queryFn: () => rulesApi.list('_all'), enabled: k === 'ruleCall' || k === 'rulecall' || isResponse || k === 'callDecisionFlow' || k === 'calldecisionflow' });
   const ruleList: any[] = Array.isArray(rules) ? rules : ((rules as any)?.data || (rules as any)?.items || []);
   const ruleRef = (r: any) => (r.project?.slug && r.project.slug !== projectId && r.projectId !== projectId ? `${r.project.slug}/${r.slug}` : r.slug);
   const isCallFlow = k === 'callDecisionFlow' || k === 'calldecisionflow';
-  const { data: allFlows } = useQuery({ queryKey: ['flows-all-decision'], queryFn: () => api.get<any[]>('/flows?project_id=_all'), enabled: isCallFlow });
+  const { data: allFlows } = useQuery({ queryKey: ['flows-all-decision'], queryFn: () => api.get<any[]>('/flows?project_id=_all'), enabled: isCallFlow || isResponse });
+  const { label } = useTerms((((allFlows as any[]) || []).find(f => f.slug === d.flow) || {}).projectId);
   const flowOpts = ((allFlows as any[]) || []).filter(f => (f.kind || 'decision') === 'decision').map(f => ({ value: f.slug, label: f.name, hint: f.status === 'published' ? `live v${f.version}` : 'draft' }));
   const setOpts = (sets || []).map((s: any) => ({ value: s.slug, label: s.slug, hint: s.rowCount ? `${s.rowCount} rows` : undefined }));
 
@@ -129,10 +132,10 @@ export function StepInspector({ node, nodes = [], projectId, onChange, onRemove,
           <Field label="Store result as" htmlFor="st-oa"><Text id="st-oa" mono value={d.outputAs} onChange={(v: string) => set({ outputAs: v })} /></Field>
         </>}
 
-        {isResponse && <ResponseFields d={d} set={set} nodes={nodes} self={node.id} ruleList={ruleList} ruleRef={ruleRef} />}
+        {isResponse && <ResponseFields d={d} set={set} nodes={nodes} self={node.id} ruleList={ruleList} ruleRef={ruleRef} flows={(allFlows as any[]) || []} />}
         {(k === 'callDecisionFlow' || k === 'calldecisionflow') && <>
           <Field label="Decision flow"><Dropdown value={d.flow || ''} placeholder="Choose a decision flow" onChange={v => set({ flow: v, inputMap: d.inputMap || '{{input.body}}', outputAs: d.outputAs || 'decision' })} options={flowOpts} /></Field>
-          <Field label="Send to the flow"><Dropdown value={(typeof d.inputMap === 'string' ? d.inputMap : '') || '{{input.body}}'} onChange={v => set({ inputMap: v })} options={[{ value: '{{input.body}}', label: 'Request body' }, { value: '{{input.query}}', label: 'Query string' }, { value: '{{input}}', label: 'Whole request' }]} /></Field>
+          {d.flow && <FlowInputMap d={d} set={set} flow={((allFlows as any[]) || []).find(f => f.slug === d.flow)} ruleList={ruleList} label={label} />}
           <Field label="Store result as" htmlFor="st-oa2"><Text id="st-oa2" mono value={d.outputAs} onChange={(v: string) => set({ outputAs: v })} placeholder="decision" /></Field>
         </>}
         {k === 'lookup' && <>
@@ -203,7 +206,7 @@ function Checks({ value, onChange }: { value: any[]; onChange: (v: any[]) => voi
 }
 
 // API Response: what the caller gets back, picked from the earlier steps — no templates to type.
-function ResponseFields({ d, set, nodes, self, ruleList, ruleRef }: { d: any; set: (p: any) => void; nodes: Node[]; self: string; ruleList: any[]; ruleRef: (r: any) => string }) {
+function ResponseFields({ d, set, nodes, self, ruleList, ruleRef, flows = [] }: { d: any; set: (p: any) => void; nodes: Node[]; self: string; ruleList: any[]; ruleRef: (r: any) => string; flows?: any[] }) {
   const mode: string = d.mode || (Array.isArray(d.fields) && d.fields.length ? 'fields' : d.body !== undefined && d.body !== '' ? 'custom' : 'all');
   // values the earlier steps produce
   const sources: { value: string; label: string; hint?: string }[] = [{ value: 'input.body', label: 'The request body', hint: 'request' }];
@@ -218,6 +221,11 @@ function ResponseFields({ d, set, nodes, self, ruleList, ruleRef }: { d: any; se
       const step = nd.label || 'Rule';
       sources.push({ value: key, label: `${step}: whole result`, hint: rule?.name });
       outs.forEach(o => sources.push({ value: `${key}.${o}`, label: `${step}: ${o}`, hint: rule?.name }));
+    } else if ((t === 'calldecisionflow') && nd.flow) {
+      const key = nd.outputAs || 'decision';
+      const fl = flows.find((f: any) => f.slug === nd.flow);
+      sources.push({ value: key, label: `${fl?.name || nd.flow}: whole result` });
+      flowFields(fl, ruleList).outputs.forEach(o => sources.push({ value: `${key}.${o}`, label: `${fl?.name || nd.flow}: ${o}` }));
     } else if (nd.outputAs) {
       sources.push({ value: nd.outputAs, label: `${nd.label || t}: result` });
     }
@@ -241,5 +249,29 @@ function ResponseFields({ d, set, nodes, self, ruleList, ruleRef }: { d: any; se
       <button className="h-8 px-2 inline-flex items-center gap-1 text-[13px] text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => setFields([...fields, { name: '', from: '' }])}><Plus className="h-4 w-4" />Add field</button>
     </div>}
     {mode === 'custom' && <Field label="Body (JSON; a value can be $result.decision)" htmlFor="st-body"><Area id="st-body" rows={8} value={typeof d.body === 'string' ? d.body : JSON.stringify(d.body ?? '', null, 2)} onChange={(v: string) => { try { set({ body: JSON.parse(v), mode: 'custom' }); } catch { set({ body: v, mode: 'custom' }); } }} /></Field>}
+  </>;
+}
+
+
+// Which request field feeds each input of the called flow. Stored as { <field>: "{{input.body.x}}" }, which the runtime renders.
+function FlowInputMap({ d, set, flow, ruleList, label }: { d: any; set: (p: any) => void; flow: any; ruleList: any[]; label: (p: string) => string }) {
+  const inputs = flowFields(flow, ruleList).inputs;
+  const mapped = d.inputMap && typeof d.inputMap === 'object' ? d.inputMap as Record<string, string> : null;
+  const read = (v?: string) => String(v || '').replace(/^\{\{\s*input\./, '').replace(/\s*\}\}$/, '');
+  const setField = (path: string, from: string) => set({ inputMap: { ...(mapped || {}), [path]: from ? `{{input.${from}}}` : '' } });
+  return <>
+    <Field label="Send to the flow"><Dropdown value={mapped ? 'map' : 'body'} onChange={v => set({ inputMap: v === 'map' ? Object.fromEntries(inputs.map(f => [f.name, `{{input.body.${f.name}}}`])) : '{{input.body}}' })}
+      options={[{ value: 'body', label: 'The request body as it is' }, { value: 'map', label: 'Fields I match' }]} /></Field>
+    {mapped && <div className="space-y-1">
+      <div className="grid grid-cols-[1fr_1fr] gap-2 text-[12px] text-[#525252]"><span>Flow needs</span><span>From the request</span></div>
+      {inputs.map(f => (
+        <div key={f.name} className="grid grid-cols-[1fr_1fr] gap-2 items-center">
+          <span className="text-[14px] truncate" title={f.name}>{label(f.name)}</span>
+          <input aria-label={`Request field for ${label(f.name)}`} className="h-9 px-3 bg-[#f4f4f4] border-b border-[#8d8d8d] font-mono text-[13px] min-w-0 focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2"
+            value={read(mapped[f.name])} placeholder={`body.${f.name}`} onChange={e => setField(f.name, e.target.value)} />
+        </div>
+      ))}
+      {!inputs.length && <div className="text-[13px] text-[#525252]">This flow reads no fields</div>}
+    </div>}
   </>;
 }
