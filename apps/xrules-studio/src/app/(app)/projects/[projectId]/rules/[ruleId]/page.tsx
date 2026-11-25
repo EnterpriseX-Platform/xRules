@@ -16,6 +16,7 @@ import { rulesApi, simulationsApi, api } from '@/lib/api';
 import { TableDesigner } from '@/components/rule/TableDesigner';
 import { DecisionTableView } from '@/components/rule/DecisionTableView';
 import { useTerms } from '@/lib/terms';
+import { GoLive } from '@/components/GoLive';
 import { RuleRelations } from '@/components/pipeline/Relations';
 import { TreeDesigner } from '@/components/rule/TreeDesigner';
 import { ScriptingDesigner } from '@/components/rule/ScriptingDesigner';
@@ -100,10 +101,7 @@ export default function RuleDetailPage() {
             {rule.locked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
           </button>
           <TestBadge targetType="rule" targetId={rule.id} onOpen={() => setTab('test')} />
-          <button className="btn-primary" onClick={() => publish.mutate()} disabled={publish.isPending || rule.locked}>
-            <Rocket className="h-3.5 w-3.5" />
-            {publish.isPending ? 'Publishing…' : 'Publish'}
-          </button>
+          <GoLive targetType="rule" targetId={rule.id} reviewState={rule.reviewState} onPublish={() => publish.mutate()} publishing={publish.isPending} disabled={rule.locked} invalidate={[['rule', rule.id]]} />
         </div>
       </div>
 

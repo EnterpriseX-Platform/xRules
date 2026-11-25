@@ -11,6 +11,7 @@ function format(flow: any) {
     slug: flow.slug,
     alias: flow.alias,
     description: flow.description,
+    reviewState: flow.reviewState,
     kind: (flow.kind || 'DECISION').toLowerCase(),
     schedule: flow.schedule ?? null,
     lastRunAt: flow.lastRunAt ? flow.lastRunAt.toISOString() : null,

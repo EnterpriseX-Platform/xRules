@@ -46,6 +46,7 @@ function General({ t, admin }: { t: any; admin: boolean }) {
     mutationFn: () => tenantApi.update(f),
     onSuccess: (u: any) => { setWorkspace({ id: u.id, slug: u.slug, name: u.name }); qc.invalidateQueries({ queryKey: ['tenant'] }); qc.invalidateQueries({ queryKey: ['tenants'] }); },
   });
+  const approval = useMutation({ mutationFn: (on: boolean) => tenantApi.update({ requireApproval: on } as any), onSuccess: () => qc.invalidateQueries({ queryKey: ['tenant'] }) });
   const dirty = f.name !== t.name || f.description !== (t.description ?? '');
   return (
     <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,640px)_1fr] gap-4">
@@ -62,6 +63,16 @@ function General({ t, admin }: { t: any; admin: boolean }) {
           {admin ? <Btn disabled={!dirty || save.isPending} onClick={() => save.mutate()}>Save</Btn>
             : <Notice>Only owners and admins can change these details.</Notice>}
         </div>
+      </Panel>
+      <Panel title="Going live">
+        <label className="flex items-center justify-between gap-4 text-[14px]">
+          <span>Require approval from another person</span>
+          <button type="button" role="switch" aria-checked={t.requireApproval !== false} disabled={!admin || approval.isPending}
+            onClick={() => approval.mutate(!(t.requireApproval !== false))}
+            className={`h-6 w-11 relative shrink-0 ${t.requireApproval !== false ? 'bg-[#0f62fe]' : 'bg-[#8d8d8d]'} disabled:opacity-50`}>
+            <span className={`absolute top-1 h-4 w-4 bg-white ${t.requireApproval !== false ? 'left-6' : 'left-1'}`} />
+          </button>
+        </label>
       </Panel>
       <Panel title="Summary">
         <dl className="grid grid-cols-[160px_1fr] gap-y-3 text-[14px]">

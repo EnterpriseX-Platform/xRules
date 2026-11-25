@@ -17,15 +17,17 @@ r.get('/', h(async (req, res) => {
   const w = await prisma.workspace.findUnique({ where: { id: t.id }, include: { _count: { select: { projects: true, members: true, apiKeys: true } } } });
   const perms = { admin: t.role === 'OWNER' || t.role === 'ADMIN', integrate: ['OWNER', 'ADMIN', 'INTEGRATOR'].includes(t.role), write: t.role !== 'VIEWER', approve: !!t.canApprove };
   res.json({ success: true, data: { id: w!.id, slug: w!.slug, name: w!.name, description: w!.description, plan: w!.plan.toLowerCase(), role: t.role, perms,
-    projectCount: w!._count.projects, memberCount: w!._count.members, apiKeyCount: w!._count.apiKeys, createdAt: w!.createdAt.toISOString() } });
+    requireApproval: (w!.settings as any)?.requireApproval !== false, projectCount: w!._count.projects, memberCount: w!._count.members, apiKeyCount: w!._count.apiKeys, createdAt: w!.createdAt.toISOString() } });
 }));
 
 r.put('/', h(async (req, res) => {
   needAdmin(req);
-  const { name, description } = req.body ?? {};
+  const { name, description, requireApproval } = req.body ?? {};
   if (name !== undefined && !String(name).trim()) throw new ValidationError('Name is required');
-  const w = await prisma.workspace.update({ where: { id: req.tenant!.id }, data: { ...(name !== undefined && { name: String(name).trim() }), ...(description !== undefined && { description }) } });
-  res.json({ success: true, data: { id: w.id, slug: w.slug, name: w.name, description: w.description } });
+  const cur = await prisma.workspace.findUnique({ where: { id: req.tenant!.id }, select: { settings: true } });
+  const settings = requireApproval === undefined ? undefined : { ...((cur?.settings as any) || {}), requireApproval: !!requireApproval };
+  const w = await prisma.workspace.update({ where: { id: req.tenant!.id }, data: { ...(name !== undefined && { name: String(name).trim() }), ...(description !== undefined && { description }), ...(settings && { settings }) } });
+  res.json({ success: true, data: { id: w.id, slug: w.slug, name: w.name, description: w.description, requireApproval: (w.settings as any)?.requireApproval !== false } });
 }));
 
 r.get('/members', h(async (req, res) => {

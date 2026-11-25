@@ -21,6 +21,7 @@ function formatRule(rule: any) {
     folderId: rule.folderId,
     tags: rule.tags || [],
     status: rule.status.toLowerCase(),
+    reviewState: rule.reviewState,
     version: rule.version,
     projectId: rule.projectId,
     workspaceId: rule.project?.workspaceId,

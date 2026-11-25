@@ -5,14 +5,24 @@ import { ForbiddenError, NotFoundError, ValidationError } from '../utils/errors.
 import { assertProjectAccess } from './_access.js';
 import type { AuthUser } from '../middleware/auth.js';
 
-export const reviewRequired = () => process.env.XRULES_REQUIRE_REVIEW === '1';
+// Approval before going live is on unless the organization turns it off (Organization settings › General).
+export async function reviewRequired(projectId: string) {
+  if (process.env.XRULES_REQUIRE_REVIEW === '0') return false;
+  const p = await prisma.project.findUnique({ where: { id: projectId }, select: { workspace: { select: { settings: true } } } });
+  return (p?.workspace?.settings as any)?.requireApproval !== false;
+}
+
+// what an approval covers: the content only (a review-state flag changing is not an edit)
+function content(snap: any) { return JSON.stringify(snap?.definition ?? snap?.graph ?? snap?.operations ?? null); }
 
 export async function assertPublishable(projectId: string, targetType: string, targetId: string, _user: AuthUser) {
   const { assertTestsPass } = await import('../platform/testing.js');
   await assertTestsPass(targetType, targetId);
-  if (!reviewRequired()) return;
+  if (!(await reviewRequired(projectId))) return;
+  // an approval counts only for what was approved: any edit after it needs a new one
   const ok = await prisma.reviewRequest.findFirst({ where: { projectId, targetType, targetId, status: 'APPROVED' }, orderBy: { decidedAt: 'desc' } });
-  if (!ok) throw new ForbiddenError('An approved review is required before publishing');
+  const now = await snapshotOf(targetType, targetId).catch(() => null);
+  if (!ok || !now || content(ok.snapshot) !== content(now.snapshot)) throw new ForbiddenError('Request approval first: someone else must approve this change before it goes live');
 }
 
 async function setState(targetType: string, targetId: string, state: string) {
@@ -22,7 +32,9 @@ async function setState(targetType: string, targetId: string, state: string) {
 }
 
 async function snapshotOf(targetType: string, targetId: string): Promise<{ projectId: string; title: string; snapshot: any }> {
-  if (targetType === 'rule') { const r = await prisma.rule.findUnique({ where: { id: targetId } }); if (!r) throw new NotFoundError('Rule'); return { projectId: r.projectId, title: r.name, snapshot: { definition: r.definition, version: r.version } }; }
+  if (targetType === 'rule') { const r = await prisma.rule.findUnique({ where: { id: targetId } }); if (!r) throw new NotFoundError('Rule');
+    const live = await prisma.ruleVersion.findFirst({ where: { ruleId: r.id, status: 'PUBLISHED' } as any, orderBy: { createdAt: 'desc' } }).catch(() => null);
+    return { projectId: r.projectId, title: r.name, snapshot: { type: r.type, definition: r.definition, version: r.version, live: (live as any)?.definition ?? null, liveVersion: (live as any)?.version ?? null } }; }
   if (targetType === 'decision_flow') { const f = await prisma.flow.findUnique({ where: { id: targetId } }); if (!f) throw new NotFoundError('Flow'); return { projectId: f.projectId, title: f.name, snapshot: { graph: f.graph, version: f.version } }; }
   if (targetType === 'api_spec') { const s = await prisma.apiSpec.findUnique({ where: { id: targetId }, include: { operations: { include: { flow: true } } } }); if (!s) throw new NotFoundError('API Spec');
     return { projectId: s.projectId, title: s.name, snapshot: { operations: s.operations.map(o => ({ method: o.method, path: o.path, graph: o.flow.graph })) } }; }
@@ -52,6 +64,14 @@ export async function decide(id: string, decision: 'APPROVED' | 'REJECTED', note
   const out = await prisma.reviewRequest.update({ where: { id }, data: { status: decision, reviewedBy: user.email || user.userId, decisionNote: note, decidedAt: new Date() } });
   await setState(r.targetType, r.targetId, decision);
   await audit(r.projectId, user, `review.${decision.toLowerCase()}`, r.targetType, r.targetId);
+  // approving puts the change live; the approver is the one who publishes
+  if (decision === 'APPROVED') {
+    try {
+      if (r.targetType === 'rule') await (await import('./rules.service.js')).publishRule(r.targetId, user);
+      if (r.targetType === 'decision_flow') await (await import('./flows.service.js')).publishFlow(r.targetId, `Approved by ${user.email || user.userId}`, user);
+      if (r.targetType === 'api_spec') await (await import('./apispecs.service.js')).publish(r.targetId, user, `Approved by ${user.email || user.userId}`);
+    } catch (e: any) { return { ...out, publishError: e?.message || String(e) }; }
+  }
   return out;
 }
 

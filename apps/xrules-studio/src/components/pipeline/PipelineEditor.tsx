@@ -21,6 +21,7 @@ import { InputFields, flowFields } from '@/components/test/FieldsEditor';
 import { TestSheet } from '@/components/test/TestSheet';
 import { TestBadge } from '@/components/test/TestBadge';
 import { Modal } from './ui';
+import { GoLive } from '@/components/GoLive';
 
 type Graph = { nodes: Node[]; edges: Edge[] };
 const EDGE = { type: 'smoothstep', style: { stroke: '#161616', strokeWidth: 1.4 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#161616', width: 18, height: 18 } } as const;
@@ -207,7 +208,9 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
           {kind === 'trigger' && <button className="h-10 px-4 text-[14px] border border-[#8d8d8d] hover:bg-[#e8e8e8] flex items-center gap-2 whitespace-nowrap disabled:text-[#8d8d8d]" onClick={() => runTrigger.mutate()} disabled={runTrigger.isPending || !published}><Play className="h-4 w-4" /> Run</button>}
           {kind === 'decision' && <TestBadge targetType="decision_flow" targetId={flowId} onOpen={() => setCasesOpen(true)} />}
           <button className="h-10 px-4 text-[14px] border border-[#8d8d8d] text-[#161616] hover:bg-[#e8e8e8] whitespace-nowrap disabled:text-[#8d8d8d] disabled:border-[#e0e0e0]" disabled={!dirty || save.isPending || locked} onClick={() => save.mutate()}>Save</button>
-          <button className="h-10 px-4 text-[14px] bg-[#0f62fe] text-white hover:bg-[#0353e9] whitespace-nowrap disabled:bg-[#c6c6c6]" disabled={publish.isPending || locked || (!dirty && published)} onClick={() => publish.mutate()}>Publish v{published && !dirty ? flow.version : flow.version + (published ? 1 : 0)}</button>
+          {kind === 'decision' || kind === 'trigger'
+            ? <GoLive targetType="decision_flow" targetId={flowId} reviewState={(flow as any)?.reviewState} disabled={locked || dirty} onPublish={() => publish.mutate()} publishing={publish.isPending} publishLabel={`Publish v${published && !dirty ? flow.version : flow.version + (published ? 1 : 0)}`} invalidate={[['flow', flowId]]} />
+            : <button className="h-10 px-4 text-[14px] bg-[#0f62fe] text-white hover:bg-[#0353e9] whitespace-nowrap disabled:bg-[#c6c6c6]" disabled={publish.isPending || locked || (!dirty && published)} onClick={() => publish.mutate()}>Publish v{published && !dirty ? flow.version : flow.version + (published ? 1 : 0)}</button>}
         </div>
       </div>
 
