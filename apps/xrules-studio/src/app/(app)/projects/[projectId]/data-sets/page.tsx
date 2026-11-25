@@ -24,7 +24,7 @@ export default function DataSetsPage() {
   useEffect(() => { const s = sp.get('slug'); const hit = s && sets?.find(x => x.slug === s); if (hit) router.replace(`/p/${projectId}/data-sets/${hit.id}`); }, [sp, sets, projectId, router]);
   return (
     <div className="px-8 py-6">
-      <PageHead title="Data Sets" sub="Reference and training data in snapshots · from Data Flows, SQL on a connection or uploaded files" actions={perms.integrate ? <div className="flex gap-2"><Btn kind="secondary" onClick={() => setOpen(o => o === 'sql' ? '' : 'sql')}>From SQL</Btn><Btn onClick={() => setOpen(o => o === 'file' ? '' : 'file')}>Upload file</Btn></div> : undefined} />
+      <PageHead title="Data Sets" actions={perms.integrate ? <div className="flex gap-2"><Btn kind="secondary" onClick={() => setOpen(o => o === 'sql' ? '' : 'sql')}>From SQL</Btn><Btn onClick={() => setOpen(o => o === 'file' ? '' : 'file')}>Upload file</Btn></div> : undefined} />
       {open === 'sql' && <SqlSourcePanel projectId={projectId} onCancel={() => setOpen('')} onCreated={(id) => { qc.invalidateQueries({ queryKey: ['data-sets', projectId] }); router.push(`/p/${projectId}/data-sets/${id}`); }} />}
       {open === 'file' && <Panel title="Upload Excel / CSV" className="mb-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">

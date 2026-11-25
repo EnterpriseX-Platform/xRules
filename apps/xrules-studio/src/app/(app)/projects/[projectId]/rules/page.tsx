@@ -132,20 +132,17 @@ export default function RulesPage() {
         <table className="w-full min-w-[720px]">
           <thead className="bg-muted/30 border-b border-border">
             <tr className="text-left">
-              <th className="py-3 px-4 label-section w-12">#</th>
-              <th className="py-3 px-2 label-section w-10"></th>
               <th className="py-3 px-4 label-section min-w-[220px]">Rule</th>
               <th className="py-3 px-4 label-section">Type</th>
-              <th className="py-3 px-4 label-section">Folder</th>
+              {folderList.length > 0 && <th className="py-3 px-4 label-section hidden lg:table-cell">Folder</th>}
               <th className="py-3 px-4 label-section">Status</th>
               <th className="py-3 px-4 label-section text-right">Version</th>
               <th className="py-3 px-4 label-section w-12"></th>
             </tr>
           </thead>
           <tbody>
-            {isLoading && <tr><td colSpan={8} className="text-center py-12 text-subtle font-mono text-sm">Loading…</td></tr>}
             {!isLoading && filtered.length === 0 && (
-              <tr><td colSpan={8} className="text-center py-16">
+              <tr><td colSpan={6} className="text-center py-16">
                 <div className="text-[14px] text-[#525252] mb-3">{rules.length ? 'No matching rules' : 'No rules'}</div>
                   {perms.write && !rules.length && (<button className="h-9 pl-3 pr-4 text-[14px] bg-[#0f62fe] text-white inline-flex items-center gap-1.5" onClick={() => setShowCreate(true)}>
                     <Plus className="h-4 w-4" />
@@ -156,34 +153,18 @@ export default function RulesPage() {
             )}
             {filtered.map((r: any, i: number) => {
               const T = String(r.type || '').toUpperCase();
-              const Icon = TYPE_ICON[T] || FileText;
-              const tone = TYPE_TONE[T] || 'subtle';
-              return (
+                            return (
               <tr key={r.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                 draggable={!!perms.write} onDragStart={e => { e.dataTransfer.setData(DRAG_TYPE, r.id); e.dataTransfer.effectAllowed = 'move'; }}>
-                <td className="py-3 px-4 row-index">{String(i + 1).padStart(2, '0')}</td>
-                <td className="py-3 px-2">
-                  <div className={`h-7 w-7 rounded flex items-center justify-center border ${TYPE_ICON_CLS[tone] || TYPE_ICON_CLS.subtle}`}>
-                    <Icon className="h-3.5 w-3.5" />
-                  </div>
-                </td>
                 <td className="py-3 px-4">
                   <Link href={`/p/${projectId}/rules/${r.id}`} className="block group">
                     <div className="text-sm font-medium group-hover:text-accent">{r.name}</div>
-                    <div className="text-xs text-subtle font-mono">{r.slug}</div>
                   </Link>
                 </td>
                 <td className="py-3 px-4">
-                  <Pill tone={tone}><span className="whitespace-nowrap">{T.replace('_', ' ')}</span></Pill>
+                  <span className="text-[14px] text-[#525252] whitespace-nowrap">{T.charAt(0) + T.slice(1).toLowerCase().replace(/_/g, ' ')}</span>
                 </td>
-                <td className="py-3 px-4 w-48">
-                  {perms.write
-                    ? <Select aria-label={`Folder of ${r.name}`} value={r.folderId || ''} onChange={e => moveTo(r.id, e.target.value)} className="h-8 text-xs w-44">
-                        <option value="">—</option>
-                        {folderList.map(f => <option key={f.id} value={f.id}>{f.path}</option>)}
-                      </Select>
-                    : <span className="text-xs text-subtle">{folderList.find(f => f.id === r.folderId)?.path || '—'}</span>}
-                </td>
+                {folderList.length > 0 && <td className="py-3 px-4 hidden lg:table-cell text-[14px] text-[#525252]">{folderList.find(f => f.id === r.folderId)?.path || '—'}</td>}
                 <td className="py-3 px-4"><StatusPill status={r.status} /></td>
                 <td className="py-3 px-4 text-right font-mono text-xs text-subtle tabular-nums">v{r.version}</td>
                 <td className="py-3 px-4 text-right">

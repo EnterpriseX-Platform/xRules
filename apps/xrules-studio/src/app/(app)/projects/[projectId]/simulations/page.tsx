@@ -23,7 +23,7 @@ export default function SimulationsPage() {
   const s = ch?.summary;
   return (
     <div className="px-8 py-6">
-      <PageHead title="Simulations" sub="See how a draft would change results before it goes live" />
+      <PageHead title="Simulations" />
       <div className="w-96 mb-4"><div className="text-[12px] text-[#525252] mb-1.5">Decision Flow</div><Dropdown value={flow} onChange={setFlow} options={decision.map(f => ({ value: f.id, label: f.name, hint: `v${f.version}` }))} /></div>
       <div className="grid grid-cols-2 gap-4 items-start">
         <Panel title="Backtest">

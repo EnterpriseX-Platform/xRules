@@ -28,7 +28,7 @@ export default function TriggersPage() {
   });
   return (
     <div className="px-8 py-6">
-      <PageHead title="Triggers" sub={`${rows.length} triggers · started on a schedule, by webhook or by hand · includes Data Set syncs`} actions={perms.integrate ? (<Btn onClick={() => setOpen(true)}>New Trigger</Btn>) : undefined} />
+      <PageHead title="Triggers" sub={`${rows.length} trigger${rows.length === 1 ? '' : 's'}`} actions={perms.integrate ? (<Btn onClick={() => setOpen(true)}>New Trigger</Btn>) : undefined} />
       {open && (
         <Modal title="New trigger" onClose={() => setOpen(false)} wide onSubmit={() => create.mutate()} submitLabel="Create" submitDisabled={(!f.name && f.type !== 'data_sync') || create.isPending}>
           <div className="grid grid-cols-3 gap-4">

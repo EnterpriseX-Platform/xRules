@@ -54,7 +54,7 @@ export default function ExecutionsPage() {
           },
           { header: 'Status', cell: (r: any) => <StatusPill status={r.status} /> },
           { header: 'Duration', cell: (r: any) => <span className="font-mono text-xs text-subtle tabular-nums">{r.duration ?? '—'}ms</span>, align: 'right' },
-          { header: 'When', cell: (r: any) => <span className="font-mono text-xs text-subtle">{new Date(r.createdAt).toLocaleString()}</span>, align: 'right' },
+          { header: 'When', cell: (r: any) => <span className="font-mono text-xs text-subtle">{fmtTime(r.createdAt)}</span>, align: 'right' },
         ]}
       />
     </PageContent>

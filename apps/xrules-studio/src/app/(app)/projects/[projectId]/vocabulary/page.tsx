@@ -11,7 +11,7 @@ export default function VocabularyPage() {
   const [tab, setTab] = useState('Write rules');
   return (
     <div className="px-8 py-6">
-      <PageHead title="Vocabulary" sub="Business terms and rules written as sentences" />
+      <PageHead title="Vocabulary" />
       <Tabs tabs={['Write rules', 'Rule Cowork', 'Vocabulary']} value={tab} onChange={setTab} />
       {tab === 'Write rules' && <Writer projectId={projectId} />}
       {tab === 'Rule Cowork' && <Cowork projectId={projectId} />}
@@ -21,7 +21,7 @@ export default function VocabularyPage() {
 }
 
 function Writer({ projectId }: { projectId: string }) {
-  const [sentence, setSentence] = useState('IF budget type IS "equipment" AND unit price GREATER THAN standard price THEN WARN "Unit price is above the standard price" LEVEL WARNING CODE TOR-4.4.1.3');
+  const [sentence, setSentence] = useState('IF amount GREATER THAN 100,000 THEN WARN "Amount needs a second approval" LEVEL WARNING CODE RULE-001');
   const [name, setName] = useState('');
   const { data: terms = [] } = useQuery({ queryKey: ['vocab', projectId], queryFn: () => api.get<any[]>(`/platform/vocabulary?project_id=${projectId}`) });
   const check = useMutation({ mutationFn: () => api.post<any>('/platform/vocabulary/check', { projectId, sentence }) });

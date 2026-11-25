@@ -19,12 +19,12 @@ export default function ApisPage() {
   const create = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>('/platform/specs', { projectId, name: f.name, basePath: f.basePath || undefined, version: Number(f.version) || 1, description: f.description }), onSuccess: s => router.push(`/p/${projectId}/apis/${s.id}`) });
   return (
     <div className="px-8 py-6">
-      <PageHead title="REST APIs" sub={`${specs.length} API · served at /api/{base path}/v{version}/…`} actions={perms.integrate ? (<Btn onClick={() => setOpen(true)}>New API</Btn>) : undefined} />
+      <PageHead title="REST APIs" sub={`${specs.length} API${specs.length === 1 ? '' : 's'}`} actions={perms.integrate ? (<Btn onClick={() => setOpen(true)}>New API</Btn>) : undefined} />
       {open && (
         <Modal title="New API" onClose={() => setOpen(false)} wide onSubmit={() => create.mutate()} submitLabel="Create" submitDisabled={!f.name || create.isPending} error={create.error ? String((create.error as any).message) : null}>
           <div className="grid grid-cols-4 gap-4">
             <Input id="sp-name" label="Name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} placeholder="NEB Pre-screening API" />
-            <Input id="sp-base" label="Base path" mono value={f.basePath} onChange={(v: string) => setF({ ...f, basePath: v })} placeholder="neb-prescreen" />
+            <Input id="sp-base" label="Base path" mono value={f.basePath} onChange={(v: string) => setF({ ...f, basePath: v })} placeholder="loan-approval" />
             <Input id="sp-ver" label="Major version" mono value={f.version} onChange={(v: string) => setF({ ...f, version: v })} />
             <Input id="sp-desc" label="Summary" value={f.description} onChange={(v: string) => setF({ ...f, description: v })} />
           </div>

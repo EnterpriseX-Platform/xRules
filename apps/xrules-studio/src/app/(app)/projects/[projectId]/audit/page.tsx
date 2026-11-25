@@ -1,4 +1,5 @@
 'use client';
+import { fmtTime } from '@/components/pipeline/ui';
 import { OrgTabs } from '@/components/layout/OrgTabs';
 import { useParams as useOrgParams } from 'next/navigation';
 // Audit log viewer — backed by /bi/audit/v2 endpoint (cursor pagination + filters).
@@ -73,7 +74,7 @@ export default function AuditPage() {
           { header: 'Status', cell: (r: any) => <StatusPill status={r.status} /> },
           { header: 'Duration', cell: (r: any) => <span className="font-mono text-xs text-subtle tabular-nums">{r.duration ?? '—'}ms</span>, align: 'right' },
           { header: 'API Key', cell: (r: any) => <span className="font-mono text-[11px] text-subtle">{r.apiKeyId ? r.apiKeyId.slice(0, 8) + '…' : '—'}</span> },
-          { header: 'When', cell: (r: any) => <span className="font-mono text-xs text-subtle">{new Date(r.createdAt).toLocaleString()}</span>, align: 'right' },
+          { header: 'When', cell: (r: any) => <span className="font-mono text-xs text-subtle">{fmtTime(r.createdAt)}</span>, align: 'right' },
         ]}
       />
     </PageContent>

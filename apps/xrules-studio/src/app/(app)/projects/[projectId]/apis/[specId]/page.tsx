@@ -60,7 +60,7 @@ function Operations({ spec, projectId, onChange }: any) {
       {addOpen && <Modal title="Add operation" onClose={() => setAddOpen(false)} wide onSubmit={() => add.mutate()} submitLabel="Add" submitDisabled={!f.path || add.isPending} error={add.error ? String((add.error as any).message) : null}>
         <div className="grid gap-4">
           <div><div className="text-[12px] text-[#525252] mb-1.5">Method</div><Dropdown value={f.method} onChange={v => setF({ ...f, method: v })} options={['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map(m => ({ value: m, label: m }))} /></div>
-          <Input id="op-path" label="Path (parameters like {itemCode})" mono value={f.path} onChange={(v: string) => setF({ ...f, path: v })} placeholder="/standard-price/{itemCode}" />
+          <Input id="op-path" label="Path (parameters like {productCode})" mono value={f.path} onChange={(v: string) => setF({ ...f, path: v })} placeholder="/list-price/{productCode}" />
           <Input id="op-sum" label="Summary" value={f.summary} onChange={(v: string) => setF({ ...f, summary: v })} />
         </div>
         <div className="mt-4"><TextArea id="op-schema" label="Body JSON Schema (optional)" rows={4} value={f.schema} onChange={(v: string) => setF({ ...f, schema: v })} /></div>
@@ -84,7 +84,7 @@ function TryIt({ spec }: any) {
         <div className="space-y-4">
           <div><div className="text-[12px] text-[#525252] mb-1.5">Operation</div><Dropdown value={opId} onChange={setOpId} options={ops.map((o: any) => ({ value: o.id, label: `${o.method} ${o.path}` }))} /></div>
           {params.map((p: string) => <Input key={p} id={`pp-${p}`} label={`{${p}}`} mono value={pv[p]} onChange={(v: string) => setPv({ ...pv, [p]: v })} />)}
-          <Input id="try-q" label="Query string" mono value={query} onChange={setQuery} placeholder="fiscalYear=2571" />
+          <Input id="try-q" label="Query string" mono value={query} onChange={setQuery} placeholder="year=2026" />
           {op?.method !== 'GET' && <TextArea id="try-body" label="Body (JSON)" rows={10} value={body} onChange={setBody} />}
           <Btn onClick={() => run.mutate()} disabled={!opId || run.isPending}>Send</Btn>
         </div>

@@ -32,7 +32,7 @@ export default function BulkPage() {
   });
   return (
     <div className="px-8 py-6">
-      <PageHead title="Bulk Runs" sub="Run a rule or decision flow over many rows · results as a file · retry only failed rows" actions={perms.write ? (<Btn onClick={() => setOpen(true)}>New Bulk Run</Btn>) : undefined} />
+      <PageHead title="Bulk Runs" actions={perms.write ? (<Btn onClick={() => setOpen(true)}>New Bulk Run</Btn>) : undefined} />
       {open && (
         <Modal title="New bulk run" onClose={() => setOpen(false)} wide onSubmit={() => create.mutate()} submitLabel="Start run" submitDisabled={!f.target || create.isPending || (f.sourceKind === 'file' && !file)} error={create.error ? String((create.error as any).message) : null}>
           <div className="grid grid-cols-3 gap-4">

@@ -53,7 +53,7 @@ export function EntityTable<T extends { id: string }>({
                   </div>
                 )}
                 <div className="text-sm font-medium text-text mb-1.5">{emptyText || 'Nothing here yet'}</div>
-                {emptyBody && <div className="text-xs text-subtle leading-relaxed mb-4">{emptyBody}</div>}
+                {/* no explanation under an empty list; the button says what to do */}
                 {emptyCta && <div className="flex justify-center">{emptyCta}</div>}
               </div>
             </td></tr>

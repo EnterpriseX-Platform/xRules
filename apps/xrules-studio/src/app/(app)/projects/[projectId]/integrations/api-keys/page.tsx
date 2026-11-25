@@ -36,7 +36,7 @@ export default function ApiKeysPage() {
   return (
     <div className="px-6 lg:px-8 py-6">
       {orgLevel && <OrgTabs />}
-      <PageHead title={orgLevel ? '' : 'API Keys'} sub="One key per calling system · choose which APIs it may call" actions={perms.admin ? (tab === 'Keys' ? <Btn onClick={() => setOpen(true)}>New Key</Btn> : undefined) : undefined} />
+      <PageHead title={orgLevel ? '' : 'API Keys'} actions={perms.admin ? (tab === 'Keys' ? <Btn onClick={() => setOpen(true)}>New Key</Btn> : undefined) : undefined} />
       <Tabs tabs={['Keys', 'Webhooks']} value={tab} onChange={setTab} />
       {tab === 'Keys' && <>
         {created && <div className="mb-4"><Notice kind="success">Key created. Copy it now; it will not be shown again<div className="font-mono text-[13px] mt-2 bg-white px-2 py-1 select-all">{created.key}</div></Notice></div>}

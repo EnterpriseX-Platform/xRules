@@ -14,7 +14,7 @@ export default function MonitorOverview() {
   const clean = !o.slowOrFailing.length && !o.staleData.length && !o.connectionsDown.length && !o.alerts.length;
   return (
     <div className="px-8 py-6">
-      <PageHead title="Overview" sub={<>API calls: {o.callsToday.toLocaleString()} in 24 h{diff !== null && ` (${diff >= 0 ? '+' : ''}${diff}% vs previous day)`}{o.bulkRunning ? ` · Bulk runs in progress: ${o.bulkRunning}` : ''}</>} />
+      <PageHead title="Overview" sub={<>REST API calls: {o.callsToday.toLocaleString()} in 24 h{diff !== null && ` (${diff >= 0 ? '+' : ''}${diff}% vs previous day)`}{o.bulkRunning ? ` · Bulk runs in progress: ${o.bulkRunning}` : ''}</>} />
       {clean && <Notice kind="success">Nothing needs attention right now</Notice>}
       <div className="grid grid-cols-2 gap-4 mt-4">
         <Panel title="Open alerts" actions={<Link className="text-[14px] text-[#0f62fe]" href={`${base}/alerts`}>View all</Link>}>

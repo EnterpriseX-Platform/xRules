@@ -42,6 +42,9 @@ export function StepInspector({ node, nodes = [], projectId, onChange, onRemove,
   const { data: rules } = useQuery({ queryKey: ['rules', '_all'], queryFn: () => rulesApi.list('_all'), enabled: k === 'ruleCall' || k === 'rulecall' || isResponse });
   const ruleList: any[] = Array.isArray(rules) ? rules : ((rules as any)?.data || (rules as any)?.items || []);
   const ruleRef = (r: any) => (r.project?.slug && r.project.slug !== projectId && r.projectId !== projectId ? `${r.project.slug}/${r.slug}` : r.slug);
+  const isCallFlow = k === 'callDecisionFlow' || k === 'calldecisionflow';
+  const { data: allFlows } = useQuery({ queryKey: ['flows-all-decision'], queryFn: () => api.get<any[]>('/flows?project_id=_all'), enabled: isCallFlow });
+  const flowOpts = ((allFlows as any[]) || []).filter(f => (f.kind || 'decision') === 'decision').map(f => ({ value: f.slug, label: f.name, hint: f.status === 'published' ? `live v${f.version}` : 'draft' }));
   const setOpts = (sets || []).map((s: any) => ({ value: s.slug, label: s.slug, hint: s.rowCount ? `${s.rowCount} rows` : undefined }));
 
   return (
@@ -61,7 +64,7 @@ export function StepInspector({ node, nodes = [], projectId, onChange, onRemove,
         {k === 'trigger' && <Field label="Notify on failure (webhook URL)" htmlFor="st-nf"><Text id="st-nf" mono value={d.notifyUrl} onChange={(v: string) => set({ notifyUrl: v })} /></Field>}
         {k === 'trigger' && (d.type || 'schedule') === 'schedule' && <>
           <Field label="Schedule (cron)" htmlFor="st-cron"><Text id="st-cron" mono value={d.cron} onChange={(v: string) => set({ cron: v })} placeholder="0 23 * * *" /></Field>
-          <Field label="Also run on events" htmlFor="st-ev"><Text id="st-ev" mono value={csv(d.events)} onChange={(v: string) => set({ events: fromCsv(v) })} placeholder="das.published" /></Field>
+          <Field label="Also run on events" htmlFor="st-ev"><Text id="st-ev" mono value={csv(d.events)} onChange={(v: string) => set({ events: fromCsv(v) })} placeholder="orders.published" /></Field>
           <label className="flex items-center gap-2 text-[14px]"><input type="checkbox" checked={d.enabled !== false} onChange={e => set({ enabled: e.target.checked })} /> Run on schedule</label>
         </>}
 
@@ -83,7 +86,7 @@ export function StepInspector({ node, nodes = [], projectId, onChange, onRemove,
         {k === 'map' && <KeyValue label="Target field = expression" value={d.fields || {}} onChange={(fields: any) => set({ fields })} keyPh="unitPrice" valPh="Number(unit_price)" />}
         {k === 'map' && <label className="flex items-center gap-2 text-[14px]"><input type="checkbox" checked={!!d.keep} onChange={e => set({ keep: e.target.checked })} /> Keep original columns</label>}
 
-        {k === 'filter' && <Field label="Keep rows where" htmlFor="st-fx"><Text id="st-fx" mono value={d.expression} onChange={(v: string) => set({ expression: v })} placeholder="fiscalYear >= 2570" /></Field>}
+        {k === 'filter' && <Field label="Keep rows where" htmlFor="st-fx"><Text id="st-fx" mono value={d.expression} onChange={(v: string) => set({ expression: v })} placeholder="year >= 2025" /></Field>}
 
         {k === 'join' && <>
           <Field label="Data Set"><Dropdown value={d.dataset} onChange={v => set({ dataset: v })} options={setOpts} /></Field>
@@ -93,13 +96,13 @@ export function StepInspector({ node, nodes = [], projectId, onChange, onRemove,
 
         {k === 'quality' && <>
           <Checks value={d.checks || []} onChange={(checks: any) => set({ checks })} />
-          <Field label="Must be unique" htmlFor="st-uq"><Text id="st-uq" mono value={csv(d.unique)} onChange={(v: string) => set({ unique: fromCsv(v) })} placeholder="itemCode, fiscalYear" /></Field>
+          <Field label="Must be unique" htmlFor="st-uq"><Text id="st-uq" mono value={csv(d.unique)} onChange={(v: string) => set({ unique: fromCsv(v) })} placeholder="productCode, year" /></Field>
           <Field label="Minimum rows vs previous run" htmlFor="st-mr"><Text id="st-mr" mono value={d.minRowRatio ?? ''} onChange={(v: string) => set({ minRowRatio: v === '' ? undefined : Number(v) })} placeholder="0.9" /></Field>
         </>}
 
         {k === 'write' && <>
           <Field label="Data Set (existing or new name)" htmlFor="st-ds"><Text id="st-ds" mono value={d.dataset} onChange={(v: string) => set({ dataset: v })} /></Field>
-          <Field label="Lookup key" htmlFor="st-kf"><Text id="st-kf" mono value={csv(d.keyFields)} onChange={(v: string) => set({ keyFields: fromCsv(v) })} placeholder="itemCode, fiscalYear" /></Field>
+          <Field label="Lookup key" htmlFor="st-kf"><Text id="st-kf" mono value={csv(d.keyFields)} onChange={(v: string) => set({ keyFields: fromCsv(v) })} placeholder="productCode, year" /></Field>
           <Field label="Personal data fields (not stored)" htmlFor="st-pii"><Text id="st-pii" mono value={csv(d.piiFields)} onChange={(v: string) => set({ piiFields: fromCsv(v) })} /></Field>
         </>}
 
@@ -108,33 +111,33 @@ export function StepInspector({ node, nodes = [], projectId, onChange, onRemove,
         {k === 'enrich' && <>
           <Field label="Data Set"><Dropdown value={d.dataset} onChange={v => set({ dataset: v })} options={setOpts} /></Field>
           <Field label="For each item in" htmlFor="st-fe"><Text id="st-fe" mono value={d.forEach} onChange={(v: string) => set({ forEach: v })} placeholder="input.items" /></Field>
-          <Field label="Key (comma separated)" htmlFor="st-ek"><Text id="st-ek" mono value={csv(d.key)} onChange={(v: string) => set({ key: fromCsv(v) })} placeholder="{{item.itemCode}}, {{input.context.fiscalYear}}" /></Field>
-          <Field label="Write value to" htmlFor="st-wt"><Text id="st-wt" mono value={d.writeTo} onChange={(v: string) => set({ writeTo: v })} placeholder="ref.standardPrice" /></Field>
+          <Field label="Key (comma separated)" htmlFor="st-ek"><Text id="st-ek" mono value={csv(d.key)} onChange={(v: string) => set({ key: fromCsv(v) })} placeholder="{{item.productCode}}, {{input.context.year}}" /></Field>
+          <Field label="Write value to" htmlFor="st-wt"><Text id="st-wt" mono value={d.writeTo} onChange={(v: string) => set({ writeTo: v })} placeholder="ref.listPrice" /></Field>
           <Field label="Timeout (ms)" htmlFor="st-to"><Text id="st-to" mono value={d.timeoutMs ?? 500} onChange={(v: string) => set({ timeoutMs: Number(v) || 500 })} /></Field>
-          <Field label="If unavailable, skip rules" htmlFor="st-rc"><Text id="st-rc" mono value={csv(d.ruleCodes)} onChange={(v: string) => set({ ruleCodes: fromCsv(v) })} placeholder="TOR-4.4.1.3" /></Field>
+          <Field label="If unavailable, skip rules" htmlFor="st-rc"><Text id="st-rc" mono value={csv(d.ruleCodes)} onChange={(v: string) => set({ ruleCodes: fromCsv(v) })} placeholder="RULE-001" /></Field>
         </>}
 
         {k === 'filecheck' && <>
           <Field label="Files list in input" htmlFor="st-ff"><Text id="st-ff" mono value={d.files} onChange={(v: string) => set({ files: v })} placeholder="input.files" /></Field>
-          <Field label="Rule code" htmlFor="st-frc"><Text id="st-frc" mono value={d.ruleCode} onChange={(v: string) => set({ ruleCode: v })} placeholder="TOR-4.4.1.7" /></Field>
+          <Field label="Rule code" htmlFor="st-frc"><Text id="st-frc" mono value={d.ruleCode} onChange={(v: string) => set({ ruleCode: v })} placeholder="RULE-001" /></Field>
         </>}
 
         {(k === 'ruleCall' || k === 'rulecall') && <>
           <Field label="Rule"><Dropdown value={d.ruleSlug} onChange={v => { const r = ruleList.find((x: any) => ruleRef(x) === v); set({ ruleSlug: v, ...(!d.label || d.label === m.title ? { label: r?.name || d.label } : {}) }); }} options={ruleList.map((r: any) => ({ value: ruleRef(r), label: r.name || r.slug, hint: r.project?.name ? `${r.project.name} · ${r.type}` : r.type }))} /></Field>
-          <Field label="Rule code (adds its results to Findings)" htmlFor="st-rcode"><Text id="st-rcode" mono value={d.ruleCode} onChange={(v: string) => set({ ruleCode: v })} placeholder="TOR-4.4.1.4" /></Field>
+          <Field label="Rule code (adds its results to Findings)" htmlFor="st-rcode"><Text id="st-rcode" mono value={d.ruleCode} onChange={(v: string) => set({ ruleCode: v })} placeholder="RULE-001" /></Field>
           <Field label="Level when failed"><Dropdown value={d.severity || 'ERROR'} onChange={v => set({ severity: v })} options={[{ value: 'ERROR', label: 'ERROR · blocks submission' }, { value: 'WARNING', label: 'WARNING · allows submission' }]} /></Field>
           <Field label="Store result as" htmlFor="st-oa"><Text id="st-oa" mono value={d.outputAs} onChange={(v: string) => set({ outputAs: v })} /></Field>
         </>}
 
         {isResponse && <ResponseFields d={d} set={set} nodes={nodes} self={node.id} ruleList={ruleList} ruleRef={ruleRef} />}
         {(k === 'callDecisionFlow' || k === 'calldecisionflow') && <>
-          <Field label="Decision Flow (slug)" htmlFor="st-df"><Text id="st-df" mono value={d.flow} onChange={(v: string) => set({ flow: v })} placeholder="neb-prescreen" /></Field>
-          <Field label="Input" htmlFor="st-im"><Text id="st-im" mono value={typeof d.inputMap === 'string' ? d.inputMap : JSON.stringify(d.inputMap ?? '')} onChange={(v: string) => set({ inputMap: v })} placeholder="{{input.body}}" /></Field>
+          <Field label="Decision flow"><Dropdown value={d.flow || ''} placeholder="Choose a decision flow" onChange={v => set({ flow: v, inputMap: d.inputMap || '{{input.body}}', outputAs: d.outputAs || 'decision' })} options={flowOpts} /></Field>
+          <Field label="Send to the flow"><Dropdown value={(typeof d.inputMap === 'string' ? d.inputMap : '') || '{{input.body}}'} onChange={v => set({ inputMap: v })} options={[{ value: '{{input.body}}', label: 'Request body' }, { value: '{{input.query}}', label: 'Query string' }, { value: '{{input}}', label: 'Whole request' }]} /></Field>
           <Field label="Store result as" htmlFor="st-oa2"><Text id="st-oa2" mono value={d.outputAs} onChange={(v: string) => set({ outputAs: v })} placeholder="decision" /></Field>
         </>}
         {k === 'lookup' && <>
           <Field label="Data Set"><Dropdown value={d.dataset} onChange={v => set({ dataset: v })} options={setOpts} /></Field>
-          <Field label="Key (comma separated)" htmlFor="st-lk"><Text id="st-lk" mono value={csv(d.key)} onChange={(v: string) => set({ key: fromCsv(v) })} placeholder="{{input.params.itemCode}}, {{input.query.fiscalYear}}" /></Field>
+          <Field label="Key (comma separated)" htmlFor="st-lk"><Text id="st-lk" mono value={csv(d.key)} onChange={(v: string) => set({ key: fromCsv(v) })} placeholder="{{input.params.productCode}}, {{input.query.year}}" /></Field>
           <Field label="Store result as" htmlFor="st-lo"><Text id="st-lo" mono value={d.outputAs} onChange={(v: string) => set({ outputAs: v })} /></Field>
         </>}
 

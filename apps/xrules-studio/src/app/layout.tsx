@@ -19,15 +19,8 @@ export const metadata: Metadata = {
 };
 
 // Script to prevent flash of wrong theme
-const themeScript = `
-  (function() {
-    var theme = localStorage.getItem('xrules_theme');
-    if (!theme) {
-      theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    document.documentElement.setAttribute('data-theme', theme);
-  })();
-`;
+// One look (Carbon g10) until every screen reads colour tokens: a half-dark page was worse than none.
+const themeScript = `document.documentElement.setAttribute('data-theme', 'light');`;
 
 export default function RootLayout({
   children,

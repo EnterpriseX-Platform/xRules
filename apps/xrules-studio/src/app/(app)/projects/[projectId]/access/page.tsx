@@ -31,7 +31,7 @@ export default function ProjectAccessPage() {
 
   return (
     <PageContent>
-      <PageHead title="Members & Access" sub={p ? `Who can see and change ${p.name}` : undefined} />
+      <PageHead title="Members & Access" sub={p?.name} />
       {err && <div className="mb-4"><Notice kind="error">{err}</Notice></div>}
       <div className="space-y-4">
         <Panel title="Visibility">

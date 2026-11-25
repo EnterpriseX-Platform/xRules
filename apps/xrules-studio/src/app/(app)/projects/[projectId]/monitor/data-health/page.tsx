@@ -10,7 +10,7 @@ export default function DataHealthPage() {
   if (!h) return <div className="px-8 py-6" />;
   return (
     <div className="px-8 py-6">
-      <PageHead title="Data Health" sub="Reference data age, latest sync results and connections" />
+      <PageHead title="Data Health" />
       <Table head={['Data Set', 'Rows', 'Active snapshot', 'Age', 'Latest run', 'Rejected']}>
         {h.datasets.map((d: any) => <tr key={d.id}><Td mono>{d.slug}</Td><Td mono>{d.rows.toLocaleString()}</Td><Td>{fmtTime(d.activeAt)}</Td>
           <Td>{d.ageHours == null ? '—' : d.ageHours > 36 ? <Tag tone="orange">{d.ageHours} h</Tag> : `${d.ageHours} h`}</Td>

@@ -30,6 +30,9 @@ function writeCollapsed(v: Record<string, boolean>) {
 }
 
 export function Sidebar() {
+  // phones: the menu is a drawer opened from the top bar
+  const [navOpen, setNavOpen] = useState(false);
+  useEffect(() => { const t = () => setNavOpen(o => !o); window.addEventListener('xrules:nav', t); return () => window.removeEventListener('xrules:nav', t); }, []);
   const pathname = usePathname();
   const router = useRouter();
   const project = useProject((s) => s.currentProjectId);
@@ -122,12 +125,16 @@ export function Sidebar() {
   void me;
   // narrow screens: icons only
   return (
-    <aside className="shrink-0 w-[52px] lg:w-[220px] bg-[#f4f4f4] border-r border-[#e0e0e0] flex flex-col overflow-y-auto overflow-x-hidden">
-      {title && <div className="hidden lg:block px-4 pt-4 pb-2 text-[14px] font-semibold text-[#161616] truncate">{title}</div>}
+    <>
+    {navOpen && <div className="fixed inset-0 top-12 z-30 bg-[#161616]/40 md:hidden" onClick={() => setNavOpen(false)} />}
+    <aside onClick={e => { if ((e.target as HTMLElement).closest('a')) setNavOpen(false); }}
+      className={cn('shrink-0 w-[220px] bg-[#f4f4f4] border-r border-[#e0e0e0] flex-col overflow-y-auto overflow-x-hidden',
+        navOpen ? 'flex fixed top-12 bottom-0 left-0 z-40 md:static' : 'hidden md:flex')}>
+      {title && <div className="px-4 pt-4 pb-2 text-[14px] font-semibold text-[#161616] truncate">{title}</div>}
       <div className="flex-1 py-2">
         {areas.map((a, i) => (
-          <div key={a.id} className={cn(i > 0 && 'mt-3 pt-3 border-t border-[#e0e0e0] lg:border-0 lg:pt-0')}>
-            {a.label && <div className="hidden lg:block px-4 pb-1 text-[12px] text-[#6f6f6f]">{a.label}</div>}
+          <div key={a.id} className={cn(i > 0 && 'mt-3 pt-3 border-t border-[#e0e0e0] md:border-0 md:pt-0')}>
+            {a.label && <div className="px-4 pb-1 text-[12px] text-[#6f6f6f]">{a.label}</div>}
             {a.items.map(it => <NavRow key={it.href} item={it} pathname={pathname} />)}
           </div>
         ))}
@@ -138,6 +145,7 @@ export function Sidebar() {
         </div>
       )}
     </aside>
+    </>
   );
 }
 
@@ -189,7 +197,7 @@ function NavRow({ item, pathname }: { item: NavItem; pathname: string }) {
   return (
     <Link href={item.href} title={item.label} className={cn('nav-row', active && 'nav-row-active')}>
       <Icon className="h-4 w-4 shrink-0" />
-      <span className="flex-1 truncate hidden lg:inline">{item.label}</span>
+      <span className="flex-1 truncate">{item.label}</span>
     </Link>
   );
 }

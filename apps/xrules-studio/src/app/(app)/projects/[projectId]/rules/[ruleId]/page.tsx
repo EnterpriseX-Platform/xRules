@@ -1,4 +1,5 @@
 'use client';
+import { fmtTime } from '@/components/pipeline/ui';
 import { InputFields, ResultView, inputFieldsOf, outputFieldsOf } from '@/components/test/FieldsEditor';
 import { TestSheet } from '@/components/test/TestSheet';
 import { TestBadge } from '@/components/test/TestBadge';
@@ -112,7 +113,7 @@ export default function RuleDetailPage() {
 
       {/* Tabs */}
       <div className="tabs-row mb-6 max-w-full overflow-x-auto">
-        {TABS.map(({ key, label, icon: Icon }) => (
+        {TABS.filter(t => !(t.key === 'schemas' && String(rule.type || '').toUpperCase() === 'DECISION_TABLE')).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -628,7 +629,7 @@ function VersionsTab({ ruleId }: { ruleId: string }) {
               <td className="py-3 px-4"><StatusPill status={v.status} /></td>
               <td className="py-3 px-4 text-sm text-subtle">{v.message || '—'}</td>
               <td className="py-3 px-4 text-right font-mono text-xs text-subtle tabular-nums">
-                {new Date(v.createdAt).toLocaleString()}
+                {fmtTime(v.createdAt)}
               </td>
             </tr>
           ))}

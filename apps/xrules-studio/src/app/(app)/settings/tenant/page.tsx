@@ -112,7 +112,7 @@ function Members({ me, admin }: { me: any; admin: boolean }) {
       )}
       {open && (
         <Modal title="Add member" onClose={() => setOpen(false)} onSubmit={() => addM.mutate()} submitLabel="Add" submitDisabled={!add.email.trim() || addM.isPending} error={err}>
-          <Input label="Email" id="m-email" value={add.email} onChange={(v: string) => setAdd({ ...add, email: v })} placeholder="name@agency.go.th" />
+          <Input label="Email" id="m-email" value={add.email} onChange={(v: string) => setAdd({ ...add, email: v })} placeholder="name@company.com" />
           <div>
             <div className="text-[12px] text-[#525252] mb-1">Role</div>
             <Dropdown id="m-role" value={add.role} options={opts} onChange={v => setAdd({ ...add, role: v })} />

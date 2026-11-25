@@ -41,9 +41,10 @@ export function Topbar() {
   return (
     <header className="h-[48px] shrink-0 bg-[#161616] text-[#c6c6c6] flex items-center border-b border-[#262626]">
       {/* brand block lines up with the sidebar column */}
-      <Link href="/projects" className="w-[52px] lg:w-[220px] h-full shrink-0 flex items-center gap-2.5 px-4 text-white hover:bg-[#262626] border-r border-[#262626]" aria-label="xRules home">
+      <button type="button" aria-label="Menu" className="md:hidden h-12 w-12 shrink-0 flex items-center justify-center text-white hover:bg-[#262626]" onClick={() => window.dispatchEvent(new CustomEvent('xrules:nav'))}>☰</button>
+      <Link href="/projects" className="w-auto md:w-[220px] h-full shrink-0 flex items-center gap-2.5 px-4 text-white hover:bg-[#262626] border-r border-[#262626]" aria-label="xRules home">
         <Logo className="h-5 w-5 shrink-0" />
-        <span className="hidden lg:block text-[15px] font-semibold tracking-tight">xRules</span>
+        <span className="text-[15px] font-semibold tracking-tight">xRules</span>
       </Link>
       <nav className="h-full flex items-center pl-2 min-w-0 shrink" aria-label="Location">
         {pathname.startsWith('/admin') ? <span className="h-8 px-2 flex items-center text-[14px] text-white">System admin</span> : <TenantSwitcher />}
@@ -68,9 +69,6 @@ export function Topbar() {
 
       <button className="md:hidden h-12 w-12 flex items-center justify-center hover:bg-[#262626]" aria-label="Search"
         onClick={() => window.dispatchEvent(new CustomEvent('xrules:open-palette'))}><Search className="h-4 w-4" /></button>
-      <button className="h-12 w-12 flex items-center justify-center hover:bg-[#262626] text-[#c6c6c6]" onClick={toggle} aria-label="Toggle theme">
-        {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-      </button>
 
       <div className="relative h-full" ref={ref}>
         <button type="button" onClick={() => setMenu(m => !m)} aria-haspopup="menu" aria-expanded={menu}

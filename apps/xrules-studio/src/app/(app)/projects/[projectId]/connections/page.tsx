@@ -29,7 +29,7 @@ export default function ConnectionsPage() {
 
   return (
     <div className="px-8 py-6">
-      <PageHead title="Connections" sub="Encrypted secrets · separate UAT / PROD settings · read-only access" actions={perms.integrate ? (<Btn onClick={() => setOpen(true)}>New Connection</Btn>) : undefined} />
+      <PageHead title="Connections" actions={perms.integrate ? (<Btn onClick={() => setOpen(true)}>New Connection</Btn>) : undefined} />
       <Table head={['Connection', 'Type', 'Last test', 'Read-only', '']}
         empty={!rows.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">No connections yet</div> : null}>
         {rows.map((c: any) => {

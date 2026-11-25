@@ -20,7 +20,7 @@ export default function ApprovalsPage() {
   const list = (rows as any[]).filter(r => tab === 'Pending' ? r.status === 'PENDING' : r.status !== 'PENDING');
   return (
     <div className="px-8 py-6">
-      <PageHead title="Approvals" sub="Changes waiting for review before publishing · authors cannot approve their own work" />
+      <PageHead title="Approvals" />
       <Tabs tabs={['Pending', 'History']} value={tab} onChange={setTab} />
       {decide.error && <div className="mb-3"><Notice kind="error">{String((decide.error as any).message)}</Notice></div>}
       <Table head={['Type', 'Name', 'Submitted by', 'When', 'Status', tab === 'Pending' ? 'Comment' : 'Reviewer', '']} empty={!list.length ? <div className="px-4 py-6 text-[14px] text-[#525252]">Nothing here</div> : null}>

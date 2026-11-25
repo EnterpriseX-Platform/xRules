@@ -16,7 +16,7 @@ export default function AlertsPage() {
   if (!data) return <div className="px-8 py-6" />;
   return (
     <div className="px-8 py-6">
-      <PageHead title="Alerts" sub="Checked every minute · delivered by webhook (works with Teams / LINE)" actions={<Btn kind="tertiary" onClick={() => evalNow.mutate()}>Evaluate now</Btn>} />
+      <PageHead title="Alerts" actions={<Btn kind="tertiary" onClick={() => evalNow.mutate()}>Evaluate now</Btn>} />
       <Panel title="Send alerts to" className="mb-4">
         <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
           <Input id="al-hook" label="Webhook URL (applies to every condition)" mono value={hook} onChange={setHook} placeholder="https://…" />

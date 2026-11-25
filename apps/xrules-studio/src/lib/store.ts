@@ -65,11 +65,9 @@ export const useTheme = create<ThemeState>()(
   persist(
     (set, get) => ({
       theme: 'light',
-      setTheme: (t) => {
-        if (typeof document !== 'undefined') {
-          document.documentElement.setAttribute('data-theme', t);
-        }
-        set({ theme: t });
+      setTheme: () => {
+        if (typeof document !== 'undefined') document.documentElement.setAttribute('data-theme', 'light');
+        set({ theme: 'light' });
       },
       toggle: () => {
         const next = get().theme === 'light' ? 'dark' : 'light';
@@ -80,7 +78,7 @@ export const useTheme = create<ThemeState>()(
       name: 'xrules-theme',
       onRehydrateStorage: () => (state) => {
         if (state && typeof document !== 'undefined') {
-          document.documentElement.setAttribute('data-theme', state.theme);
+          document.documentElement.setAttribute('data-theme', 'light');
         }
       },
     },

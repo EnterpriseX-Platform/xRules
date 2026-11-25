@@ -48,7 +48,7 @@ export default function TrafficPage() {
   const { data: t } = useQuery({ queryKey: ['traffic', projectId, hours], queryFn: () => api.get<any>(`/platform/monitor/traffic?project_id=${projectId}&hours=${hours}`), refetchInterval: 30000 });
   return (
     <div className="px-8 py-6">
-      <PageHead title="API Traffic" sub="Calls, error rate and response time by operation and calling system"
+      <PageHead title="API Traffic"
         actions={<div className="w-44"><Dropdown value={hours} onChange={setHours} options={[{ value: '1', label: '1 hour' }, { value: '24', label: '24 hours' }, { value: '168', label: '7 days' }, { value: '720', label: '30 days' }]} /></div>} />
       {t && <>
         <Panel title="Calls per hour" className="mb-4">{t.series.length ? <Bars series={t.series} hours={Number(hours)} /> : <div className="text-[14px] text-[#525252]">No calls yet</div>}

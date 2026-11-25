@@ -1,4 +1,5 @@
 'use client';
+import { fmtTime } from '@/components/pipeline/ui';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -46,7 +47,7 @@ export default function ReleasesPage() {
         emptyIcon={ScrollText}
         emptyBody="A release pins {ruleId, version}[] (and flows + models). Pin one to an environment to deploy. Releases are immutable — perfect for rollback."
         columns={[
-          { header: 'Release', cell: (r: any) => <div><div className="text-sm font-medium">{r.name}</div><div className="text-xs text-subtle font-mono">{new Date(r.createdAt).toLocaleString()}</div></div> },
+          { header: 'Release', cell: (r: any) => <div><div className="text-sm font-medium">{r.name}</div><div className="text-xs text-subtle font-mono">{fmtTime(r.createdAt)}</div></div> },
           { header: 'Status', cell: (r: any) => <StatusPill status={r.status} /> },
           { header: 'Rules', cell: (r: any) => <Pill tone="info">{r.manifest?.rules?.length ?? 0}</Pill> },
           { header: 'Flows', cell: (r: any) => <Pill tone="mint">{r.manifest?.flows?.length ?? 0}</Pill> },

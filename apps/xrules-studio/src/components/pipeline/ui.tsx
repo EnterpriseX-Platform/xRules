@@ -32,7 +32,7 @@ export function Btn({ kind = 'primary', children, ...p }: any) {
   const c = { primary: 'bg-[#0f62fe] text-white hover:bg-[#0353e9]', secondary: 'bg-[#393939] text-white hover:bg-[#474747]', tertiary: 'border border-[#0f62fe] text-[#0f62fe] hover:bg-[#0f62fe] hover:text-white', ghost: 'text-[#0f62fe] hover:bg-[#e8e8e8]' }[kind as string];
   return <button {...p} className={`h-10 pl-4 pr-8 text-[14px] disabled:opacity-40 flex items-center gap-2 ${c} ${p.className || ''}`}>{children}</button>;
 }
-export const fmtTime = (s?: string | null) => s ? new Date(s).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+export const fmtTime = (s?: string | null) => s ? new Date(s).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 
 /** "0 23 * * *" → "Daily 23:00" for the common shapes; anything else stays as cron. */
 export function cronText(cron?: string | null): string {

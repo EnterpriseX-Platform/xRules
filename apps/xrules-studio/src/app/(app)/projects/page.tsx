@@ -60,7 +60,7 @@ export default function ProjectsPage() {
                     </span>
                     <div className="min-w-0">
                       <div className="text-sm font-medium group-hover:text-accent">{p.name}</div>
-                      <div className="text-xs text-subtle font-mono truncate">{p.description || p.slug}</div>
+                      {p.description && <div className="text-xs text-subtle truncate">{p.description}</div>}
                     </div>
                   </Link>
                 </td>
