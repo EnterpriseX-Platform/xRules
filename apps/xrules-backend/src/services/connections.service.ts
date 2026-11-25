@@ -98,6 +98,14 @@ export async function resolveBySlug(projectId: string, slug: string): Promise<Re
   return resolveConfig(c.type, JSON.parse(decrypt(c.configEnc)));
 }
 
+/** Resolve by id for a caller that may read the connection's project (used by Data Sets › From SQL). */
+export async function resolveForUser(id: string, user: AuthUser, perm: 'read' | 'write' = 'write') {
+  const c = await prisma.connection.findFirst({ where: { OR: [{ id }, { slug: id }] } });
+  if (!c) throw new NotFoundError('Connection');
+  await assertProjectAccess(c.projectId, user, perm);
+  return { connection: c, rc: resolveConfig(c.type, JSON.parse(decrypt(c.configEnc))) };
+}
+
 /** Test the connection and record whether the account was verified read-only. */
 export async function testConnection(id: string, user: AuthUser, env?: string) {
   const c = await prisma.connection.findUnique({ where: { id } });

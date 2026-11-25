@@ -4,6 +4,8 @@
 //   POST /data/flows/:id/preview              run on the first 100 rows without writing
 //   GET  /data/flows/:id/next-run             next scheduled time
 //   POST /data/events                         { projectId, event } → run flows listening for it
+//   POST /data/datasets/query                 { projectId, name | datasetId, connectionId, sql, limit?, timeoutSec?, preview? } read-only SQL → snapshot
+//   POST /data/datasets/:id/refresh           run the saved query again → new snapshot
 //   GET  /data/datasets/:id/snapshots         snapshots (newest first)
 //   POST /data/datasets/:id/snapshots/:sid/activate
 //   GET  /data/datasets/:id/snapshots/:sid/rows?limit=
@@ -38,6 +40,12 @@ async function datasetFor(id: string, user: any, perm: 'read' | 'write' = 'read'
 
 r.post('/datasets/upload', authMiddleware, async (req, res, next) => {
   try { ok(res, await (await import('../platform/ml.js')).uploadDataset(req.body || {}, req.user!)); } catch (e) { next(e); }
+});
+r.post('/datasets/query', authMiddleware, async (req, res, next) => {
+  try { ok(res, await (await import('../platform/ml.js')).queryDataset(req.body || {}, req.user!)); } catch (e) { next(e); }
+});
+r.post('/datasets/:id/refresh', authMiddleware, async (req, res, next) => {
+  try { ok(res, await (await import('../platform/ml.js')).refreshDataset(req.params.id, req.user!)); } catch (e) { next(e); }
 });
 r.post('/datasets/:id/profile', authMiddleware, async (req, res, next) => {
   try { ok(res, await (await import('../platform/ml.js')).profileDataset(req.params.id, req.body || {}, req.user!)); } catch (e) { next(e); }

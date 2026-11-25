@@ -18,10 +18,16 @@ export default function DataSetDetailPage() {
   const ds = data?.dataset; const snaps: any[] = data?.snapshots || [];
   const activate = useMutation({ mutationFn: (sid: string) => api.post(`/data/datasets/${datasetId}/snapshots/${sid}/activate`), onSuccess: () => qc.invalidateQueries({ queryKey: ['dataset-snaps', datasetId] }) });
   const active = snaps.find(s => s.status === 'ACTIVE');
+  const src: any = ds?.schema?.source;
+  const refresh = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>(`/data/datasets/${datasetId}/refresh`), onSuccess: () => qc.invalidateQueries({ queryKey: ['dataset-snaps', datasetId] }) });
   if (!ds) return <div className="px-8 py-6" />;
   return (
     <div className="px-8 py-6">
-      <PageHead title={ds.slug} sub={<>Key <span className="font-mono">{ds.keyFields.join(' + ') || '—'}</span> · {ds.rowCount.toLocaleString()} rows · keeps {ds.retention} snapshots</>} />
+      <PageHead title={ds.slug} sub={<>Key <span className="font-mono">{ds.keyFields.join(' + ') || '—'}</span> · {ds.rowCount.toLocaleString()} rows · keeps {ds.retention} snapshots{src?.kind === 'sql' && <> · from SQL on <span className="font-mono">{src.connection}</span></>}</>}
+        actions={src?.kind === 'sql' ? <Btn onClick={() => refresh.mutate()} disabled={refresh.isPending}>Run query again</Btn> : undefined} />
+      {refresh.error && <div className="mb-4 px-4 py-3 text-[14px] border-l-[3px] bg-[#fff1f1] border-[#da1e28]">{(refresh.error as any).message}</div>}
+      {refresh.data && <div className="mb-4 px-4 py-3 text-[14px] border-l-[3px] bg-[#defbe6] border-[#24a148]">New snapshot active · {refresh.data.rows.toLocaleString()} rows{refresh.data.truncated ? ' (row limit reached)' : ''} · the previous snapshot is kept</div>}
+      {src?.kind === 'sql' && tab === 'Snapshots' && <pre className="mb-4 bg-white border border-[#e0e0e0] px-4 py-3 text-[12px] font-mono whitespace-pre-wrap">{src.sql}</pre>}
       <div className="flex border-b border-[#e0e0e0] mb-4">
         {TABS.map(t => <button key={t} onClick={() => setTab(t)} className={`h-10 px-4 text-[14px] ${tab === t ? 'border-b-2 border-[#0f62fe] text-[#161616] font-semibold' : 'text-[#525252] hover:bg-[#e8e8e8]'}`}>{t}</button>)}
       </div>

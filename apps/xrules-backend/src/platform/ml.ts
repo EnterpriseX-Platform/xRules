@@ -141,14 +141,17 @@ export async function setGate(modelId: string, gate: { metric?: string; min?: nu
 }
 
 /** Predict with the published version (or a given one). Used by Model Call rules and the Try panel. */
-export async function predict(projectId: string, modelRef: string, rows: any[], o: { versionId?: string } = {}) {
+export async function predict(projectId: string, modelRef: string, rows: any[], o: { versionId?: string; version?: number } = {}) {
   // own project first, then anywhere in the tenant
   const m = await prisma.model.findFirst({ where: { projectId, OR: [{ id: modelRef }, { slug: modelRef }] } })
     ?? await prisma.model.findFirst({ where: { OR: [{ id: modelRef }, { slug: modelRef }], project: { workspace: { projects: { some: { id: projectId } } } } } });
   if (!m) throw new NotFoundError(`Model ${modelRef}`);
   const v = o.versionId ? await prisma.modelVersion.findUnique({ where: { id: o.versionId } })
+    : o.version ? await prisma.modelVersion.findFirst({ where: { modelId: m.id, version: Number(o.version) } })
     : await prisma.modelVersion.findFirst({ where: { modelId: m.id, status: 'PUBLISHED' } });
-  if (!v) throw new ValidationError(`Model ${m.slug} has no published version`);
+  if (!v) throw new ValidationError(o.version ? `Model ${m.slug} has no version ${o.version}` : `Model ${m.slug} has no published version`);
+  // a pinned version must have been published (it may since have been retired by a newer one)
+  if (o.version && !['PUBLISHED', 'RETIRED'].includes(v.status)) throw new ValidationError(`Model ${m.slug} version ${o.version} is ${v.status.toLowerCase()}, not published`);
   let r = await ml<any>('/predict', { versionId: v.id, rows }, 60_000);
   if (r.status === 409) r = await ml<any>('/predict', { versionId: v.id, rows, artifact: Buffer.from(v.artifact as any).toString('base64') }, 60_000);
   return { model: m.slug, version: v.version, results: r.data.results };
@@ -197,4 +200,70 @@ export async function uploadDataset(body: { projectId: string; name: string; fil
   await activate(ds.id, snap.id);
   await prisma.dataset.update({ where: { id: ds.id }, data: { rowCount: rows.length } }).catch(() => {});
   return { id: ds.id, slug: ds.slug, rows: rows.length, columns: Object.keys(rows[0]) };
+}
+
+// ---------------------------------------------------------------- SQL source
+// A Data Set can be filled from a read-only SQL query on a Connection (Oracle / Postgres).
+// The query is checked by the connector guard (one SELECT / WITH statement, no write keywords,
+// allowed objects), runs inside a read-only transaction where the driver supports it, and is
+// capped by rows and time. Each run writes a new snapshot; the query is kept on the Data Set
+// (schema.source) so "Refresh" can run it again. Credentials stay encrypted on the Connection.
+const SQL_MAX_ROWS = Number(process.env.XRULES_SQL_MAX_ROWS || MAX_ROWS);
+const SQL_TIMEOUT_MS = Number(process.env.XRULES_SQL_TIMEOUT_MS || 60_000);
+
+type SqlSource = { connectionId: string; sql: string; limit?: number; timeoutSec?: number };
+
+async function runSqlSource(src: SqlSource, user: AuthUser, previewRows?: number) {
+  if (!src.connectionId) throw new ValidationError('Choose a connection');
+  if (!src.sql?.trim()) throw new ValidationError('Write a SELECT query');
+  const { resolveForUser } = await import('../services/connections.service.js');
+  const { connection, rc } = await resolveForUser(src.connectionId, user, 'write');
+  if (!['oracle', 'postgres'].includes(rc.type)) throw new ValidationError(`SQL is not supported for ${String(connection.type).toLowerCase()} connections`);
+  const { query, assertReadOnlySql } = await import('../data/connectors.js');
+  try { assertReadOnlySql(src.sql, rc.allowedObjects); } catch (e: any) { throw new ValidationError(e.message); }
+  const limit = Math.min(Math.max(1, Number(src.limit) || SQL_MAX_ROWS), SQL_MAX_ROWS);
+  const timeoutMs = Math.min(Math.max(1, Number(src.timeoutSec) || SQL_TIMEOUT_MS / 1000) * 1000, SQL_TIMEOUT_MS);
+  const t0 = Date.now();
+  const rows = await query(rc, src.sql, [], previewRows ? Math.min(previewRows, limit) : limit, timeoutMs)
+    .catch((e: any) => { throw new ValidationError(`Query failed: ${String(e?.message || e).slice(0, 500)}`); });
+  return { connection, rows, limit, timeoutMs, ms: Date.now() - t0 };
+}
+
+/** preview=true returns the first 50 rows only; otherwise creates the Data Set (or adds a snapshot) from the query. */
+export async function queryDataset(body: { projectId: string; name?: string; datasetId?: string; connectionId: string; sql: string; limit?: number; timeoutSec?: number; keyFields?: string[]; preview?: boolean }, user: AuthUser) {
+  const src: SqlSource = { connectionId: body.connectionId, sql: String(body.sql || '').trim().replace(/;+\s*$/, ''), limit: body.limit, timeoutSec: body.timeoutSec };
+  if (body.preview) {
+    const r = await runSqlSource(src, user, 50);
+    return { rows: r.rows, columns: r.rows[0] ? Object.keys(r.rows[0]) : [], ms: r.ms };
+  }
+  let ds: any;
+  if (body.datasetId) {
+    ds = await prisma.dataset.findUnique({ where: { id: body.datasetId } });
+    if (!ds) throw new NotFoundError('Data Set');
+    await assertProjectAccess(ds.projectId, user, 'write');
+  } else if (!body.name?.trim()) throw new ValidationError('Name the Data Set');
+  const r = await runSqlSource(src, user);
+  if (!r.rows.length) throw new ValidationError('The query returned no rows');
+  if (!ds) {
+    const p = await assertProjectAccess(body.projectId, user, 'write');
+    const slug = body.name!.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `dataset-${Date.now()}`;
+    const keyFields = (body.keyFields || []).filter(k => k in r.rows[0]);
+    ds = await prisma.dataset.upsert({ where: { projectId_slug: { projectId: p.id, slug } }, update: {},
+      create: { projectId: p.id, slug, name: body.name!.trim(), format: 'snapshot', keyFields } });
+  }
+  const source = { kind: 'sql', connectionId: r.connection.id, connection: r.connection.slug, sql: src.sql, limit: r.limit, timeoutSec: r.timeoutMs / 1000 };
+  const snap = await writeSnapshot(ds.id, null, r.rows, ds.keyFields, ds.piiFields,
+    { query: { connection: r.connection.slug, rows: r.rows.length, truncated: r.rows.length >= r.limit, ms: r.ms, by: user.email, at: new Date().toISOString() } }, 0);
+  await activate(ds.id, snap.id);
+  await prisma.dataset.update({ where: { id: ds.id }, data: { rowCount: r.rows.length, uri: `connection:${r.connection.slug}`, schema: { ...((ds.schema as any) || {}), source } } }).catch(() => {});
+  return { id: ds.id, slug: ds.slug, snapshotId: snap.id, rows: r.rows.length, truncated: r.rows.length >= r.limit, columns: Object.keys(r.rows[0]), ms: r.ms };
+}
+
+/** Run the Data Set's saved query again → new active snapshot (the previous one is kept). */
+export async function refreshDataset(datasetId: string, user: AuthUser) {
+  const ds = await prisma.dataset.findUnique({ where: { id: datasetId } });
+  if (!ds) throw new NotFoundError('Data Set');
+  const s: any = (ds.schema as any)?.source;
+  if (s?.kind !== 'sql') throw new ValidationError('This Data Set has no saved query');
+  return queryDataset({ projectId: ds.projectId, datasetId: ds.id, connectionId: s.connectionId, sql: s.sql, limit: s.limit, timeoutSec: s.timeoutSec }, user);
 }
