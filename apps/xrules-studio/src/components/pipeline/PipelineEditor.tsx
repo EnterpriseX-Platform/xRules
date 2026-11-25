@@ -275,7 +275,7 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
 
         {casesOpen && (
           <Modal title="Test cases" wide="xl" onClose={() => setCasesOpen(false)}>
-            {(() => { const ff = flowFields({ graph: { nodes } }, ruleList); return <TestSheet targetType="decision_flow" targetId={flowId} inputs={ff.inputs} outputs={ff.outputs} />; })()}
+            {(() => { const ff = flowFields({ graph: { nodes } }, ruleList); return <TestSheet targetType="decision_flow" targetId={flowId} inputs={ff.inputs} outputs={ff.outputs} projectId={flow?.projectId} />; })()}
           </Modal>
         )}
         {testOpen && !selected && (

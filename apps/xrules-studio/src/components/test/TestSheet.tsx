@@ -7,6 +7,7 @@ import { Plus, Trash2, Play, Download, Upload } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Modal, DropZone } from '@/components/pipeline/ui';
 import { toText, fromText, type Field } from './FieldsEditor';
+import { useTerms } from '@/lib/terms';
 
 type Row = { key: string; id?: string; name: string; input: Record<string, any>; expect: Record<string, string>; other: any[]; status?: string; checks?: any[]; output?: any };
 const read = (o: any, path: string) => path.split('.').filter(Boolean).reduce((a, k) => a?.[k], o);
@@ -22,7 +23,8 @@ function fromCase(c: any): Row {
   return { key: c.id, id: c.id, name: c.name, input: c.input || {}, expect, other, status: c.lastStatus, checks: c.lastResult?.checks, output: c.lastResult?.output };
 }
 
-export function TestSheet({ targetType, targetId, inputs, outputs }: { targetType: 'rule' | 'decision_flow'; targetId: string; inputs: Field[]; outputs: string[] }) {
+export function TestSheet({ targetType, targetId, inputs, outputs, projectId }: { targetType: 'rule' | 'decision_flow'; targetId: string; inputs: Field[]; outputs: string[]; projectId?: string }) {
+  const { label } = useTerms(projectId);
   const qc = useQueryClient();
   const qk = ['test-sheet', targetType, targetId];
   const { data: cases, isFetched } = useQuery({ queryKey: qk, queryFn: () => api.get<any[]>(`/platform/tests/target/${targetType}/${targetId}`), enabled: !!targetId });
@@ -172,10 +174,10 @@ export function TestSheet({ targetType, targetId, inputs, outputs }: { targetTyp
               <th className={`${th} w-10 bg-[#f4f4f4] text-[#6f6f6f]`}>#</th>
               {cols.map(c => (
                 <th key={`${c.kind}-${c.name}`} className={`${th} ${c.kind === 'out' ? 'bg-[#defbe6] text-[#044317]' : c.kind === 'in' ? 'bg-[#edf5ff] text-[#002d9c]' : 'bg-[#f4f4f4] text-[#161616]'}`}>
-                  {c.kind === 'out' ? <>Expected · {c.name}</> : c.name}
+                  <span title={c.name}>{c.kind === 'out' ? <>คาดหวัง · {label(c.name)}</> : c.kind === 'in' ? label(c.name) : 'ชื่อเคส'}</span>
                 </th>
               ))}
-              <th className={`${th} bg-[#f4f4f4] text-[#161616]`}>Result</th>
+              <th className={`${th} bg-[#f4f4f4] text-[#161616]`}>ผล</th>
               <th className={`${th} w-9 bg-[#f4f4f4]`} />
             </tr>
           </thead>
@@ -193,10 +195,10 @@ export function TestSheet({ targetType, targetId, inputs, outputs }: { targetTyp
                     </td>
                   ))}
                   <td className={`${td} px-2 whitespace-nowrap`}>
-                    {st === 'PASS' && <span className="text-[#198038]">✓ Passed</span>}
+                    {st === 'PASS' && <span className="text-[#198038]">✓ ผ่าน</span>}
                     {(st === 'FAIL' || st === 'ERROR') && (
                       <span className="text-[#da1e28]" title={(r.checks || []).filter((x: any) => !x.ok).map((x: any) => x.message).join('\n')}>
-                        ✗ {outCols.map(o => r.expect[o] !== undefined ? `${o} = ${toText(read(r.output, o))}` : null).filter(Boolean).join(' · ') || (r.checks || []).find((x: any) => !x.ok)?.message || 'Failed'}
+                        ✗ ได้ {outCols.map(o => r.expect[o] !== undefined ? `${label(o)} = ${toText(read(r.output, o))}` : null).filter(Boolean).join(' · ') || (r.checks || []).find((x: any) => !x.ok)?.message || 'Failed'}
                       </span>
                     )}
                   </td>

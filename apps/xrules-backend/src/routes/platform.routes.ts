@@ -104,6 +104,7 @@ r.post('/suites/:id/run', authMiddleware, h(async req => (await import('../platf
 // ---- Vocabulary + Rule Cowork
 r.get('/vocabulary', authMiddleware, h(async req => (await import('../platform/vocabulary.js')).listTerms(String(req.query.project_id), req.user)));
 r.get('/vocabulary/suggest', authMiddleware, h(async req => (await import('../platform/vocabulary.js')).suggest(String(req.query.project_id), req.user)));
+r.post('/vocabulary/ensure', authMiddleware, h(async req => (await import('../platform/vocabulary.js')).ensureTerms(req.body, req.user)));
 r.post('/vocabulary', authMiddleware, h(async req => (await import('../platform/vocabulary.js')).upsertTerm(req.body, req.user), 201));
 r.delete('/vocabulary/:id', authMiddleware, h(async req => { await (await import('../platform/vocabulary.js')).deleteTerm(req.params.id, req.user); return null; }));
 r.post('/vocabulary/check', authMiddleware, h(async req => (await import('../platform/vocabulary.js')).check(req.body.projectId, req.body.sentence, req.user)));

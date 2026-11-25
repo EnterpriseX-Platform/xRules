@@ -28,8 +28,8 @@ function CodeToggle({ code, onToggle, disabled }: { code: boolean; onToggle: () 
   return <button type="button" onClick={onToggle} disabled={disabled} className="text-[12px] text-[#0f62fe] hover:underline disabled:text-[#a8a8a8] disabled:no-underline">{code ? 'Fields' : 'Code'}</button>;
 }
 
-export function InputFields({ value, onChange, fields = [], title = 'Input' }: {
-  value: Record<string, any>; onChange: (v: Record<string, any>) => void; fields?: Field[]; title?: string;
+export function InputFields({ value, onChange, fields = [], title = 'Input', label: labelOf = (k: string) => k }: {
+  value: Record<string, any>; onChange: (v: Record<string, any>) => void; fields?: Field[]; title?: string; label?: (k: string) => string;
 }) {
   const obj = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const nested = Object.values(obj).some(v => !isPlain(v));
@@ -68,7 +68,7 @@ export function InputFields({ value, onChange, fields = [], title = 'Input' }: {
             return (
               <div key={k} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_32px] gap-1 items-center">
                 {known.has(k)
-                  ? <div className="h-9 px-3 flex items-center text-[14px] text-[#161616] truncate" title={k}>{k}</div>
+                  ? <div className="h-9 px-3 flex items-center text-[14px] text-[#161616] truncate" title={k}>{labelOf(k)}</div>
                   : <input className={cell} value={k} aria-label="Field name" onChange={e => rename(k, e.target.value)} />}
                 {t === 'boolean'
                   ? <Dropdown value={v === true ? 'true' : v === false ? 'false' : ''} placeholder="—" onChange={x => setKey(k, x === 'true')} options={[{ value: 'true', label: 'Yes' }, { value: 'false', label: 'No' }]} />
@@ -181,7 +181,7 @@ export function flowFields(flow: any, rules: any[]): { inputs: Field[]; outputs:
 }
 
 // Result as rows (field · value); nested objects are flattened to a.b.c. "Code" shows the raw JSON.
-export function ResultView({ value }: { value: any }) {
+export function ResultView({ value, label = (k: string) => k }: { value: any; label?: (k: string) => string }) {
   const [code, setCode] = useState(false);
   const rows: [string, any][] = [];
   const walk = (v: any, p: string) => {
@@ -196,7 +196,7 @@ export function ResultView({ value }: { value: any }) {
         ? <pre className="font-mono text-[12px] text-[#161616] whitespace-pre-wrap">{JSON.stringify(value, null, 2)}</pre>
         : <div className="border-t border-[#e0e0e0]">{rows.map(([k, v]) => (
             <div key={k} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-3 px-1 py-2 border-b border-[#e0e0e0] text-[14px]">
-              <span className="text-[#525252] truncate" title={k}>{k}</span>
+              <span className="text-[#525252] truncate" title={k}>{label(k)}</span>
               <span className="text-[#161616] break-words">{v === null || v === undefined ? '—' : typeof v === 'object' ? JSON.stringify(v) : typeof v === 'number' ? v.toLocaleString('en-US') : String(v)}</span>
             </div>))}</div>}
     </div>

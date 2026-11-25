@@ -13,6 +13,8 @@ import { PageContent } from '@/components/layout/AppShell';
 import { StatusPill, Pill } from '@/components/ui/Pill';
 import { rulesApi, simulationsApi, api } from '@/lib/api';
 import { TableDesigner } from '@/components/rule/TableDesigner';
+import { DecisionTableView } from '@/components/rule/DecisionTableView';
+import { useTerms } from '@/lib/terms';
 import { RuleRelations } from '@/components/pipeline/Relations';
 import { TreeDesigner } from '@/components/rule/TreeDesigner';
 import { ScriptingDesigner } from '@/components/rule/ScriptingDesigner';
@@ -127,10 +129,10 @@ export default function RuleDetailPage() {
       {tab === 'schemas'    && <SchemasTab    rule={rule} />}
       {/* kept mounted so what was typed survives switching tabs */}
       <div className={tab === 'test' ? 'space-y-8' : 'hidden'}>
-        <TestSheet targetType="rule" targetId={rule.id} inputs={inputFieldsOf(rule)} outputs={outputFieldsOf(rule)} />
+        <TestSheet targetType="rule" targetId={rule.id} inputs={inputFieldsOf(rule)} outputs={outputFieldsOf(rule)} projectId={projectId} />
         <div>
           <div className="text-[16px] text-[#161616] mb-3">Try once</div>
-          <TestTab rule={rule} />
+          <TestTab rule={rule} projectId={projectId} />
         </div>
       </div>
       {tab === 'simulate'   && <SimulateTab   rule={rule} projectId={projectId} />}
@@ -159,12 +161,7 @@ function DefinitionTab({ rule, projectId }: { rule: any; projectId: string }) {
 
   if (t === 'DECISION_TABLE') {
     return (
-      <TableDesigner
-        definition={rule.definition}
-        inputSchema={rule.inputSchema}
-        outputSchema={rule.outputSchema}
-        onChange={(def) => mut.mutate({ definition: def })}
-      />
+      <DecisionTableView rule={rule} projectId={projectId} onChange={(def) => mut.mutate({ definition: def })} />
     );
   }
   if (t === 'DECISION_TREE') {
@@ -343,7 +340,8 @@ function SchemasTab({ rule }: { rule: any }) {
   );
 }
 
-function TestTab({ rule }: { rule: any }) {
+function TestTab({ rule, projectId }: { rule: any; projectId: string }) {
+  const { label } = useTerms(projectId);
   // sample from the input schema; a Decision Table without one gets its condition columns
   const sampleInput = useMemo(() => {
     const fromSchema = sampleFromSchema(rule.inputSchema);
@@ -417,7 +415,7 @@ function TestTab({ rule }: { rule: any }) {
           </button>
         </div>
         <div className="p-4 h-[450px] overflow-auto">
-          <InputFields title="" fields={inputFieldsOf(rule).length ? inputFieldsOf(rule) : Object.keys(sampleInput || {}).map(name => ({ name }))}
+          <InputFields title="" label={label} fields={inputFieldsOf(rule).length ? inputFieldsOf(rule) : Object.keys(sampleInput || {}).map(name => ({ name }))}
             value={(() => { try { return JSON.parse(input || '{}'); } catch { return {}; } })()}
             onChange={v => { edited.current = true; setInput(JSON.stringify(v, null, 2)); }} />
         </div>
@@ -441,7 +439,7 @@ function TestTab({ rule }: { rule: any }) {
               <div className="pill pill-ok mb-2">
                 <Check className="h-3 w-3" /> Success
               </div>
-              <ResultView value={output} />
+              <ResultView value={output} label={label} />
             </>
           )}
 

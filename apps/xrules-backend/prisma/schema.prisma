@@ -1092,6 +1092,8 @@ model VocabularyTerm {
   type        String   @default("text")
   values      String[] @default([])
   description String?
+  // shown after values: บาท, ปี, %
+  unit        String?
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())

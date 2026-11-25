@@ -116,13 +116,31 @@ export async function listTerms(projectIdOrSlug: string, user: AuthUser) {
   const p = await assertProjectAccess(projectIdOrSlug, user);
   return prisma.vocabularyTerm.findMany({ where: { projectId: p.id }, orderBy: { term: 'asc' } });
 }
-export async function upsertTerm(data: { projectId: string; term: string; path: string; type?: string; values?: string[]; description?: string }, user: AuthUser) {
+export async function upsertTerm(data: { id?: string; projectId: string; term: string; path: string; type?: string; values?: string[]; description?: string; unit?: string }, user: AuthUser) {
   const p = await assertProjectAccess(data.projectId, user, 'write');
   if (!data.term?.trim() || !data.path?.trim()) throw new ValidationError('term and path required');
   if (/[\s]/.test(data.path)) throw new ValidationError('path must not contain spaces');
-  return prisma.vocabularyTerm.upsert({ where: { projectId_term: { projectId: p.id, term: data.term.trim() } },
-    create: { projectId: p.id, term: data.term.trim(), path: data.path.trim(), type: data.type || 'text', values: data.values || [], description: data.description },
-    update: { path: data.path.trim(), type: data.type || 'text', values: data.values || [], description: data.description } });
+  const fields = { term: data.term.trim(), path: data.path.trim(), type: data.type || 'text', values: data.values || [], description: data.description, unit: data.unit?.trim() || null };
+  const clash = await prisma.vocabularyTerm.findFirst({ where: { projectId: p.id, term: fields.term, ...(data.id ? { NOT: { id: data.id } } : {}) } });
+  if (data.id) {
+    if (clash) throw new ValidationError(`"${fields.term}" is already a term`);
+    const t = await prisma.vocabularyTerm.findFirst({ where: { id: data.id, projectId: p.id } }); if (!t) throw new NotFoundError('Term');
+    return prisma.vocabularyTerm.update({ where: { id: t.id }, data: fields });
+  }
+  return prisma.vocabularyTerm.upsert({ where: { projectId_term: { projectId: p.id, term: fields.term } }, create: { projectId: p.id, ...fields }, update: fields });
+}
+/** Make sure every field a rule uses has a term; missing ones get the field name as a temporary term. */
+export async function ensureTerms(data: { projectId: string; fields: { path: string; type?: string }[] }, user: AuthUser) {
+  const p = await assertProjectAccess(data.projectId, user, 'write');
+  const have = await prisma.vocabularyTerm.findMany({ where: { projectId: p.id } });
+  const typeOf = (t?: string) => t === 'number' || t === 'integer' ? 'number' : t === 'boolean' ? 'boolean' : t === 'date' ? 'date' : 'text';
+  for (const f of data.fields || []) {
+    const path = String(f.path || '').trim(); if (!path || /\s/.test(path)) continue;
+    if (have.some(t => t.path === path)) continue;
+    let term = path, i = 2; while (have.some(t => t.term === term)) term = `${path} ${i++}`;
+    have.push(await prisma.vocabularyTerm.create({ data: { projectId: p.id, term, path, type: typeOf(f.type) } }));
+  }
+  return have.sort((a, b) => a.term.localeCompare(b.term));
 }
 export async function deleteTerm(id: string, user: AuthUser) {
   const t = await prisma.vocabularyTerm.findUnique({ where: { id } }); if (!t) throw new NotFoundError('Term');

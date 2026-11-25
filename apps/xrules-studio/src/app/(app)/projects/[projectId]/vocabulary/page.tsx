@@ -89,28 +89,30 @@ function Cowork({ projectId }: { projectId: string }) {
 function Terms({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
-  const [f, setF] = useState({ term: '', path: '', type: 'text', values: '' });
+  const blankT = { id: '', term: '', path: '', type: 'text', values: '', unit: '' };
+  const [f, setF] = useState<any>(blankT);
   const { data: terms = [] } = useQuery({ queryKey: ['vocab', projectId], queryFn: () => api.get<any[]>(`/platform/vocabulary?project_id=${projectId}`) });
   const { data: sug = [] } = useQuery({ queryKey: ['vocab-sug', projectId], queryFn: () => api.get<any[]>(`/platform/vocabulary/suggest?project_id=${projectId}`) });
-  const save = useMutation({ mutationFn: (t: any) => api.post('/platform/vocabulary', { projectId, ...t }), onSuccess: () => { setAddOpen(false); qc.invalidateQueries({ queryKey: ['vocab', projectId] }); qc.invalidateQueries({ queryKey: ['vocab-sug', projectId] }); setF({ term: '', path: '', type: 'text', values: '' }); } });
+  const save = useMutation({ mutationFn: (t: any) => api.post('/platform/vocabulary', { projectId, ...t }), onSuccess: () => { setAddOpen(false); qc.invalidateQueries({ queryKey: ['vocab', projectId] }); qc.invalidateQueries({ queryKey: ['vocab-sug', projectId] }); setF(blankT); } });
   const del = useMutation({ mutationFn: (id: string) => api.del(`/platform/vocabulary/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ['vocab', projectId] }) });
   return (
     <div className="space-y-4">
-      <div><Btn onClick={() => setAddOpen(true)}>Add term</Btn></div>
-      {addOpen && <Modal title="Add term" onClose={() => setAddOpen(false)} wide onSubmit={() => save.mutate({ term: f.term, path: f.path, type: f.type, values: f.values.split(',').map(s => s.trim()).filter(Boolean) })} submitLabel="Add" submitDisabled={!f.term || !f.path}>
+      <div><Btn onClick={() => { setF(blankT); setAddOpen(true); }}>Add term</Btn></div>
+      {addOpen && <Modal title={f.id ? 'Edit term' : 'Add term'} onClose={() => setAddOpen(false)} wide onSubmit={() => save.mutate({ id: f.id || undefined, term: f.term, path: f.path, type: f.type, unit: f.unit, values: String(f.values || '').split(',').map((s: string) => s.trim()).filter(Boolean) })} submitLabel={f.id ? 'Save' : 'Add'} submitDisabled={!f.term || !f.path} error={save.error ? String((save.error as any).message) : null}>
         <div className="grid gap-4">
           <Input id="t-term" label="Term" value={f.term} onChange={(v: string) => setF({ ...f, term: v })} />
           <Input id="t-path" label="Data path" mono value={f.path} onChange={(v: string) => setF({ ...f, path: v })} placeholder="item.unitPrice" />
           <div><div className="text-[12px] text-[#525252] mb-1.5">Type</div><Dropdown value={f.type} onChange={v => setF({ ...f, type: v })} options={[{ value: 'text', label: 'Text' }, { value: 'number', label: 'Number' }, { value: 'money', label: 'Money' }, { value: 'date', label: 'Date' }, { value: 'enum', label: 'List of values' }]} /></div>
+          <Input id="t-unit" label="Unit" value={f.unit} onChange={(v: string) => setF({ ...f, unit: v })} placeholder="บาท" />
           <Input id="t-vals" label="Allowed values (comma separated)" value={f.values} onChange={(v: string) => setF({ ...f, values: v })} />
         </div>
       </Modal>}
-      <Table head={['Term', 'Means', 'Type', 'Allowed values', '']}>
-        {(terms as any[]).map(t => <tr key={t.id}><Td>{t.term}</Td><Td mono>{t.path}</Td><Td>{t.type}</Td><Td>{t.values.join(', ')}</Td><Td><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={() => del.mutate(t.id)}>Delete</button></Td></tr>)}
+      <Table head={['Term', 'Means', 'Type', 'Unit', 'Allowed values', '']}>
+        {(terms as any[]).map(t => <tr key={t.id} className="cursor-pointer hover:bg-[#f4f4f4]" onClick={() => { setF({ id: t.id, term: t.term, path: t.path, type: t.type, unit: t.unit || '', values: (t.values || []).join(', ') }); setAddOpen(true); }}><Td>{t.term}</Td><Td mono>{t.path}</Td><Td>{t.type}</Td><Td>{t.unit || ''}</Td><Td>{t.values.join(', ')}</Td><Td><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={e => { e.stopPropagation(); del.mutate(t.id); }}>Delete</button></Td></tr>)}
       </Table>
       {(sug as any[]).length > 0 && <>
         <h2 className="text-[16px] mt-6">Fields seen in real requests that have no term yet</h2>
-        <Table head={['Field', 'Example', '']}>{(sug as any[]).slice(0, 30).map(s => <tr key={s.path}><Td mono>{s.path}</Td><Td mono>{String(s.example)}</Td><Td><button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => setF({ ...f, path: s.path, type: s.type })}>Name it</button></Td></tr>)}</Table>
+        <Table head={['Field', 'Example', '']}>{(sug as any[]).slice(0, 30).map(s => <tr key={s.path}><Td mono>{s.path}</Td><Td mono>{String(s.example)}</Td><Td><button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => { setF({ ...blankT, path: s.path, type: s.type }); setAddOpen(true); }}>Name it</button></Td></tr>)}</Table>
       </>}
     </div>
   );
