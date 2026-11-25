@@ -102,7 +102,9 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
     const filtered = ch.filter((c: any) => !(c.type === 'remove' && metaFor(nodes.find(n => n.id === c.id)?.type).locked));
     if (removing.length || ch.some(c => c.type === 'position' && (c as any).dragging === false)) snapshot();
     setNodes(nds => applyNodeChanges(filtered, nds));
-    if (filtered.some(c => c.type !== 'select' && c.type !== 'dimensions')) setDirty(true);
+    // a click fires a position change with the same position: only a real move or removal is an edit
+    const moved = (c: any) => c.type === 'position' && c.position && (() => { const n = nodes.find(x => x.id === c.id); return !n || Math.abs(n.position.x - c.position.x) > 0.5 || Math.abs(n.position.y - c.position.y) > 0.5; })();
+    if (filtered.some((c: any) => (c.type !== 'select' && c.type !== 'dimensions' && c.type !== 'position') || moved(c))) setDirty(true);
   }, [nodes, snapshot]);
   const onEdgesChange = useCallback((ch: EdgeChange[]) => {
     if (ch.some(c => c.type === 'remove')) snapshot();
@@ -111,7 +113,12 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
   }, [snapshot]);
   const onConnect = useCallback((c: Connection) => { snapshot(); setEdges(es => addEdge({ ...c, ...EDGE } as any, es)); setDirty(true); }, [snapshot]);
 
-  const updateNode = (id: string, data: any) => { setNodes(ns => ns.map(n => n.id === id ? { ...n, data } : n)); setDirty(true); };
+  // the inspector may fill defaults when it opens; only a different value is an edit
+  const updateNode = (id: string, data: any) => {
+    const cur = nodes.find(n => n.id === id);
+    if (cur && JSON.stringify(cur.data) === JSON.stringify(data)) return;
+    setNodes(ns => ns.map(n => n.id === id ? { ...n, data } : n)); setDirty(true);
+  };
   const removeNode = (id: string) => { commit(nodes.filter(n => n.id !== id), edges.filter(e => e.source !== id && e.target !== id)); setSelectedId(null); };
 
   // A new step goes after the selected step (or the last one) — and before an end step such as

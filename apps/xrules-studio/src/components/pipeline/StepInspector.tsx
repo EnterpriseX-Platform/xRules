@@ -210,6 +210,11 @@ function ResponseFields({ d, set, nodes, self, ruleList, ruleRef, flows = [] }: 
   const mode: string = d.mode || (Array.isArray(d.fields) && d.fields.length ? 'fields' : d.body !== undefined && d.body !== '' ? 'custom' : 'all');
   // values the earlier steps produce
   const sources: { value: string; label: string; hint?: string }[] = [{ value: 'input.body', label: 'The request body', hint: 'request' }];
+  // name results by the vocabulary of the project they come from
+  const firstCall: any = nodes.find(n => String(n.type).toLowerCase() === 'calldecisionflow' && (n.data as any)?.flow);
+  const termProject = (flows.find((f: any) => f.slug === firstCall?.data?.flow) || {}).projectId
+    || (ruleList.find(r => nodes.some(n => (n.data as any)?.ruleSlug && (ruleRef(r) === (n.data as any).ruleSlug || r.slug === (n.data as any).ruleSlug))) || {}).projectId;
+  const { label: termLabel } = useTerms(termProject);
   for (const n of nodes) {
     if (n.id === self) continue;
     const t = String(n.type).toLowerCase();
@@ -220,12 +225,12 @@ function ResponseFields({ d, set, nodes, self, ruleList, ruleRef, flows = [] }: 
       const outs: string[] = ((rule?.definition as any)?.outputs || []).map((o: any) => o.name).filter(Boolean);
       const step = nd.label || 'Rule';
       sources.push({ value: key, label: `${step}: whole result`, hint: rule?.name });
-      outs.forEach(o => sources.push({ value: `${key}.${o}`, label: `${step}: ${o}`, hint: rule?.name }));
+      outs.forEach(o => sources.push({ value: `${key}.${o}`, label: `${step}: ${termLabel(o)}`, hint: rule?.name }));
     } else if ((t === 'calldecisionflow') && nd.flow) {
       const key = nd.outputAs || 'decision';
       const fl = flows.find((f: any) => f.slug === nd.flow);
       sources.push({ value: key, label: `${fl?.name || nd.flow}: whole result` });
-      flowFields(fl, ruleList).outputs.forEach(o => sources.push({ value: `${key}.${o}`, label: `${fl?.name || nd.flow}: ${o}` }));
+      flowFields(fl, ruleList).outputs.forEach(o => sources.push({ value: `${key}.${o}`, label: termLabel(o), hint: fl?.name || nd.flow }));
     } else if (nd.outputAs) {
       sources.push({ value: nd.outputAs, label: `${nd.label || t}: result` });
     }
