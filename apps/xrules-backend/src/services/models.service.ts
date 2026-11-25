@@ -48,9 +48,14 @@ export async function listModels(projectIdOrSlug: string, user: AuthUser) {
   const models = await prisma.model.findMany({
     where: { projectId: project.id },
     orderBy: { updatedAt: 'desc' },
-    include: { createdBy: true },
+    include: { createdBy: true, versions: { orderBy: { version: 'desc' }, take: 5, select: { version: true, status: true, report: true } } },
   });
-  return models.map(formatModel);
+  // the live version's evaluation and the one before it, for the health light
+  return models.map((m: any) => {
+    const vs = m.versions || []; const live = vs.find((v: any) => v.status === 'PUBLISHED') || vs.find((v: any) => v.status === 'READY');
+    const prev = live ? vs.find((v: any) => v.version < live.version && v.report) : null;
+    return { ...formatModel(m), health: live?.report ? { version: live.version, live: live.status === 'PUBLISHED', task: live.report.task, metrics: live.report.metrics, previous: prev?.report?.metrics || null } : null };
+  });
 }
 
 export async function getModel(id: string, user: AuthUser) {

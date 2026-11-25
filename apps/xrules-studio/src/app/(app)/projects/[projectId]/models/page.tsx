@@ -7,6 +7,7 @@ import { PageContent, PageHeader } from '@/components/layout/AppShell';
 import { EntityTable, StatusPill, Pill } from '@/components/EntityList';
 import { api } from '@/lib/api';
 import { Dropdown } from '@/components/pipeline/Dropdown';
+import { healthOf, HealthLight } from '@/components/model/Health';
 
 const MODEL_TONE: Record<string, any> = { ML: 'info', LLM: 'warn', PMML: 'mint' };
 
@@ -53,6 +54,7 @@ export default function ModelsPage() {
           },
           { header: 'Type',    cell: (m: any) => <Pill tone={MODEL_TONE[m.type?.toUpperCase()] || 'subtle'}>{m.type?.toUpperCase()}</Pill> },
           { header: 'Status',  cell: (m: any) => <StatusPill status={m.status} /> },
+          { header: 'Health',  cell: (m: any) => m.type?.toUpperCase() === 'ML' ? <HealthLight h={healthOf(m.health)} /> : <span className="text-[13px] text-[#6f6f6f]">—</span> },
           { header: 'Version', cell: (m: any) => <span className="font-mono text-xs text-subtle tabular-nums">{m.version}</span>, align: 'right' },
           {
             header: '', align: 'right',

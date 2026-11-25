@@ -1,5 +1,6 @@
 'use client';
 // Model — Train (Data Set, algorithm, parameters, search) · Versions (evaluation, report, gate, publish) · Try (predict).
+import { healthOf, HealthLight } from '@/components/model/Health';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -114,6 +115,9 @@ function VersionsTab({ model, versions }: { model: any; versions: any[] }) {
         </div>
       </Panel>
       {publish.error && <Notice kind="error">{(publish.error as any).message}</Notice>}
+      {(() => { const lv = versions.find((v: any) => v.status === 'published') || versions.find((v: any) => v.report); if (!lv?.report) return null;
+        const prev = versions.find((v: any) => v.version < lv.version && v.report);
+        return <div className="bg-white border border-[#e0e0e0] px-5 py-4 flex items-center gap-4"><span className="text-[13px] text-[#525252] w-[110px]">v{lv.version}{lv.status === 'published' ? ' live' : ''}</span><HealthLight size="lg" h={healthOf({ metrics: lv.report.metrics, previous: prev?.report?.metrics })} /></div>; })()}
       <Table head={['Version', 'Status', 'Algorithm', 'Data Set', 'Headline', 'Trained', '']}>
         {versions.map(v => {
           const task = v.report?.task; const h = HEADLINE[task];
