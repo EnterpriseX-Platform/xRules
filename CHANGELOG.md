@@ -4,6 +4,10 @@ All notable changes to XRules will be documented in this file. The format follow
 
 ## [Unreleased]
 
+### Fixed
+
+- Public execute API (`/api/v1/rules/{id}/execute`, `/v/{version}/execute`) failed with "Unknown hit policy: STANDARD" for decision tables: it now translates Studio hit policies the same way as the Studio test run (STANDARD/ARRAY to COLLECT, FIRST_MATCH to FIRST, EVALUATE_ALL in the API), applies the Else row and reshapes ARRAY output
+
 ### Added
 
 - Read-only catalogue for calling systems (API key with `read` scope): `GET /api/v1/rules`, `GET /api/v1/rules/{idOrAlias}/versions`, `GET /api/v1/rules/{idOrAlias}/versions/{version}` (input/output schema per published version); API key form chooses scopes
