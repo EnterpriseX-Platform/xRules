@@ -15,6 +15,7 @@
 // render fancy node palettes in the UI without breaking execution.
 
 import { evalExpression } from './sandbox.service.js';
+import * as strategy from './strategy.js';
 import * as datasets from '../data/datasets-runtime.js';
 import { checkFile, type Finding, type TemplateSpec } from '../data/files.js';
 import { prisma } from '../config/database.js';
@@ -337,6 +338,12 @@ export async function runFlow(graph: FlowGraph, input: any, solve: SolveFn, opts
         } finally { clearTimeout(timer); }
         break;
       }
+
+      case 'items': stepOut = await strategy.items(data, ctx, opts.projectId); break;
+      case 'screen': stepOut = strategy.filter(data, ctx, stepLabel(cur) || 'Filter'); break;
+      case 'score': stepOut = await strategy.score(data, ctx, solve); break;
+      case 'rank': stepOut = strategy.rank(data, ctx); break;
+      case 'pick': stepOut = strategy.pick(data, ctx, stepLabel(cur) || 'Pick'); break;
 
       case 'assign':
       case 'transform': {

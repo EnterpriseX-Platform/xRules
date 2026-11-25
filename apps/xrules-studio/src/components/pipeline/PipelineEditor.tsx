@@ -162,6 +162,22 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
     mutationFn: async () => { if (dirty) await save.mutateAsync(); return api.post(`/flows/${flowId}/publish`, {}); },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['flow', flowId] }),
   });
+  // values from the last test run, shown on each box (display only, never saved)
+  const shown = useMemo(() => {
+    const steps: any[] = testResult?.trace || []; if (!steps.length) return nodes;
+    const f = (n: any) => Number(n).toLocaleString('en-US');
+    const line = (t: any) => { const o = t.output || {};
+      if (t.status === 'error') return 'Failed';
+      switch (String(t.kind).toLowerCase()) {
+        case 'items': return `${f(o.count)} items`;
+        case 'screen': return `${f(o.kept)} kept · ${f(o.removed)} out`;
+        case 'score': return `${f(o.scored)} scored · average ${o.average ?? '—'}`;
+        case 'rank': return `Top priority ${o.top ?? '—'}`;
+        case 'pick': return o.left !== undefined ? `${f(o.picked)} picked · ${f(o.used)} used · ${f(o.left)} left` : `${f(o.picked)} picked`;
+        default: return t.status === 'skipped' ? 'Skipped' : undefined; } };
+    const by = new Map(steps.map(t => [t.nodeId, t]));
+    return nodes.map(n => { const t = by.get(n.id); const out = t && line(t); return out || t?.status === 'error' ? { ...n, data: { ...n.data, __out: out, __status: t?.status } } : n; });
+  }, [nodes, testResult]);
   const testRun = useMutation({
     mutationFn: async () => {
       let input: any;
@@ -227,7 +243,7 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
         {/* canvas */}
         <div className="relative flex-1 min-w-0">
           <ReactFlow
-            nodes={nodes} edges={edges} nodeTypes={pipelineNodeTypes}
+            nodes={shown} edges={edges} nodeTypes={pipelineNodeTypes}
             onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
             onNodeClick={(_, n) => setSelectedId(n.id)} onPaneClick={() => { setSelectedId(null); setAddOpen(false); }}
             nodesDraggable={!locked} nodesConnectable={!locked} elementsSelectable
@@ -308,6 +324,7 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
               </div>}
               {testResult?.error && <div className="px-4 py-3 text-[13px] text-[#a2191f]">{testResult.error}</div>}
               {testResult && 'output' in testResult && <pre className="px-4 py-3 font-mono text-[12px] text-[#161616] whitespace-pre-wrap break-all border-b border-[#e0e0e0]">{JSON.stringify(testResult.output, null, 2)}</pre>}
+              {Array.isArray(testResult?.output?.picked) && <WhyList out={testResult.output} />}
               {testResult?.trace && <div className="px-2 py-2"><TraceView steps={testResult.trace} /></div>}
             </div>
           </div>
@@ -350,6 +367,22 @@ function PreviewDrawer({ result, onClose }: { result: any; onClose: () => void }
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function WhyList({ out }: { out: any }) {
+  const name = (it: any) => it.name ?? it.title ?? it.project ?? it.id ?? it.code ?? '—';
+  const money = (n: any) => Number(n).toLocaleString('en-US');
+  return (
+    <div className="border-b border-[#e0e0e0] text-[13px]">
+      <div className="px-4 pt-3 pb-1 text-[14px] font-semibold text-[#161616]">Chosen {out.picked.length}{out.allocation ? ` · ${money(out.allocation.used)} of ${money(out.allocation.budget)}` : ''}</div>
+      {out.picked.map((it: any, i: number) => <div key={i} className="px-4 py-1 flex gap-2"><span className="w-6 text-[#6f6f6f] tabular-nums">{it.rank ?? i + 1}</span><span className="flex-1">{name(it)}</span>{it.allocated !== undefined && <span className="tabular-nums">{money(it.allocated)}{it.partial ? ' (part)' : ''}</span>}</div>)}
+      {!!out.dropped?.length && <>
+        <div className="px-4 pt-3 pb-1 text-[14px] font-semibold text-[#161616]">Not chosen {out.dropped.length}</div>
+        {out.dropped.map((it: any, i: number) => <div key={i} className="px-4 py-1"><div>{name(it)}</div><div className="text-[12px] text-[#525252]">{it.droppedAt}: {it.reason}</div></div>)}
+      </>}
+      <div className="h-2" />
     </div>
   );
 }

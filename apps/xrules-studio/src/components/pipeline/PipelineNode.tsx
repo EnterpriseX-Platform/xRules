@@ -23,7 +23,7 @@ export function PipelineNode({ type, data, selected }: NodeProps) {
       <div className="min-w-0">
         <div className="text-[11px] tracking-[0.06em] text-[#525252]">{m.label}</div>
         <div className="text-[14px] font-semibold text-[#161616] truncate">{data?.label || m.title}</div>
-        {sub && <div className="text-[12px] text-[#525252] truncate">{sub}</div>}
+        {data?.__out ? <div className="text-[12px] text-[#0043ce] truncate tabular-nums">{data.__out}</div> : sub && <div className="text-[12px] text-[#525252] truncate">{sub}</div>}
       </div>
       {m.locked && (
         <div className="absolute -top-2.5 -right-2.5 h-5 w-5 rounded-full bg-white border border-[#c6c6c6] flex items-center justify-center" title="Cannot be removed">

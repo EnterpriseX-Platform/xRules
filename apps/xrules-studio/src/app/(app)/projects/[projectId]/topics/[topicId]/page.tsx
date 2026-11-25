@@ -24,6 +24,12 @@ const NEW: Record<string, { label: string; type?: string; flow?: boolean }> = {
   amount: { label: 'New calculation', type: 'FORMULA' },
   choose: { label: 'New strategy', flow: true },
 };
+function strategyGraph() {
+  const steps: [string, string, any][] = [['in', 'input', { label: 'Request' }], ['items', 'items', { label: 'Requests', from: 'input.items' }], ['filter', 'screen', { label: 'Who qualifies' }],
+    ['score', 'score', { label: 'Score', expression: '' }], ['rank', 'rank', { label: 'Rank', weights: [{ term: 'score', weight: 1 }] }], ['pick', 'pick', { label: 'Allocate', mode: 'budget', budget: 'budget', cost: '' }], ['out', 'output', { label: 'Result' }]];
+  return { nodes: steps.map(([id, type, data], i) => ({ id, type, position: { x: 60 + i * 300, y: 120 }, data: { kind: type, ...data } })),
+    edges: steps.slice(1).map(([id], i) => ({ id: `e${i}`, source: steps[i][0], target: id })) };
+}
 const STATUS = (d: any) => d.reviewState === 'PENDING' ? <Tag tone="blue">In review</Tag> : d.status === 'published' ? <Tag tone="green">Live v{d.version}</Tag> : <Tag tone="orange">Draft</Tag>;
 
 export default function TopicPage() {
@@ -40,7 +46,7 @@ export default function TopicPage() {
     mutationFn: async (q: string) => {
       const n = NEW[q];
       if (n.flow) return { kind: 'flow', r: await flowsApi.create({ name, projectId, kind: 'DECISION', topicId,
-        graph: { nodes: [{ id: 'in', type: 'input', position: { x: 60, y: 120 }, data: { label: 'Input', kind: 'input' } }, { id: 'out', type: 'output', position: { x: 460, y: 120 }, data: { label: 'Output', kind: 'output' } }], edges: [{ id: 'e1', source: 'in', target: 'out' }] } }) };
+        graph: strategyGraph() }) };
       return { kind: 'rule', r: await rulesApi.create({ project_id: projectId, name, type: n.type, topic_id: topicId, ...(n.type === 'FORMULA' && { definition: { lines: [] } }) }) };
     },
     onSuccess: ({ kind, r }: any) => { qc.invalidateQueries({ queryKey: ['topic', topicId] }); setCreating(null); router.push(kind === 'flow' ? `/p/${projectId}/flows/${r.id}` : `/p/${projectId}/rules/${r.id}`); } });

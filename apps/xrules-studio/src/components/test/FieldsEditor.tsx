@@ -172,6 +172,8 @@ export function flowFields(flow: any, rules: any[]): { inputs: Field[]; outputs:
   const inputs = new Map<string, Field>(); const outputs: string[] = [];
   for (const n of nodes) {
     const d = n.data || {};
+    if (n.type === 'pick' && d.mode === 'budget' && typeof d.budget === 'string' && /^[A-Za-z_][\w]*$/.test(d.budget) && !inputs.has(d.budget)) inputs.set(d.budget, { name: d.budget, type: 'number' } as Field);
+    if (n.type === 'pick') { outputs.push('allocation.used', 'allocation.left'); continue; }
     if (!(n.type === 'ruleCall' || d.ruleSlug || d.ruleId)) continue;
     const r = rules.find(x => x.slug === d.ruleSlug || x.id === d.ruleId || x.alias === d.ruleSlug);
     for (const f of inputFieldsOf(r)) if (!inputs.has(f.name)) inputs.set(f.name, f);

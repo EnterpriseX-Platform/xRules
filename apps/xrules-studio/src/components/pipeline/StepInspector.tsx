@@ -36,18 +36,20 @@ export function StepInspector({ node, nodes = [], projectId, onChange, onRemove,
   const set = (patch: any) => onChange(node.id, { ...d, ...patch });
   const k = node.type;
   const needsConns = k === 'source';
-  const needsSets = k === 'join' || k === 'enrich' || k === 'write' || k === 'lookup';
+  const needsSets = k === 'join' || k === 'enrich' || k === 'write' || k === 'lookup' || k === 'items';
   const { data: conns } = useQuery({ queryKey: ['connections', projectId], queryFn: () => api.get<any[]>(`/connections?project_id=${projectId}`), enabled: needsConns });
   const { data: sets } = useQuery({ queryKey: ['datasets', projectId], queryFn: () => api.get<any[]>(`/datasets?project_id=${projectId}`), enabled: needsSets });
   // rules from every project the user can see; another project's rule is referenced as <project>/<slug>
   const isResponse = k === 'apiResponse' || k === 'apiresponse';
-  const { data: rules } = useQuery({ queryKey: ['rules', '_all'], queryFn: () => rulesApi.list('_all'), enabled: k === 'ruleCall' || k === 'rulecall' || isResponse || k === 'callDecisionFlow' || k === 'calldecisionflow' });
+  const { data: rules } = useQuery({ queryKey: ['rules', '_all'], queryFn: () => rulesApi.list('_all'), enabled: k === 'ruleCall' || k === 'rulecall' || k === 'score' || isResponse || k === 'callDecisionFlow' || k === 'calldecisionflow' });
   const ruleList: any[] = Array.isArray(rules) ? rules : ((rules as any)?.data || (rules as any)?.items || []);
   const ruleRef = (r: any) => (r.project?.slug && r.project.slug !== projectId && r.projectId !== projectId ? `${r.project.slug}/${r.slug}` : r.slug);
   const isCallFlow = k === 'callDecisionFlow' || k === 'calldecisionflow';
   const { data: allFlows } = useQuery({ queryKey: ['flows-all-decision'], queryFn: () => api.get<any[]>('/flows?project_id=_all'), enabled: isCallFlow || isResponse });
   const { label } = useTerms((((allFlows as any[]) || []).find(f => f.slug === d.flow) || {}).projectId);
   const flowOpts = ((allFlows as any[]) || []).filter(f => (f.kind || 'decision') === 'decision').map(f => ({ value: f.slug, label: f.name, hint: f.status === 'published' ? `live v${f.version}` : 'draft' }));
+  const own = useTerms(projectId);
+  const termOpts = own.terms.map(t => ({ value: t.path, label: t.term, hint: t.unit || t.type }));
   const setOpts = (sets || []).map((s: any) => ({ value: s.slug, label: s.slug, hint: s.rowCount ? `${s.rowCount} rows` : undefined }));
 
   return (
@@ -144,6 +146,49 @@ export function StepInspector({ node, nodes = [], projectId, onChange, onRemove,
           <Field label="Store result as" htmlFor="st-lo"><Text id="st-lo" mono value={d.outputAs} onChange={(v: string) => set({ outputAs: v })} /></Field>
         </>}
 
+        {k === 'items' && <>
+          <Field label="Take items from"><Dropdown value={d.dataset ? 'dataset' : 'input'} onChange={v => set(v === 'dataset' ? { from: undefined, dataset: d.dataset || setOpts[0]?.value } : { dataset: undefined, from: d.from || 'input.items' })} options={[{ value: 'input', label: 'The request' }, { value: 'dataset', label: 'A data set' }]} /></Field>
+          {d.dataset !== undefined ? <Field label="Data set"><Dropdown value={d.dataset} onChange={v => set({ dataset: v })} options={setOpts} /></Field>
+            : <Field label="List in the request" htmlFor="st-if"><Text id="st-if" value={String(d.from || 'input.items').replace(/^input\./, '')} onChange={(v: string) => set({ from: `input.${v.replace(/^input\./, '')}` })} placeholder="requests" /></Field>}
+        </>}
+        {k === 'screen' && <>
+          <ConditionBuilder key={node.id} value={d.condition || ''} onChange={(v: string) => set({ condition: v })} fields={own.terms.map(t => t.path).slice(0, 12)} />
+          <Field label="Reason shown when an item is removed" htmlFor="st-sr"><Text id="st-sr" value={d.reason} onChange={(v: string) => set({ reason: v })} placeholder={`Did not pass "${d.label || 'Filter'}"`} /></Field>
+        </>}
+        {k === 'score' && <>
+          <Field label="Score with"><Dropdown value={d.ruleSlug ? 'rule' : 'formula'} onChange={v => set(v === 'rule' ? { expression: undefined, ruleSlug: d.ruleSlug || '' } : { ruleSlug: undefined, expression: d.expression || '' })} options={[{ value: 'formula', label: 'A formula' }, { value: 'rule', label: 'A rule or scorecard' }]} /></Field>
+          {d.ruleSlug !== undefined
+            ? <Field label="Rule"><Dropdown value={d.ruleSlug} onChange={v => set({ ruleSlug: v })} options={ruleList.map((r: any) => ({ value: ruleRef(r), label: r.name || r.slug, hint: r.type }))} /></Field>
+            : <Field label="Formula" htmlFor="st-sx"><Text id="st-sx" value={d.expression} onChange={(v: string) => set({ expression: v })} placeholder="impact × 10" /></Field>}
+          <Field label="Store score as"><Dropdown value={d.outputAs || 'score'} onChange={v => set({ outputAs: v })} options={[{ value: 'score', label: 'score' }, ...termOpts.filter(o => o.value !== 'score')]} /></Field>
+        </>}
+        {k === 'rank' && <>
+          <div className="text-[13px] text-[#525252]">Priority = {(d.weights || []).filter((w: any) => w.term).map((w: any) => `${w.weight} × ${own.label(w.term)}`).join(' + ') || '—'}</div>
+          {(d.weights || []).map((w: any, i: number) => (
+            <div key={i} className="space-y-1">
+              <div className="flex gap-2 items-center">
+                <div className="flex-1"><Dropdown value={w.term} placeholder="Choose a term" onChange={v => set({ weights: d.weights.map((x: any, j: number) => j === i ? { ...x, term: v } : x) })} options={[{ value: 'score', label: 'score' }, ...termOpts]} /></div>
+                <button className="h-8 w-8 flex items-center justify-center hover:bg-[#e8e8e8]" aria-label="Remove weight" onClick={() => set({ weights: d.weights.filter((_: any, j: number) => j !== i) })}><X className="h-4 w-4" /></button>
+              </div>
+              <div className="flex items-center gap-3">
+                <input type="range" min={0} max={10} step={0.5} value={Number(w.weight) || 0} aria-label={`Weight of ${w.term || 'term'}`} className="flex-1 accent-[#0f62fe]"
+                  onChange={e => set({ weights: d.weights.map((x: any, j: number) => j === i ? { ...x, weight: Number(e.target.value) } : x) })} />
+                <span className="w-10 text-right text-[14px] tabular-nums">{w.weight}</span>
+              </div>
+            </div>
+          ))}
+          <button className="h-8 text-[14px] text-[#0f62fe] flex items-center gap-1" onClick={() => set({ weights: [...(d.weights || []), { term: '', weight: 1 }] })}><Plus className="h-4 w-4" /> Add weight</button>
+        </>}
+        {k === 'pick' && <>
+          <Field label="Pick"><Dropdown value={d.mode || 'top'} onChange={v => set({ mode: v })} options={[{ value: 'top', label: 'The top N' }, { value: 'budget', label: 'Down the ranking until the budget is used' }]} /></Field>
+          {(d.mode || 'top') === 'top'
+            ? <Field label="How many" htmlFor="st-pn"><Text id="st-pn" value={d.n ?? 1} onChange={(v: string) => set({ n: Number(v) || 1 })} /></Field>
+            : <>
+              <Field label="Budget (amount or request term)" htmlFor="st-pb"><Text id="st-pb" value={d.budget} onChange={(v: string) => set({ budget: /^[\d,.]+$/.test(v) ? Number(v.replace(/,/g, '')) : v })} placeholder="ceiling" /></Field>
+              <Field label="Cost of each item"><Dropdown value={d.cost || ''} placeholder="Choose a term" onChange={v => set({ cost: v })} options={termOpts} /></Field>
+              <label className="flex items-center gap-2 text-[14px]"><input type="checkbox" checked={!!d.partial} onChange={e => set({ partial: e.target.checked })} /> Fund the last item in part</label>
+            </>}
+        </>}
         {k === 'branch' && <ConditionBuilder key={node.id} value={d.condition || ''} onChange={(v: string) => set({ condition: v })}
           fields={Array.from(new Set(nodes.filter(n => n.id !== node.id && n.data?.outputAs).map(n => String(n.data.outputAs)))).slice(0, 8)} />}
         {(k === 'transform' || k === 'assign') && <>

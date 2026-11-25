@@ -3,7 +3,7 @@
 import {
   Clock, Database, Shuffle, Filter, Combine, ShieldCheck, Layers, BellRing,
   LogIn, Search, FileCheck2, FileCode2, CheckCheck, GitBranch, Split, Merge, Wand2, LogOut, Globe,
-  ArrowDownToLine, ArrowUpFromLine, Workflow, Webhook, Hand, KeyRound,
+  ArrowDownToLine, ArrowUpFromLine, Workflow, Webhook, Hand, KeyRound, List, ListFilter, Gauge, ArrowDownWideNarrow, Coins,
 } from 'lucide-react';
 
 export type FlowKindName = 'data' | 'decision' | 'integration' | 'api' | 'trigger';
@@ -52,6 +52,12 @@ export const STEPS: StepMeta[] = [
   { kind: 'merge',     label: 'MERGE',      title: 'Merge',         icon: Merge,       tile: '#e8daff', ink: '#6929c4', group: 'Logic', flows: ['decision', 'integration'] },
   { kind: 'branch',    label: 'BRANCH',     title: 'Branch',        icon: GitBranch,   tile: '#ffd8bd', ink: '#8a3800', group: 'Logic', flows: ['decision', 'integration', 'api', 'trigger'], sub: d => short(d?.condition) },
   { kind: 'transform', label: 'TRANSFORM',  title: 'Transform',     icon: Wand2,       tile: '#e8daff', ink: '#6929c4', group: 'Logic', flows: ['decision', 'integration', 'api', 'trigger'], sub: d => d?.target },
+  // ---- Strategy (work on one list of items)
+  { kind: 'items', label: 'ITEMS',  title: 'Items',  icon: List,                tile: '#d0e2ff', ink: '#0043ce', group: 'Strategy', flows: ['decision'], sub: d => d?.dataset ? `Data set ${d.dataset}` : d?.from ? `From ${String(d.from).replace(/^input\./, '')}` : undefined },
+  { kind: 'screen', label: 'FILTER', title: 'Filter', icon: ListFilter,         tile: '#ffd8bd', ink: '#8a3800', group: 'Strategy', flows: ['decision'], sub: d => short(d?.condition) },
+  { kind: 'score', label: 'SCORE',  title: 'Score',  icon: Gauge,               tile: '#e8daff', ink: '#6929c4', group: 'Strategy', flows: ['decision'], sub: d => d?.ruleSlug ? String(d.ruleSlug).split('/').pop() : short(d?.expression) },
+  { kind: 'rank',  label: 'RANK',   title: 'Rank',   icon: ArrowDownWideNarrow, tile: '#e8daff', ink: '#6929c4', group: 'Strategy', flows: ['decision'], sub: d => (d?.weights || []).filter((w: any) => w.term).map((w: any) => `${w.weight}×${w.term}`).join(' + ') || undefined },
+  { kind: 'pick',  label: 'PICK',   title: 'Pick',   icon: Coins,               tile: '#a7f0ba', ink: '#0e6027', group: 'Strategy', flows: ['decision'], sub: d => d?.mode === 'budget' ? `Within budget ${d.budget ?? ''}` : `Top ${d?.n || 1}` },
   { kind: 'findings',  label: 'OUTPUT',     title: 'Findings',      icon: CheckCheck,  tile: '#e0e0e0', ink: '#161616', locked: true, group: 'End', flows: ['decision', 'integration'], sub: () => 'ERROR · WARNING' },
   { kind: 'output',    label: 'OUTPUT',     title: 'Output',        icon: LogOut,      tile: '#e0e0e0', ink: '#161616', locked: true, group: 'End', flows: ['decision', 'integration'] },
 ];
