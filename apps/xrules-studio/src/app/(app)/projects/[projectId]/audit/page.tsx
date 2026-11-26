@@ -68,13 +68,13 @@ export default function AuditPage() {
           { header: 'Rule', cell: (r: any) => (
             <div>
               <div className="text-sm font-medium">{r.rule?.name || r.ruleId}</div>
-              <div className="font-mono text-[11px] text-subtle">{r.rule?.alias || r.rule?.slug} · v{r.ruleVersion}</div>
+              <div className="text-[13px] text-[#525252]">v{r.ruleVersion}</div>
             </div>
           ) },
           { header: 'Status', cell: (r: any) => <StatusPill status={r.status} /> },
-          { header: 'Duration', cell: (r: any) => <span className="font-mono text-xs text-subtle tabular-nums">{r.duration ?? '—'}ms</span>, align: 'right' },
+          { header: 'Duration', cell: (r: any) => <span className="tabular-nums">{r.duration ?? '—'} ms</span>, align: 'right' },
           { header: 'API Key', cell: (r: any) => <span className="font-mono text-[11px] text-subtle">{r.apiKeyId ? r.apiKeyId.slice(0, 8) + '…' : '—'}</span> },
-          { header: 'When', cell: (r: any) => <span className="font-mono text-xs text-subtle">{fmtTime(r.createdAt)}</span>, align: 'right' },
+          { header: 'When', cell: (r: any) => <span className="text-[#525252]">{fmtTime(r.createdAt)}</span>, align: 'right' },
         ]}
       />
     </PageContent>
