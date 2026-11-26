@@ -6,14 +6,16 @@ import Link from 'next/link';
 import { LinksBar } from '@/components/links/Links';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import ReactFlow, {
+import { ReactFlow,
   Background, BackgroundVariant, MarkerType, ReactFlowProvider, addEdge, applyEdgeChanges, applyNodeChanges,
-  useReactFlow, useViewport, type Connection, type Edge, type Node, type NodeChange, type EdgeChange,
-} from 'reactflow';
-import 'reactflow/dist/style.css';
+  useReactFlow, useViewport, type Connection, type Edge, type Node as RFNode, type NodeChange, type EdgeChange,
+} from '@xyflow/react';
+type Node = RFNode<any>;
+import '@xyflow/react/dist/style.css';
 import { Undo2, Redo2, Lock, Unlock, Plus, LayoutGrid, Minus, Maximize2, Sparkles, Play, Eye, X } from 'lucide-react';
 import { api, flowsApi } from '@/lib/api';
 import { pipelineNodeTypes } from './PipelineNode';
+import dagre from '@dagrejs/dagre';
 import { STEPS, metaFor, type FlowKindName } from './registry';
 import { StepInspector } from './StepInspector';
 import { TraceView } from './TraceView';
@@ -27,37 +29,23 @@ import { StrategySteps } from '@/components/topic/StrategySteps';
 import { useTerms } from '@/lib/terms';
 
 type Graph = { nodes: Node[]; edges: Edge[] };
-const EDGE = { type: 'smoothstep', style: { stroke: '#161616', strokeWidth: 1.4 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#161616', width: 18, height: 18 } } as const;
+const EDGE = { type: 'default', style: { stroke: '#3B4752', strokeOpacity: .55, strokeWidth: 1.8 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#3B4752', width: 16, height: 16 } } as const;
+const RUN_EDGE = { style: { stroke: '#2E9A5B', strokeWidth: 3 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#2E9A5B', width: 16, height: 16 } };
 const styleEdges = (es: Edge[]) => es.map(e => ({ ...EDGE, ...e, id: e.id || `${e.source}-${e.target}-${e.sourceHandle || ''}`, animated: false }));
 
 export function PipelineEditor(props: { projectId: string; flowId: string; backHref: string; backLabel: string }) {
   return <ReactFlowProvider><Inner {...props} /></ReactFlowProvider>;
 }
 
+/** Tidy up with dagre, left to right, the way Robot Factory lays out a flow. */
 function tidy(nodes: Node[], edges: Edge[]): Node[] {
-  const incoming = new Map<string, number>(); nodes.forEach(n => incoming.set(n.id, 0));
-  edges.forEach(e => incoming.set(e.target, (incoming.get(e.target) || 0) + 1));
-  const depth = new Map<string, number>();
-  const queue = nodes.filter(n => !incoming.get(n.id)).map(n => n.id);
-  queue.forEach(id => depth.set(id, 0));
-  for (let i = 0; i < queue.length && i < 1000; i++) {
-    const id = queue[i];
-    for (const e of edges.filter(x => x.source === id)) {
-      const dd = (depth.get(id) || 0) + 1;
-      if ((depth.get(e.target) ?? -1) < dd) { depth.set(e.target, dd); queue.push(e.target); }
-    }
-  }
-  // long chains wrap onto the next band, so a 10-step flow stays readable
-  const PER_ROW = 5;
-  const rows = new Map<number, number>();
-  const maxRows = new Map<number, number>();
-  nodes.forEach(n => { const d = depth.get(n.id) ?? 0; maxRows.set(d, (maxRows.get(d) || 0) + 1); });
-  const bandH = Math.max(1, ...Array.from(maxRows.values())) * 110 + 70;
-  return nodes.map(n => {
-    const d = depth.get(n.id) ?? 0; const r = rows.get(d) || 0; rows.set(d, r + 1);
-    const band = Math.floor(d / PER_ROW); const col = d % PER_ROW;
-    return { ...n, position: { x: 40 + col * 300, y: 60 + band * bandH + r * 110 } };
-  });
+  const g = new dagre.graphlib.Graph();
+  g.setGraph({ rankdir: 'LR', nodesep: 40, ranksep: 64, marginx: 40, marginy: 40 });
+  g.setDefaultEdgeLabel(() => ({}));
+  nodes.forEach(n => g.setNode(n.id, { width: 168, height: 76 }));
+  edges.forEach(e => { if (g.hasNode(e.source) && g.hasNode(e.target)) g.setEdge(e.source, e.target); });
+  dagre.layout(g);
+  return nodes.map(n => { const p = g.node(n.id); return p ? { ...n, position: { x: Math.round(p.x - 84), y: Math.round(p.y - 38) } } : n; });
 }
 
 function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; flowId: string; backHref: string; backLabel: string }) {
@@ -181,8 +169,19 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
         case 'pick': return o.left !== undefined ? `${f(o.picked)} picked · ${f(o.used)} used · ${f(o.left)} left` : `${f(o.picked)} picked`;
         default: return t.status === 'skipped' ? 'Skipped' : undefined; } };
     const by = new Map(steps.map(t => [t.nodeId, t]));
-    return nodes.map(n => { const t = by.get(n.id); const out = t && line(t); return out || t?.status === 'error' ? { ...n, data: { ...n.data, __out: out, __status: t?.status } } : n; });
+    return nodes.map(n => { const t = by.get(n.id); const out = t && line(t); return t ? { ...n, data: { ...n.data, __out: out, __status: t.status } } : n; });
   }, [nodes, testResult]);
+  const shownEdges = useMemo(() => {
+    const steps: any[] = testResult?.trace || []; if (!steps.length) return edges;
+    const by = new Map(steps.map(t => [t.nodeId, t]));
+    const count = (t: any) => { const o = t?.output || {}; return o.kept ?? o.picked ?? o.count ?? o.ranked ?? o.scored; };
+    return edges.map(e => {
+      const a = by.get(e.source), b = by.get(e.target);
+      if (!a || !b || a.status !== 'ok') return e;
+      const c = count(a);
+      return { ...e, ...RUN_EDGE, ...(c != null ? { label: Number(c).toLocaleString('en-US'), labelShowBg: true, labelBgPadding: [6, 2] as [number, number], labelBgBorderRadius: 10, labelBgStyle: { fill: '#2E9A5B' }, labelStyle: { fill: '#fff', fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, fontWeight: 600 } } : {}) };
+    });
+  }, [edges, testResult]);
   const testRun = useMutation({
     mutationFn: async () => {
       let input: any;
@@ -267,7 +266,7 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
         {/* canvas */}
         <div className={`relative flex-1 min-w-0 ${shownView === 'steps' ? 'hidden' : ''}`}>
           <ReactFlow
-            nodes={shown} edges={edges} nodeTypes={pipelineNodeTypes}
+            nodes={shown} edges={shownEdges} nodeTypes={pipelineNodeTypes}
             onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
             onNodeClick={(_, n) => setSelectedId(n.id)} onPaneClick={() => { setSelectedId(null); setAddOpen(false); }}
             nodesDraggable={!locked} nodesConnectable={!locked} elementsSelectable
@@ -275,7 +274,7 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
             fitView fitViewOptions={{ padding: 0.3, maxZoom: 1 }} minZoom={0.3} maxZoom={1.6}
             proOptions={{ hideAttribution: true }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={20} size={1.4} color="#a8a8a8" />
+            <Background variant={BackgroundVariant.Dots} gap={20} size={1.3} color="#AEB8B6" bgColor="#EEF1F0" />
           </ReactFlow>
 
           <div className="absolute top-4 right-4 flex items-center gap-2">

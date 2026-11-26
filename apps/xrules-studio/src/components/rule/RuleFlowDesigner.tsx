@@ -5,14 +5,15 @@
 // flows; for in-rule orchestration this lighter view is plenty.
 import { useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import 'reactflow/dist/style.css';
+import '@xyflow/react/dist/style.css';
 import {
   ReactFlowProvider, Background, Controls, MarkerType,
-  type Node, type Edge,
-} from 'reactflow';
+  type Node as RFNode, type Edge,
+} from '@xyflow/react';
+type Node = RFNode<any>;
 import { Workflow, Save } from 'lucide-react';
 
-const ReactFlow = dynamic(() => import('reactflow').then((m) => m.default), { ssr: false });
+const ReactFlow = dynamic(() => import('@xyflow/react').then((m) => m.ReactFlow), { ssr: false });
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
 interface RuleFlowDef {

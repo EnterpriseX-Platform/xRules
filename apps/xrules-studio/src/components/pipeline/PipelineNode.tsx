@@ -1,34 +1,55 @@
 'use client';
-import { Handle, Position, type NodeProps } from 'reactflow';
-import { Lock } from 'lucide-react';
+// A step card in Robot Factory's flow editor look (packages/flow-editor/css/editor.css): 168 px card, radius 10,
+// a 36 px tile coloured by the step's group, caption · title · one line under; a green tick once a test run passed it.
+import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Lock, Check } from 'lucide-react';
 import { metaFor, STEP_BY_KIND } from './registry';
 
-const port = '!w-[10px] !h-[10px] !bg-white !border-[1.5px] !border-[#161616] !rounded-full';
+const port = '!w-3 !h-3 !bg-[#FBFCFC] !border-0 !rounded-full !shadow-[inset_0_0_0_2px_#3B4752]';
+
+type Tone = { tile: string; ink: string; card?: string };
+const START: Tone = { tile: '#16202A', ink: '#FFFFFF' };
+const END: Tone = { tile: 'transparent', ink: '#56636D', card: '#E7ECEA' };
+const DO: Tone = { tile: 'rgba(34, 184, 201, .14)', ink: '#0E7C89' };
+const DECIDE: Tone = { tile: '#DCE7FF', ink: '#2B5BD7' };
+const LOGIC: Tone = { tile: '#E7ECEA', ink: '#16202A' };
+const TONE: Record<string, Tone> = {
+  input: START, apiInput: START, apiinput: START, trigger: START,
+  output: END, findings: END, apiResponse: END, apiresponse: END, end: END,
+  ruleCall: DECIDE, rulecall: DECIDE, callDecisionFlow: DECIDE, calldecisionflow: DECIDE,
+  enrich: DO, lookup: DO, http: DO, filecheck: DO, source: DO, join: DO, write: DO, quality: DO, map: DO, filter: DO, notify: DO,
+  items: { tile: '#EEF1F6', ink: '#3B4656' }, screen: { tile: '#E3F5E8', ink: '#198038' }, score: { tile: '#EEF1FF', ink: '#2B3A8F' },
+  rank: { tile: '#F1E8FF', ink: '#8A3FFC' }, pick: { tile: '#E5EFFF', ink: '#0F62FE' },
+};
 
 export function PipelineNode({ type, data, selected }: NodeProps) {
+  const d: any = data || {};
   const m = metaFor(type);
   const Icon = m.icon;
-  const sub = data?.subtitle ?? m.sub?.(data);
-  const failed = data?.__status === 'error';
+  const tone = TONE[type] || LOGIC;
+  const sub = d.subtitle ?? m.sub?.(d);
+  const failed = d.__status === 'error';
+  const ran = d.__status === 'ok';
+  const ring = failed ? 'inset 0 0 0 2px #E4452E' : selected ? 'inset 0 0 0 2px #16202A, 0 2px 4px rgb(0 0 0 / .1), 0 10px 22px rgb(0 0 0 / .08)' : 'inset 0 0 0 1px #AEB8B6, 0 1px 2px rgb(0 0 0 / .06), 0 4px 12px rgb(0 0 0 / .04)';
   return (
-    <div
-      className="relative bg-white flex items-center gap-3 pl-3 pr-4 h-[72px] w-[240px]"
-      style={{ border: `${selected ? 2 : 1}px solid ${selected ? '#0f62fe' : failed ? '#da1e28' : '#c6c6c6'}` }}
-    >
+    <div className="relative grid items-center gap-[10px] w-[168px] min-h-[70px] py-[10px] pl-[10px] pr-3 rounded-[10px] text-left"
+      style={{ gridTemplateColumns: '36px minmax(0, 1fr)', background: tone.card || '#FBFCFC', color: '#16202A', boxShadow: ring, fontFamily: "'IBM Plex Sans', system-ui, sans-serif" }}>
       <Handle type="target" position={Position.Left} id="l" className={port} />
       <Handle type="target" position={Position.Top} id="t" className={port} />
-      <div className="h-10 w-10 shrink-0 flex items-center justify-center" style={{ background: m.tile }}>
-        <Icon className="h-5 w-5" style={{ color: m.ink }} />
-      </div>
-      <div className="min-w-0">
-        <div className="text-[11px] tracking-[0.06em] text-[#525252]">{m.label}</div>
-        <div className="text-[14px] font-semibold text-[#161616] truncate">{data?.label || m.title}</div>
-        {data?.__out ? <div className="text-[12px] text-[#0043ce] truncate tabular-nums">{data.__out}</div> : sub && <div className="text-[12px] text-[#525252] truncate">{sub}</div>}
-      </div>
+      <span className="grid place-items-center w-9 h-9 rounded-[9px]" style={{ background: tone.tile, color: tone.ink, boxShadow: tone === END ? 'inset 0 0 0 1.5px #AEB8B6' : undefined }}>
+        <Icon className="h-5 w-5" strokeWidth={1.7} />
+      </span>
+      <span className="grid gap-px min-w-0">
+        <small className="text-[11.5px] leading-[15px] font-semibold uppercase tracking-[.02em] text-[#56636D]">{m.label}</small>
+        <b className="text-[14.5px] leading-[19px] font-semibold truncate">{d.label || m.title}</b>
+        {d.__out ? <span className="text-[12.5px] leading-4 truncate tabular-nums text-[#2E9A5B]">{d.__out}</span> : sub && <span className="text-[12.5px] leading-4 truncate text-[#56636D]">{sub}</span>}
+      </span>
+      {ran && <span className="absolute -top-2 -left-2 grid place-items-center w-[18px] h-[18px] rounded-full bg-[#2E9A5B] text-white shadow-[0_0_0_2px_#FBFCFC]"><Check className="h-3 w-3" strokeWidth={2.6} /></span>}
+      {failed && <span className="absolute -top-2 -left-2 w-[18px] h-[18px] rounded-full bg-[#E4452E] shadow-[0_0_0_2px_#FBFCFC]" />}
       {m.locked && (
-        <div className="absolute -top-2.5 -right-2.5 h-5 w-5 rounded-full bg-white border border-[#c6c6c6] flex items-center justify-center" title="Cannot be removed">
-          <Lock className="h-3 w-3 text-[#525252]" />
-        </div>
+        <span className="absolute -top-2 -right-2 grid place-items-center w-5 h-5 rounded-full bg-[#FBFCFC] text-[#3B4752] shadow-[inset_0_0_0_1.5px_#AEB8B6,0_0_0_2px_#FBFCFC]" title="Cannot be removed">
+          <Lock className="h-3 w-3" strokeWidth={2.2} />
+        </span>
       )}
       {type === 'branch' ? (
         <>

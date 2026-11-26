@@ -1,6 +1,7 @@
 'use client';
 
-import { Node } from 'reactflow';
+import type { Node as RFNode } from '@xyflow/react';
+type Node = RFNode<any>;
 import { nodeLabel } from './nodeTypes';
 import { useQuery } from '@tanstack/react-query';
 import { rulesApi } from '@/lib/api';

@@ -1,7 +1,8 @@
 'use client';
 // Settings panel for the selected step.
 import { useQuery } from '@tanstack/react-query';
-import type { Node } from 'reactflow';
+import type { Node as RFNode } from '@xyflow/react';
+type Node = RFNode<any>;
 import { Plus, Trash2, X } from 'lucide-react';
 import { api, rulesApi } from '@/lib/api';
 import { Dropdown } from './Dropdown';
@@ -53,7 +54,7 @@ export function StepInspector({ node, nodes = [], projectId, onChange, onRemove,
   const setOpts = (sets || []).map((s: any) => ({ value: s.slug, label: s.slug, hint: s.rowCount ? `${s.rowCount} rows` : undefined }));
 
   return (
-    <div className="w-[340px] shrink-0 bg-white border-l border-[#e0e0e0] flex flex-col min-h-0">
+    <div className="w-[372px] shrink-0 bg-[#FBFCFC] border-l border-[#D3DAD8] flex flex-col min-h-0">
       <div className="h-14 px-4 flex items-center justify-between border-b border-[#e0e0e0]">
         <div>
           <div className="text-[11px] tracking-[0.06em] text-[#525252]">{m.label}</div>

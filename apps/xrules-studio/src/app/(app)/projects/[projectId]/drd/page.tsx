@@ -8,12 +8,13 @@ import { useQuery } from '@tanstack/react-query';
 import { ListTree, Workflow, ExternalLink } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import 'reactflow/dist/style.css';
-import { ReactFlowProvider, Background, Controls, MarkerType, type Edge, type Node } from 'reactflow';
+import '@xyflow/react/dist/style.css';
+import { ReactFlowProvider, Background, Controls, MarkerType, type Edge, type Node as RFNode } from '@xyflow/react';
+type Node = RFNode<any>;
 import { PageContent, PageHeader } from '@/components/layout/AppShell';
 import { api } from '@/lib/api';
 
-const ReactFlow = dynamic(() => import('reactflow').then((m) => m.default), { ssr: false });
+const ReactFlow = dynamic(() => import('@xyflow/react').then((m) => m.ReactFlow), { ssr: false });
 
 const TYPE_COLOR: Record<string, string> = {
   DECISION_TABLE: 'rgb(var(--c-info))',
