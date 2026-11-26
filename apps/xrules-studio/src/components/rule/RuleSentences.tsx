@@ -25,7 +25,7 @@ export const OP_TH: { value: string; label: string; args: 0 | 1 | 2 }[] = [
 ];
 
 type Def = { hitPolicy?: string; inputs?: any[]; outputs?: any[]; rules?: any[] };
-const isAny = (cell: any) => parseCellExpression(cell).operator === 'ANY';
+const isAny = (cell: any) => { const o = parseCellExpression(cell).operator; return o === 'ANY' || o === 'ELSE'; };
 const nid = () => `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 
 function Chip({ children, className = '' }: { children: React.ReactNode; className?: string }) {
