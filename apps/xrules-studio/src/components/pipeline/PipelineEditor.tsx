@@ -211,7 +211,8 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
 
   const published = flow.status === 'published';
   const liveVersion = published ? flow.version : Math.max(flow.version - 1, 0);
-  const state = dirty ? { dot: '#f1c21b', text: 'Unsaved changes' } : published ? { dot: '#24a148', text: 'Published' } : { dot: '#24a148', text: 'Ready to publish' };
+  const pendingReview = (flow as any)?.reviewState === 'PENDING';
+  const state = dirty ? { dot: '#f1c21b', text: 'Unsaved changes' } : pendingReview ? { dot: '#0f62fe', text: 'Waiting for approval' } : published ? { dot: '#24a148', text: `Live v${flow.version}` } : { dot: '#8d8d8d', text: 'Draft' };
   const groups = Array.from(new Set(STEPS.filter(s => s.flows.includes(kind) && !s.locked).map(s => s.group)));
 
   return (
