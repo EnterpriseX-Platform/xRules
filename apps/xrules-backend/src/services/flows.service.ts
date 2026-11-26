@@ -33,7 +33,7 @@ function format(flow: any) {
 export async function listFlows(projectIdOrSlug: string, user: AuthUser, status?: string, kind?: string) {
   const project = await assertProjectAccess(projectIdOrSlug, user);
   const where: any = { projectId: project.id };
-  if (status) where.status = status.toUpperCase();
+  if (status) where.status = status.toUpperCase(); else where.status = { not: 'ARCHIVED' };
   if (kind) where.kind = kind.toUpperCase();
   const flows = await prisma.flow.findMany({ where, orderBy: { updatedAt: 'desc' } });
   return flows.map(format);
@@ -102,6 +102,15 @@ export async function deleteFlow(id: string, user: AuthUser) {
   if (!flow) throw new NotFoundError('Flow');
   await assertProjectAccess(flow.projectId, user, 'write');
   await prisma.flow.delete({ where: { id } });
+}
+
+/** Archive: stamped, not erased — the flow leaves its topic and lists, history stays. */
+export async function archiveFlow(id: string, user: AuthUser) {
+  const flow = await prisma.flow.findUnique({ where: { id } });
+  if (!flow) throw new NotFoundError('Flow');
+  await assertProjectAccess(flow.projectId, user, 'write');
+  await prisma.flow.update({ where: { id }, data: { status: 'ARCHIVED' as any, topicId: null } });
+  return { archived: id };
 }
 
 export async function publishFlow(id: string, message: string | undefined, user: AuthUser) {

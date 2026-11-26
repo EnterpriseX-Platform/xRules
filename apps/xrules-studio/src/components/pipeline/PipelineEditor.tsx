@@ -229,6 +229,7 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
         {(save.error || publish.error) && <span className="text-[13px] text-[#da1e28] truncate">{String((save.error as any)?.message || (publish.error as any)?.message)}</span>}
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {dirty && <button className="h-10 px-3 text-[14px] text-[#525252] hover:bg-[#e8e8e8]" onClick={() => load(flow)}>Discard</button>}
+          {!published && !dirty && <button className="h-10 px-3 text-[14px] text-[#da1e28] hover:bg-[#fff1f1]" onClick={async () => { if (!window.confirm('Archive this flow? It leaves its topic and the list; its history is kept.')) return; await api.post(`/flows/${flowId}/archive`, {}); window.location.href = (flow as any).topicId ? `/p/${projectId}/topics/${(flow as any).topicId}/choose` : backHref; }}>Archive</button>}
           {kind === 'decision' && <button className={`h-10 px-4 text-[14px] border flex items-center gap-2 ${testOpen ? 'bg-[#161616] text-white border-[#161616]' : 'border-[#8d8d8d] text-[#161616] hover:bg-[#e8e8e8]'}`} onClick={() => { setTestOpen(o => !o); setSelectedId(null); }}><Play className="h-4 w-4" /> Test</button>}
           {kind === 'data' && <>
             <button className="h-10 px-4 text-[14px] border border-[#8d8d8d] hover:bg-[#e8e8e8] flex items-center gap-2 whitespace-nowrap" onClick={() => doPreview.mutate()} disabled={doPreview.isPending}><Eye className="h-4 w-4" /> Preview</button>

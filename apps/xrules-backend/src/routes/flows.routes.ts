@@ -36,6 +36,10 @@ r.delete('/:id', authMiddleware, async (req, res, next) => {
   try { await svc.deleteFlow(req.params.id, req.user!); res.json({ success: true }); } catch (e) { next(e); }
 });
 
+r.post('/:id/archive', authMiddleware, async (req, res, next) => {
+  try { const { archiveFlow } = await import('../services/flows.service.js'); res.json({ success: true, data: await archiveFlow(req.params.id, req.user!) }); } catch (e) { next(e); }
+});
+
 r.post('/:id/publish', authMiddleware, async (req, res, next) => {
   try { res.json({ success: true, data: await svc.publishFlow(req.params.id, req.body?.message, req.user!) }); } catch (e) { next(e); }
 });
