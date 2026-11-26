@@ -79,7 +79,7 @@ function TryIt({ spec }: any) {
   const [body, setBody] = useState('{\n  \n}');
   const run = useMutation({ mutationFn: () => api.post<any>(`/platform/operations/${opId}/try`, { params: pv, query: Object.fromEntries(new URLSearchParams(query)), body: body.trim() ? JSON.parse(body) : {} }), meta: { silent: true } });
   return (
-    <div className="grid grid-cols-2 gap-4 items-start">
+    <div className="grid gap-4 items-start lg:grid-cols-2">
       <Panel title="Request (runs against the latest draft)">
         <div className="space-y-4">
           <div><div className="text-[12px] text-[#525252] mb-1.5">Operation</div><Dropdown value={opId} onChange={setOpId} options={ops.map((o: any) => ({ value: o.id, label: `${o.method} ${o.path}` }))} /></div>

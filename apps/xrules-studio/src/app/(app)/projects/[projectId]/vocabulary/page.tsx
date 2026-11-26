@@ -28,7 +28,7 @@ function Writer({ projectId }: { projectId: string }) {
   const save = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>('/platform/vocabulary/rules', { projectId, name, sentence }) });
   const insert = (w: string) => setSentence(s => `${s.trimEnd()} ${w} `);
   return (
-    <div className="grid grid-cols-[1fr_300px] gap-4 items-start">
+    <div className="grid gap-4 items-start lg:grid-cols-[1fr_300px]">
       <Panel title="Rule sentence">
         <TextArea id="sent" rows={4} mono={false} value={sentence} onChange={(v: string) => { setSentence(v); check.reset(); }} />
         <div className="mt-2 flex flex-wrap gap-1">
@@ -75,7 +75,7 @@ function Cowork({ projectId }: { projectId: string }) {
         <Table head={['', 'Rule', 'Sentence', 'Source', 'Check']}>{d.rules.map((r: any, i: number) => <tr key={i}><Td><input type="checkbox" disabled={!r.ok} checked={!!pick[`r${i}`]} onChange={e => setPick({ ...pick, [`r${i}`]: e.target.checked })} /></Td><Td>{r.name}</Td><Td className="!whitespace-normal text-[13px]">{r.canonical || r.sentence}</Td><Td className="!whitespace-normal text-[12px] text-[#525252]">{r.source}</Td><Td>{r.ok ? <Tag tone="green">Valid</Tag> : <span title={(r.errors || []).map((e: any) => e.message).join('\n')}><Tag tone="red">Needs fixing</Tag></span>}</Td></tr>)}</Table>
         {d.tests.length > 0 && <Table head={['', 'Test case', 'Expects']}>{d.tests.map((t: any, i: number) => <tr key={i}><Td><input type="checkbox" checked={!!pick[`t${i}`]} onChange={e => setPick({ ...pick, [`t${i}`]: e.target.checked })} /></Td><Td>{t.name}</Td><Td className="text-[12px]">{(t.expectations || []).map((x: any) => `${x.kind} ${x.code || x.path || ''}`).join(' · ')}</Td></tr>)}</Table>}
         <Panel>
-          <div className="grid grid-cols-[320px_auto] gap-4 items-end">
+          <div className="grid gap-4 items-end sm:grid-cols-[320px_auto]">
             <div><div className="text-[12px] text-[#525252] mb-1.5">Attach test cases to decision flow</div><Dropdown value={flow} onChange={setFlow} options={(flows as any[]).filter(f => f.kind === 'decision').map(f => ({ value: f.slug, label: f.name }))} /></div>
             <Btn onClick={() => apply.mutate()} disabled={apply.isPending}>Save selected as drafts</Btn>
           </div>

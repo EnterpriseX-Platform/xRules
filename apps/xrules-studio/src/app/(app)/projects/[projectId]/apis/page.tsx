@@ -22,7 +22,7 @@ export default function ApisPage() {
       <PageHead title="REST APIs" sub={`${specs.length} API${specs.length === 1 ? '' : 's'}`} actions={perms.integrate ? (<Btn onClick={() => setOpen(true)}>New API</Btn>) : undefined} />
       {open && (
         <Modal title="New API" onClose={() => setOpen(false)} wide onSubmit={() => create.mutate()} submitLabel="Create" submitDisabled={!f.name || create.isPending} error={create.error ? String((create.error as any).message) : null}>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Input id="sp-name" label="Name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} placeholder="NEB Pre-screening API" />
             <Input id="sp-base" label="Base path" mono value={f.basePath} onChange={(v: string) => setF({ ...f, basePath: v })} placeholder="loan-approval" />
             <Input id="sp-ver" label="Major version" mono value={f.version} onChange={(v: string) => setF({ ...f, version: v })} />

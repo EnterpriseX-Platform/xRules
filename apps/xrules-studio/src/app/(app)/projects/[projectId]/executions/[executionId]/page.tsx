@@ -19,7 +19,7 @@ export default function ExecutionDetailPage() {
       <PageHead title={`${e.name}${e.input?.context?.action ? ` · ${e.input.context.action}` : ''}`}
         sub={<>{fmtTime(e.createdAt)} · {e.duration} ms{e.environment ? ` · ${e.environment}` : ''}</>}
         actions={<div className="flex gap-2 items-center">{s.error ? <Tag tone="red">ERROR {s.error}</Tag> : <Tag tone="green">Passed</Tag>}{s.warning ? <Tag tone="orange">WARNING {s.warning}</Tag> : null}{s.skipped ? <Tag>SKIPPED {s.skipped}</Tag> : null}</div>} />
-      <div className="grid grid-cols-[1fr_360px] gap-4 items-start">
+      <div className="grid gap-4 items-start lg:grid-cols-[1fr_360px]">
         <div className="bg-white">
           <div className="px-4 h-12 flex items-center text-[16px] border-b border-[#e0e0e0]">Findings returned to the caller</div>
           {findings.length === 0 && <div className="px-4 py-6 text-[14px] text-[#525252]">No findings</div>}

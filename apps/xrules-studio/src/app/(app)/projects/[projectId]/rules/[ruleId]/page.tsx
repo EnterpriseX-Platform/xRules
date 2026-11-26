@@ -362,7 +362,7 @@ function TestTab({ rule, projectId }: { rule: any; projectId: string }) {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid gap-4 lg:grid-cols-2">
       <div className="card overflow-hidden">
         <div className="px-4 py-2.5 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">

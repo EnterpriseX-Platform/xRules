@@ -74,7 +74,7 @@ export default function BenchPage() {
       />
       <TestNav />
 
-      <div className="grid grid-cols-[360px_1fr] gap-3">
+      <div className="grid gap-3 lg:grid-cols-[360px_1fr]">
         {/* SETTINGS */}
         <div className="card p-3 space-y-4">
           <div className="flex items-center gap-2">

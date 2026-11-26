@@ -35,7 +35,7 @@ export default function BulkPage() {
       <PageHead title="Bulk Runs" actions={perms.write ? (<Btn onClick={() => setOpen(true)}>New Bulk Run</Btn>) : undefined} />
       {open && (
         <Modal title="New bulk run" onClose={() => setOpen(false)} wide onSubmit={() => create.mutate()} submitLabel="Start run" submitDisabled={!f.target || create.isPending || (f.sourceKind === 'file' && !file)} error={create.error ? String((create.error as any).message) : null}>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid gap-4 md:grid-cols-3">
             <Input id="b-name" label="Name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} placeholder="Check all FY2571 requests" />
             <div><div className="text-[12px] text-[#525252] mb-1.5">Run against</div><Dropdown value={f.targetType} onChange={v => setF({ ...f, targetType: v, target: '' })} options={[{ value: 'decision_flow', label: 'Decision Flow' }, { value: 'rule', label: 'Rule' }]} /></div>
             <div><div className="text-[12px] text-[#525252] mb-1.5">Target (latest published version)</div><Dropdown value={f.target} onChange={v => setF({ ...f, target: v })} options={targets} /></div>

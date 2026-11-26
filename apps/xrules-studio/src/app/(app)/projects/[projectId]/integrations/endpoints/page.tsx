@@ -73,7 +73,7 @@ export default function EndpointsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-[320px_1fr] gap-4">
+      <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
         {/* Item list */}
         <div className="card overflow-hidden">
           <div className="px-4 py-2.5 border-b border-border label-section">

@@ -42,7 +42,7 @@ export default function ApiKeysPage() {
         {created && <div className="mb-4"><Notice kind="success">Key created. Copy it now; it will not be shown again<div className="font-mono text-[13px] mt-2 bg-white px-2 py-1 select-all">{created.key}</div></Notice></div>}
         {open && (
           <Modal title="New key" onClose={() => setOpen(false)} wide onSubmit={() => create.mutate()} submitLabel="Create" submitDisabled={!f.name || !f.scopes.length || create.isPending} error={create.error ? String((create.error as any).message) : null}>
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Input id="k-name" label="Name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} placeholder="bpn-prod" />
               <Input id="k-sys" label="Calling system" value={f.systemName} onChange={(v: string) => setF({ ...f, systemName: v })} placeholder="BPN" />
               <Input id="k-rate" label="Requests per minute" mono value={f.rate} onChange={(v: string) => setF({ ...f, rate: v })} />

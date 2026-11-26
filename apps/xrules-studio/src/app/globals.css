@@ -227,3 +227,6 @@ main table th { height: 48px; padding-left: 16px; padding-right: 16px; font-size
 main table tbody tr { border-color: #e0e0e0 !important; }
 main table tbody tr:hover { background: #e8e8e8; }
 main table td { font-size: 14px; }
+
+/* nothing smaller than 12px */
+main .text-\[9px\], main .text-\[10px\], main .text-\[10\.5px\], main .text-\[11px\], main .text-\[11\.5px\], main .text-xs { font-size: 12px !important; line-height: 16px; }
