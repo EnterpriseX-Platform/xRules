@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageContent } from '@/components/layout/AppShell';
-import { PageHead, Panel, Table, Td, Notice, Tag } from '@/components/pipeline/ui';
+import { PageHead, Panel, Table, Td, Notice, Tag, Input, Btn } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { projectsApi, projectAccessApi } from '@/lib/api';
 import { useAuth } from '@/lib/store';
@@ -28,12 +28,20 @@ export default function ProjectAccessPage() {
   const vis = useMutation({ mutationFn: (v: string) => projectsApi.update(projectId, { visibility: v }), onSuccess: inv, onError: (e: any) => setErr(e.message) });
   const role = useMutation({ mutationFn: (v: { userId: string; role: string | null }) => projectAccessApi.setRole(projectId, v.userId, v.role), onSuccess: inv, onError: (e: any) => setErr(e.message) });
   const admin = p?.myRole === 'ADMIN';
+  const [name, setName] = useState<string | null>(null);
+  const rename = useMutation({ mutationFn: () => projectsApi.update(projectId, { name: (name || '').trim() }), onSuccess: () => { setName(null); inv(); }, onError: (e: any) => setErr(e.message) });
 
   return (
     <PageContent>
-      <PageHead title="Members & Access" sub={p?.name} />
+      <PageHead title="Project settings" />
       {err && <div className="mb-4"><Notice kind="error">{err}</Notice></div>}
       <div className="space-y-4">
+        <Panel title="Project">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="w-full max-w-[420px]"><Input id="pj-name" label="Name" value={name ?? p?.name ?? ''} onChange={(v: string) => setName(v)} /></div>
+            {admin && <Btn onClick={() => rename.mutate()} disabled={name === null || !name.trim() || name === p?.name || rename.isPending}>Save</Btn>}
+          </div>
+        </Panel>
         <Panel title="Visibility">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {[
