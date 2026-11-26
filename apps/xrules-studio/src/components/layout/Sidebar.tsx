@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { projectsApi, api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { usePerms } from '@/lib/perms';
+import { useDevMode } from '@/lib/devmode';
 
 interface NavItem { href: string; label: string; icon: any }
 
@@ -59,6 +60,7 @@ export function Sidebar() {
   const projBase = `/p/${currentProject?.id || project || '_'}`;
 
   const perms = usePerms();
+  const [dev, setDev] = useDevMode();
 
   // Which level the page belongs to: system (/admin), project (/p/<cuid>) or organization (everything else)
   const level: 'system' | 'project' | 'org' = pathname.startsWith('/admin') ? 'system' : pathname.startsWith('/p/') ? 'project' : 'org';
@@ -80,14 +82,17 @@ export function Sidebar() {
     areas = [
       { id: 'engine', label: '', items: [
         { href: `${projBase}/topics`,              label: 'Topics',         icon: FolderKanban },
+        { href: `${projBase}/vocabulary`,          label: 'Words',          icon: BookA },
+        { href: `${projBase}/approvals`,           label: 'Approvals',      icon: ScrollText },
+      ] },
+      ...(dev ? [{ id: 'dev', label: 'Developer', items: [
         { href: `${projBase}/rules`,               label: 'Rules',          icon: FileText },
         { href: `${projBase}/flows?kind=DECISION`, label: 'Decision Flows', icon: Workflow },
-        { href: `${projBase}/vocabulary`,          label: 'Vocabulary',     icon: BookA },
         { href: `${projBase}/bulk`,                label: 'Bulk Runs',      icon: Rows3 },
         { href: `${projBase}/simulations`,         label: 'Simulations',    icon: GitCompare },
         { href: `${projBase}/models`,              label: 'Models',         icon: Box },
         { href: `${projBase}/releases`,            label: 'Releases',       icon: ScrollText },
-      ] },
+      ] }] : []),
       ...(perms.admin ? [{ id: 'pset', label: '', items: [{ href: `${projBase}/access`, label: 'Project settings', icon: Lock }] }] : []),
     ];
     foot = { href: '/projects', label: 'Organization', icon: ChevronLeft };
@@ -98,7 +103,7 @@ export function Sidebar() {
         { href: '/projects', label: 'Projects', icon: FolderKanban },
         { href: '/', label: 'Home', icon: LayoutDashboard },
       ] },
-      ...(!perms.integrate ? [] : [{ id: 'shared', label: 'Shared', items: [
+      ...(!perms.integrate || !dev ? [] : [{ id: 'shared', label: 'Shared', items: [
         { href: '/apis',        label: 'REST APIs',   icon: Zap },
         { href: '/triggers',    label: 'Triggers',    icon: Timer },
         { href: '/data-sets',   label: 'Data Sets',   icon: Layers },
@@ -109,7 +114,7 @@ export function Sidebar() {
         { href: '/test-runs', label: 'Test Runs',   icon: ListChecks },
         { href: '/approvals', label: 'Approvals',   icon: BadgeCheck },
       ] },
-      ...(!perms.integrate && !perms.admin ? [] : [{ id: 'monitor', label: 'Monitor', items: [
+      ...((!perms.integrate && !perms.admin) || !dev ? [] : [{ id: 'monitor', label: 'Monitor', items: [
         { href: '/monitor',             label: 'Overview',    icon: Gauge },
         { href: '/monitor/traffic',     label: 'API Traffic', icon: Activity },
         { href: '/monitor/decisions',   label: 'Decisions',   icon: PieChart },
@@ -140,6 +145,13 @@ export function Sidebar() {
           </div>
         ))}
       </div>
+      {level !== 'system' && (
+        <label className="h-10 px-4 flex items-center gap-3 text-[13px] text-[#525252] border-t border-[#e0e0e0] cursor-pointer select-none">
+          <input type="checkbox" className="sr-only peer" checked={dev} onChange={e => setDev(e.target.checked)} />
+          <span aria-hidden className={`relative w-8 h-4 rounded-full transition-colors ${dev ? 'bg-[#0f62fe]' : 'bg-[#8d8d8d]'}`}><span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${dev ? 'left-[18px]' : 'left-0.5'}`} /></span>
+          Developer view
+        </label>
+      )}
       {foot && (
         <div className="py-2 border-t border-[#e0e0e0]">
           <NavRow item={foot} pathname={pathname} />
