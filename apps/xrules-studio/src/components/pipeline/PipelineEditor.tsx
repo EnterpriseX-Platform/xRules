@@ -23,6 +23,8 @@ import { TestSheet } from '@/components/test/TestSheet';
 import { TestBadge } from '@/components/test/TestBadge';
 import { Modal } from './ui';
 import { GoLive } from '@/components/GoLive';
+import { StrategySteps } from '@/components/topic/StrategySteps';
+import { useTerms } from '@/lib/terms';
 
 type Graph = { nodes: Node[]; edges: Edge[] };
 const EDGE = { type: 'smoothstep', style: { stroke: '#161616', strokeWidth: 1.4 }, markerEnd: { type: MarkerType.ArrowClosed, color: '#161616', width: 18, height: 18 } } as const;
@@ -75,6 +77,8 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
   const [aiMsg, setAiMsg] = useState<string | null>(null);
   const [preview, setPreview] = useState<any | null>(null);
   const [testOpen, setTestOpen] = useState(false);
+  const [view, setView] = useState<'steps' | 'canvas' | null>(null);
+  const { label: termLabel } = useTerms(projectId);
   const [casesOpen, setCasesOpen] = useState(false);
   const [testInput, setTestInput] = useState('{}');
   const { data: projRules } = useQuery({ queryKey: ['rules', flow?.projectId], queryFn: () => api.get<any>(`/rules?project_id=${flow?.projectId}`), enabled: !!flow?.projectId });
@@ -214,6 +218,10 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
   const liveVersion = published ? flow.version : Math.max(flow.version - 1, 0);
   const pendingReview = (flow as any)?.reviewState === 'PENDING';
   const state = dirty ? { dot: '#f1c21b', text: 'Unsaved changes' } : pendingReview ? { dot: '#0f62fe', text: 'Waiting for approval' } : published ? { dot: '#24a148', text: `Live v${flow.version}` } : { dot: '#8d8d8d', text: 'Draft' };
+  const isStrategy = nodes.some(n => ['items', 'screen', 'score', 'rank', 'pick'].includes(String(n.type)));
+  const shownView = view ?? (isStrategy ? 'steps' : 'canvas');
+  const runOf = (k: string) => (testResult?.trace || []).find((t: any) => String(t.kind).toLowerCase() === k)?.output;
+  const run = testResult?.trace ? { start: runOf('items')?.count, kept: runOf('screen')?.kept, picked: runOf('pick')?.picked, used: runOf('pick')?.used } : null;
   const groups = Array.from(new Set(STEPS.filter(s => s.flows.includes(kind) && !s.locked).map(s => s.group)));
 
   return (
@@ -230,6 +238,7 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
         <span className="flex items-center gap-1.5 text-[13px] text-[#525252] whitespace-nowrap"><span className="h-2 w-2 rounded-full" style={{ background: state.dot }} />{state.text}</span>
         {(save.error || publish.error) && <span className="text-[13px] text-[#da1e28] truncate">{String((save.error as any)?.message || (publish.error as any)?.message)}</span>}
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          {isStrategy && <div role="tablist" aria-label="View" className="flex border border-[#8d8d8d] mr-2">{(['steps', 'canvas'] as const).map(v => <button key={v} role="tab" aria-selected={shownView === v} onClick={() => setView(v)} className={`h-9 px-4 text-[14px] ${shownView === v ? 'bg-[#161616] text-white' : 'hover:bg-[#e8e8e8]'}`}>{v === 'steps' ? 'Steps' : 'Canvas'}</button>)}</div>}
           {dirty && <button className="h-10 px-3 text-[14px] text-[#525252] hover:bg-[#e8e8e8]" onClick={() => load(flow)}>Discard</button>}
           {!published && !dirty && <button className="h-10 px-3 text-[14px] text-[#da1e28] hover:bg-[#fff1f1]" onClick={async () => { if (!window.confirm('Archive this flow? It leaves its topic and the list; its history is kept.')) return; await api.post(`/flows/${flowId}/archive`, {}); window.location.href = (flow as any).topicId ? `/p/${projectId}/topics/${(flow as any).topicId}/choose` : backHref; }}>Archive</button>}
           {kind === 'decision' && <button className={`h-10 px-4 text-[14px] border flex items-center gap-2 ${testOpen ? 'bg-[#161616] text-white border-[#161616]' : 'border-[#8d8d8d] text-[#161616] hover:bg-[#e8e8e8]'}`} onClick={() => { setTestOpen(o => !o); setSelectedId(null); }}><Play className="h-4 w-4" /> Test</button>}
@@ -249,8 +258,14 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
       <FlowRelations flowId={flowId} home={projectId} />
 
       <div className="flex-1 flex min-h-0">
+        {shownView === 'steps' && (
+          <div className="flex-1 min-w-0 overflow-auto bg-[#f6f7f9] px-8 py-8" onClick={e => { if (e.target === e.currentTarget) setSelectedId(null); }}>
+            <StrategySteps graph={{ nodes, edges }} label={termLabel} run={run} onPick={id => { setSelectedId(id); setTestOpen(false); }} picked={selectedId} />
+            <div className="mt-6 text-[13px] text-[#525252]">Click a step to change it. Run a test to see counts on each step.</div>
+          </div>
+        )}
         {/* canvas */}
-        <div className="relative flex-1 min-w-0">
+        <div className={`relative flex-1 min-w-0 ${shownView === 'steps' ? 'hidden' : ''}`}>
           <ReactFlow
             nodes={shown} edges={edges} nodeTypes={pipelineNodeTypes}
             onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}

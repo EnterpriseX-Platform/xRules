@@ -29,7 +29,8 @@ function orderSteps(graph: any): Step[] {
 
 const fmt = (n: any) => (n == null || isNaN(Number(n)) ? '' : Number(n).toLocaleString('en-US'));
 
-export function StrategySteps({ graph, label, run, ruleChip }: {
+export function StrategySteps({ graph, label, run, ruleChip, onPick, picked }: {
+  onPick?: (id: string) => void; picked?: string | null;
   graph: any; label: (p: string) => string; run?: { start?: number; kept?: number; picked?: number; used?: number; budget?: number } | null;
   ruleChip?: (slug: string) => LinkItem | null;
 }) {
@@ -42,7 +43,7 @@ export function StrategySteps({ graph, label, run, ruleChip }: {
         const st = STYLE[s.type]; const d = s.data || {}; const c = count(s.type);
         return (
           <div key={s.id} className="flex items-stretch">
-            <div className="w-[230px] bg-white rounded-[12px] overflow-hidden shadow-[0_1px_2px_rgba(16,24,40,.06),0_6px_18px_rgba(16,24,40,.07)] flex flex-col" style={s.type === 'pick' ? { background: '#0f62fe', color: '#fff' } : undefined}>
+            <div onClick={onPick ? () => onPick(s.id) : undefined} className={`w-[230px] bg-white rounded-[12px] overflow-hidden shadow-[0_1px_2px_rgba(16,24,40,.06),0_6px_18px_rgba(16,24,40,.07)] flex flex-col ${onPick ? 'cursor-pointer hover:-translate-y-0.5 transition-transform' : ''}`} style={{ ...(s.type === 'pick' ? { background: '#0f62fe', color: '#fff' } : {}), ...(picked === s.id ? { boxShadow: '0 0 0 3px #161616, 0 10px 24px rgba(16,24,40,.15)' } : {}) }}>
               <div className="h-1.5" style={{ background: s.type === 'pick' ? 'rgba(255,255,255,.35)' : st.bar }} />
               <div className="px-4 py-3.5 flex flex-col gap-2 flex-1">
                 <div className="text-[11px] font-semibold tracking-[.5px]" style={{ color: s.type === 'pick' ? 'rgba(255,255,255,.85)' : st.ink }}>{i + 1} · {st.label}</div>
