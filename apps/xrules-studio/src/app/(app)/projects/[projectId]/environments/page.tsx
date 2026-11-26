@@ -38,7 +38,7 @@ export default function EnvironmentsPage() {
           </button>
         }
       />
-      {isLoading ? <div className="card p-8 text-center text-subtle font-mono text-sm">Loading…</div> :
+      {isLoading ? <div /> :
        envs.length === 0 ? (
          <div className="card p-12 text-center">
            <GitBranch className="h-10 w-10 mx-auto text-subtle/40 mb-2" />

@@ -129,145 +129,45 @@
 }
 
 @layer components {
-  /* Sidebar / column section label — sentence-case, soft */
-  .label-section {
-    @apply text-[11px] font-medium text-subtle/70;
-  }
+  /* Carbon look for older screens: square, flat, 40px controls, underlined tabs */
+  .label-section { font-size: 12px; font-weight: 400; color: #525252; }
+  .nav-row { @apply relative flex items-center gap-2.5 px-3 h-8 text-[14px] text-[#525252] hover:text-[#161616] hover:bg-[#e8e8e8]; }
+  .nav-row-active { @apply bg-[#e0e0e0] text-[#161616]; }
+  .live-pill { @apply inline-flex items-center gap-1.5 px-2 h-6 text-[12px] text-[#525252]; }
+  .dot { @apply inline-block h-2 w-2 rounded-full; }
 
-  /* Sidebar nav row — flat, tight, subtle active state */
-  .nav-row {
-    @apply relative flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[13px] font-medium;
-    @apply text-subtle hover:text-text hover:bg-muted/60 transition-colors;
-  }
-  .nav-row-active {
-    @apply bg-accent/10 text-accent hover:bg-accent/[0.13] hover:text-accent;
-  }
+  .card { background: #ffffff; border: 1px solid #e0e0e0; }
+  .card-elevated { @apply card; }
+  .card-hover { transition: background-color .1s; }
+  .card-hover:hover { background: #f4f4f4; }
+  .card-glow { @apply card relative overflow-hidden; }
 
-  /* Status pill (top bar / footer) */
-  .live-pill {
-    @apply inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium text-subtle;
-  }
+  .h1-page { @apply text-[28px] leading-9 font-normal text-[#161616]; }
+  .text-gradient { color: #161616; }
+  .kpi-num { @apply text-[28px] leading-9 font-light tabular-nums text-[#161616]; }
+  .row-index { @apply text-[13px] text-[#6f6f6f] tabular-nums; }
 
-  /* Status dot */
-  .dot {
-    @apply inline-block h-1.5 w-1.5 rounded-full;
-  }
+  /* status as a word, no coloured capsule */
+  .pill { @apply inline-flex items-center gap-1.5 text-[13px] leading-5; }
+  .pill-ok      { color: #198038; }
+  .pill-warn    { color: #8a3800; }
+  .pill-danger  { color: #da1e28; }
+  .pill-info    { color: #0043ce; }
+  .pill-mint    { color: #005d5d; }
+  .pill-subtle  { color: #525252; }
+  .pill-accent  { color: #0f62fe; }
 
-  /* Card — hairline border, longer diffuse shadow, generous radius */
-  .card {
-    @apply rounded-2xl border border-border/50 bg-surface;
-    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.02);
-  }
-  .card-elevated {
-    @apply card;
-    box-shadow:
-      0 1px 2px 0 rgb(0 0 0 / 0.04),
-      0 8px 24px -8px rgb(0 0 0 / 0.06);
-  }
-  .card-hover {
-    @apply transition-all;
-    transition-property: box-shadow, border-color, transform;
-  }
-  .card-hover:hover {
-    border-color: rgb(var(--c-border) / 0.9);
-    box-shadow:
-      0 1px 2px 0 rgb(0 0 0 / 0.04),
-      0 12px 32px -12px rgb(var(--c-accent) / 0.10);
-  }
+  .btn { @apply inline-flex items-center justify-center gap-2 px-4 h-10 text-[14px] whitespace-nowrap disabled:opacity-40; }
+  .btn-primary { @apply btn bg-[#0f62fe] text-white hover:bg-[#0353e9]; }
+  .btn-ghost { @apply btn text-[#0f62fe] hover:bg-[#e8e8e8]; }
+  .btn-outline { @apply btn border border-[#0f62fe] text-[#0f62fe] hover:bg-[#0f62fe] hover:text-white; }
 
-  /* Glow card — radial tint behind content (for hero panels) */
-  .card-glow {
-    @apply card relative overflow-hidden;
-  }
-  .card-glow::before {
-    content: '';
-    @apply absolute inset-0 pointer-events-none;
-    background: radial-gradient(ellipse 60% 40% at 50% 0%,
-      rgb(var(--c-accent) / 0.06), transparent 70%);
-  }
+  .input { @apply h-10 px-3 bg-[#f4f4f4] border-0 border-b border-[#8d8d8d] text-[14px] text-[#161616] placeholder:text-[#a8a8a8] outline-none;
+    @apply focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2; }
 
-  /* Page heading */
-  .h1-page {
-    @apply text-[28px] leading-tight font-semibold tracking-tight;
-  }
-
-  /* Gradient text — for hero numbers / titles */
-  .text-gradient {
-    background: linear-gradient(135deg,
-      rgb(var(--c-accent)) 0%,
-      rgb(var(--c-accent-2)) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-
-  /* KPI numeric */
-  .kpi-num {
-    @apply text-[32px] leading-none font-semibold tabular-nums tracking-tight;
-  }
-
-  /* Numbered row index */
-  .row-index {
-    @apply text-xs text-subtle/60 tabular-nums;
-  }
-
-  /* Pill (status badges) — sans-serif, sentence-case (callers control text) */
-  .pill {
-    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-medium leading-relaxed;
-  }
-  .pill-ok      { @apply text-ok      bg-ok/10; }
-  .pill-warn    { @apply text-warn    bg-warn/10; }
-  .pill-danger  { @apply text-danger  bg-danger/10; }
-  .pill-info    { @apply text-info    bg-info/10; }
-  .pill-mint    { @apply text-mint    bg-mint/10; }
-  .pill-subtle  { @apply text-subtle  bg-muted; }
-  .pill-accent  { @apply text-accent  bg-accent/10; }
-
-  /* Buttons — softer, slightly larger touch targets */
-  .btn {
-    @apply inline-flex items-center justify-center gap-2 px-3.5 h-8 rounded-lg text-[13px] font-medium transition-all whitespace-nowrap;
-  }
-  .btn-primary  {
-    @apply btn text-accent-fg;
-    background: linear-gradient(180deg,
-      rgb(var(--c-accent-2) / 0.92) 0%,
-      rgb(var(--c-accent)) 100%);
-    box-shadow:
-      0 1px 2px 0 rgb(0 0 0 / 0.06),
-      0 0 0 1px rgb(var(--c-accent) / 0.30),
-      inset 0 1px 0 0 rgb(255 255 255 / 0.18);
-  }
-  .btn-primary:hover {
-    box-shadow:
-      0 2px 4px 0 rgb(var(--c-accent) / 0.20),
-      0 0 0 1px rgb(var(--c-accent) / 0.40),
-      inset 0 1px 0 0 rgb(255 255 255 / 0.18);
-  }
-  .btn-primary:active { transform: translateY(0.5px); }
-
-  .btn-ghost    { @apply btn text-subtle hover:text-text hover:bg-muted/70; }
-  .btn-outline  {
-    @apply btn border border-border/70 text-text bg-surface/50;
-    @apply hover:bg-muted/60 hover:border-border;
-  }
-
-  /* Input — flat, subtle, only highlights on focus */
-  .input {
-    @apply h-9 px-3 rounded-lg bg-muted/40 text-[13.5px] text-text placeholder:text-subtle/70 border border-transparent;
-    @apply focus:border-accent/40 focus:bg-surface focus:ring-2 focus:ring-accent/15 outline-none transition;
-  }
-
-  /* Tab pill row */
-  .tabs-row {
-    @apply flex items-center gap-0.5 p-1 rounded-lg border border-border/50 bg-muted/40 w-fit;
-  }
-  .tab {
-    @apply px-3 py-1 rounded-md text-xs font-medium text-subtle hover:text-text cursor-pointer transition-colors;
-  }
-  .tab-active {
-    @apply bg-surface text-text;
-    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.06);
-  }
+  .tabs-row { @apply flex items-end border-b border-[#e0e0e0] w-full; }
+  .tab { @apply h-11 px-4 text-[14px] text-[#525252] hover:text-[#161616] border-b-2 border-transparent -mb-px cursor-pointer whitespace-nowrap; }
+  .tab-active { @apply text-[#161616] font-semibold border-[#0f62fe]; }
 
   /* Keyboard shortcut badge */
   .kbd {
@@ -315,3 +215,15 @@ html body, body.font-sans { font-family: var(--font-plex); background-image: non
 .nav-row { border-radius: 0 !important; margin: 0; padding-left: 16px; border-left: 0; }
 .nav-row-active { background: #e0e0e0 !important; color: #161616 !important; font-weight: 600; box-shadow: none !important; }
 .nav-row { height: 32px; padding-top: 0 !important; padding-bottom: 0 !important; }
+
+/* Carbon is square and flat: older screens' rounded corners, blur and gradients are neutralised here */
+.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl { border-radius: 0 !important; }
+.backdrop-blur, .backdrop-blur-sm, .backdrop-blur-md { backdrop-filter: none !important; }
+.shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl { box-shadow: none !important; }
+
+/* one table look everywhere (Carbon data table) */
+main table thead { background: #e0e0e0 !important; border: 0 !important; }
+main table th { height: 48px; padding-left: 16px; padding-right: 16px; font-size: 14px !important; font-weight: 600 !important; color: #161616 !important; }
+main table tbody tr { border-color: #e0e0e0 !important; }
+main table tbody tr:hover { background: #e8e8e8; }
+main table td { font-size: 14px; }

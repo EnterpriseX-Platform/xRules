@@ -24,7 +24,7 @@ export default function ModelPage() {
   const live = versions.find((v: any) => v.status === 'published');
   return (
     <div className="px-8 py-6">
-      <PageHead title={m.name} sub={<><span className="font-mono">{m.slug}</span> · {live ? `v${live.version} live` : 'not published'} · {versions.length} version{versions.length === 1 ? '' : 's'}</>} />
+      <PageHead title={m.name} sub={<>{live ? `v${live.version} live` : 'not published'} · {versions.length} version{versions.length === 1 ? '' : 's'}</>} />
       <Tabs tabs={['Train', 'Versions', 'Try']} value={tab} onChange={setTab} />
       {tab === 'Train' && <TrainTab modelId={m.id} projectId={projectId} onStarted={() => setTab('Versions')} last={versions[0]} />}
       {tab === 'Versions' && <VersionsTab model={m} versions={versions} />}

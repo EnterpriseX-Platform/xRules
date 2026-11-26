@@ -47,24 +47,20 @@ export default function ProjectsPage() {
           <tbody>
             {!isLoading && projects.length === 0 && (
               <tr><td colSpan={5} className="text-center py-16">
-                <FolderKanban className="h-10 w-10 mx-auto text-subtle/40 mb-2" />
-                <div className="text-sm text-subtle">No projects</div>
+                                <div className="text-sm text-subtle">No projects</div>
               </td></tr>
             )}
             {projects.map((p: any, i: number) => (
               <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                 <td className="py-3 px-4">
                   <Link href={`/p/${p.id}/topics`} className="flex items-center gap-3 group">
-                    <span className="h-8 w-8 rounded flex items-center justify-center" style={{ background: p.color ? `${p.color}33` : 'rgb(var(--c-mint) / 0.2)' }}>
-                      <FolderKanban className="h-4 w-4 text-text" />
-                    </span>
                     <div className="min-w-0">
-                      <div className="text-sm font-medium group-hover:text-accent">{p.name}</div>
+                      <div className="text-[14px] text-[#0f62fe] group-hover:underline">{p.name}</div>
                       {p.description && <div className="text-xs text-subtle truncate">{p.description}</div>}
                     </div>
                   </Link>
                 </td>
-                <td className="py-3 px-4 text-right font-mono text-xs text-subtle tabular-nums">
+                <td className="py-3 px-4 text-right tabular-nums">
                   {p.ruleCount ?? '—'}
                 </td>
                 <td className="py-3 px-4 text-sm">{p.visibility === 'PRIVATE' ? 'Private' : 'Tenant'}</td>

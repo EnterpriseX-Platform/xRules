@@ -30,19 +30,11 @@ export function Pill({
   );
 }
 
+const WORD: Record<string, string> = { published: 'Live', active: 'Active', ok: 'OK', success: 'Succeeded', pass: 'Passed', draft: 'Draft', pending: 'Pending', running: 'Running',
+  failed: 'Failed', error: 'Error', fail: 'Failed', revoked: 'Revoked', ready: 'Ready', info: 'Info', archived: 'Archived', retired: 'Retired', training: 'Training' };
 export function StatusPill({ status }: { status: string }) {
   const s = String(status ?? '').toLowerCase();
-  if (s === 'published' || s === 'active' || s === 'ok' || s === 'success' || s === 'pass') {
-    return <Pill tone="ok" dot>{s}</Pill>;
-  }
-  if (s === 'draft' || s === 'pending' || s === 'running') {
-    return <Pill tone="warn" dot>{s}</Pill>;
-  }
-  if (s === 'failed' || s === 'error' || s === 'fail' || s === 'revoked') {
-    return <Pill tone="danger" dot>{s}</Pill>;
-  }
-  if (s === 'ready' || s === 'info') {
-    return <Pill tone="info" dot>{s}</Pill>;
-  }
-  return <Pill tone="subtle" dot>{s}</Pill>;
+  const w = WORD[s] || (s ? s[0].toUpperCase() + s.slice(1) : '—');
+  const tone: any = ['published', 'active', 'ok', 'success', 'pass'].includes(s) ? 'ok' : ['draft', 'pending', 'running', 'training'].includes(s) ? 'warn' : ['failed', 'error', 'fail', 'revoked'].includes(s) ? 'danger' : s === 'ready' ? 'info' : 'subtle';
+  return <Pill tone={tone}>{w}</Pill>;
 }

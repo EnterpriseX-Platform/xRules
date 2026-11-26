@@ -63,7 +63,7 @@ export default function RuleDetailPage() {
   });
 
   if (isLoading || !rule) {
-    return <PageContent><div className="text-subtle font-mono">Loading…</div></PageContent>;
+    return <PageContent><div /></PageContent>;
   }
 
   return (

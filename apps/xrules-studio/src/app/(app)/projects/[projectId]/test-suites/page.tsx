@@ -45,7 +45,6 @@ export default function TestSuitesPage() {
             cell: (s: any) => (
               <div>
                 <div className="text-sm font-medium">{s.name}</div>
-                <div className="text-xs text-subtle font-mono">{s.slug}</div>
                 {s.description && <div className="text-xs text-subtle mt-0.5 max-w-[400px] truncate">{s.description}</div>}
               </div>
             ),

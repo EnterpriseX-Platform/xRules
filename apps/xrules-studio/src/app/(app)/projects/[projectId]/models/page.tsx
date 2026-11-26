@@ -48,7 +48,6 @@ export default function ModelsPage() {
             cell: (m: any) => (
               <div>
                 <div className="text-sm font-medium">{m.name}</div>
-                <div className="text-xs text-subtle font-mono">{m.slug}</div>
               </div>
             ),
           },

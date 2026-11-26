@@ -80,7 +80,7 @@ export default function EndpointsPage() {
             {tab === 'rule' ? 'Available rules' : 'Available integration flows'}
           </div>
           <div className="max-h-[600px] overflow-y-auto">
-            {isLoading && <div className="p-6 text-center text-subtle text-sm">Loading…</div>}
+            
             {!isLoading && items.length === 0 && (
               <div className="p-6 text-center text-subtle text-sm">
                 <Zap className="h-8 w-8 mx-auto opacity-40 mb-2" />

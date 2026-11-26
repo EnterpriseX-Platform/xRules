@@ -47,7 +47,6 @@ export default function DatasetsPage() {
             cell: (d: any) => (
               <div>
                 <div className="text-sm font-medium">{d.name}</div>
-                <div className="text-xs text-subtle font-mono">{d.slug}</div>
               </div>
             ),
           },

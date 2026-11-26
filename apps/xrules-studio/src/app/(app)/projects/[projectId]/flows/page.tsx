@@ -185,10 +185,10 @@ function KindChip({ current, active, onClick, icon: Icon, children }: {
   children: React.ReactNode;
 }) {
   const cls = active
-    ? 'bg-accent/10 text-accent border-accent/30'
-    : 'bg-transparent text-subtle border-border/70 hover:text-text hover:border-border';
+    ? 'border-[#0f62fe] text-[#161616] font-semibold'
+    : 'border-transparent text-[#525252] hover:text-[#161616]';
   return (
-    <button onClick={onClick} className={`pill border inline-flex items-center gap-1.5 px-2.5 py-1 text-[11.5px] ${cls}`}>
+    <button onClick={onClick} className={`h-10 px-3 border-b-2 inline-flex items-center gap-1.5 text-[14px] ${cls}`}>
       {Icon && <Icon className="h-3 w-3" />}
       {children}
     </button>
