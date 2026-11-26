@@ -361,7 +361,7 @@ export function shapeByHitPolicy(rule: any, out: any): any {
   return cols;
 }
 
-function transformDefinitionForEngine(rule: any): any {
+export function transformDefinitionForEngine(rule: any): any {
   const def = rule.definition as any;
 
   if (rule.type === 'DECISION_TABLE') {
@@ -387,8 +387,8 @@ function transformDefinitionForEngine(rule: any): any {
           name: o.name, label: o.label || o.name, type: o.type || 'string',
         })),
         // the Else row is not a condition the engine knows — it is applied after, when nothing matched
-        rules: (def?.rules || []).filter((r: any) => !isElseRow(r)).map((r: any) => ({
-          id: r.id, inputs: r.inputs || [], outputs: r.outputs || [],
+        rules: (def?.rules || []).filter((r: any) => !isElseRow(r)).map((r: any, i: number) => ({
+          id: r.id || `row-${i + 1}`, inputs: r.inputs || [], outputs: r.outputs || [],
         })),
       },
     };

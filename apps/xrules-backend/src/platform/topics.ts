@@ -82,12 +82,12 @@ export async function assign(data: { topicId: string | null; kind: 'rule' | 'flo
 
 // ---- Simulation in business terms: run the live version and the draft over the same data, then summarise
 async function runRuleDef(rule: any, definition: any, input: any) {
-  const { tryLocalExecutor, applyElseRow, shapeByHitPolicy } = await import('../services/execute.service.js');
+  const { tryLocalExecutor, applyElseRow, shapeByHitPolicy, transformDefinitionForEngine, executeDmnLocally } = await import('../services/execute.service.js');
   const r = { ...rule, definition };
-  const local = await tryLocalExecutor(r, input, {});
+  const local = r.type === 'DECISION_TABLE' && String(definition?.hitPolicy).toUpperCase() === 'EVALUATE_ALL' ? executeDmnLocally(r, input) : await tryLocalExecutor(r, input, {});
   if (local != null) return local;
   const axios = (await import('axios')).default; const { env } = await import('../config/env.js');
-  const resp = await axios.post(`${env.engineHubUrl}/api/v1/execute`, { rule: { type: rule.type, engine: rule.engine, definition }, input, context: { rule_id: rule.id } }, { timeout: 30000 });
+  const resp = await axios.post(`${env.engineHubUrl}/api/v1/execute`, { rule: { type: rule.type, engine: rule.engine || 'rules', definition: transformDefinitionForEngine(r) }, input, context: { rule_id: rule.id } }, { timeout: 30000 });
   let out = resp.data.output ?? resp.data;
   try { out = shapeByHitPolicy(r, applyElseRow(r, out)); } catch { /* keep raw */ }
   return out;

@@ -38,7 +38,7 @@ export const TEMPLATES: Tpl[] = [
     ],
     rules: [
       { name: 'Ready to fund', type: 'DECISION_TABLE', definition: { hitPolicy: 'FIRST', inputs: [{ name: 'readiness', type: 'string' }, { name: 'strategic_fit', type: 'number' }], outputs: [{ name: 'eligible', type: 'boolean' }],
-          rules: [{ inputs: ['= ready', '>= 3'], outputs: [true] }, { inputs: ['else', 'else'], outputs: [false] }] },
+          rules: [{ id: 'r1', inputs: ['= ready', '>= 3'], outputs: [true] }, { id: 'else', inputs: ['else', 'else'], outputs: [false] }] },
         tests: [{ name: 'Ready and fits strategy', input: { readiness: 'ready', strategic_fit: 4 }, expect: { eligible: true } }, { name: 'Still in design', input: { readiness: 'design', strategic_fit: 5 }, expect: { eligible: false } }] },
       { name: 'Priority score', type: 'FORMULA', definition: { lines: [{ name: 'priority_score', expr: 'impact * 10 + strategic_fit * 5' }] },
         tests: [{ name: 'High impact request', input: { impact: 8, strategic_fit: 5 }, expect: { priority_score: 105 } }] },
@@ -67,7 +67,7 @@ export const TEMPLATES: Tpl[] = [
       { name: 'Debt ratio and limit', type: 'FORMULA', definition: { lines: [{ name: 'debt_ratio', expr: 'ROUND(monthly_debt / monthly_income * 100, 1)' }, { name: 'loan_limit', expr: 'MIN(monthly_income * 10, 2000000)' }] },
         tests: [{ name: 'Income 30,000', input: { monthly_income: 30000, monthly_debt: 6000 }, expect: { debt_ratio: 20, loan_limit: 300000 } }] },
       { name: 'Who is approved', type: 'DECISION_TABLE', definition: { hitPolicy: 'FIRST', inputs: [{ name: 'credit_score', type: 'number' }, { name: 'debt_ratio', type: 'number' }], outputs: [{ name: 'approved', type: 'boolean' }],
-          rules: [{ inputs: ['>= 650', '<= 40'], outputs: [true] }, { inputs: ['else', 'else'], outputs: [false] }] },
+          rules: [{ id: 'r1', inputs: ['>= 650', '<= 40'], outputs: [true] }, { id: 'else', inputs: ['else', 'else'], outputs: [false] }] },
         tests: [{ name: 'Good score, low debt', input: { credit_score: 700, debt_ratio: 25 }, expect: { approved: true } }, { name: 'Low score', input: { credit_score: 580, debt_ratio: 20 }, expect: { approved: false } }] },
     ],
   },
@@ -81,7 +81,7 @@ export const TEMPLATES: Tpl[] = [
     ],
     rules: [
       { name: 'Who receives the benefit', type: 'DECISION_TABLE', definition: { hitPolicy: 'FIRST', inputs: [{ name: 'age', type: 'number' }, { name: 'annual_income', type: 'number' }], outputs: [{ name: 'eligible', type: 'boolean' }, { name: 'monthly_benefit', type: 'number' }],
-          rules: [{ inputs: ['>= 80', '<= 100000'], outputs: [true, 1000] }, { inputs: ['>= 60', '<= 100000'], outputs: [true, 600] }, { inputs: ['else', 'else'], outputs: [false, 0] }] },
+          rules: [{ id: 'r1', inputs: ['>= 80', '<= 100000'], outputs: [true, 1000] }, { id: 'r2', inputs: ['>= 60', '<= 100000'], outputs: [true, 600] }, { id: 'else', inputs: ['else', 'else'], outputs: [false, 0] }] },
         tests: [{ name: 'Aged 82, low income', input: { age: 82, annual_income: 50000 }, expect: { eligible: true, monthly_benefit: 1000 } }, { name: 'Aged 45', input: { age: 45, annual_income: 50000 }, expect: { eligible: false } }] },
     ],
   },
