@@ -26,8 +26,9 @@ interface DefShape {
 }
 
 export function TableDesigner({
-  definition, inputSchema, outputSchema, onChange,
+  definition, inputSchema, outputSchema, onChange, hidePolicy, label = (k: string) => k,
 }: {
+  hidePolicy?: boolean; label?: (k: string) => string;
   definition: any;
   inputSchema?: any;
   outputSchema?: any;
@@ -182,14 +183,14 @@ export function TableDesigner({
     <div className="space-y-3">
       {/* Toolbar — hit policy + search + duplicate badge */}
       <div className="card p-3 flex items-center gap-3 flex-wrap">
-        <span className="label-section">Hit Policy</span>
+        {!hidePolicy && <><span className="label-section">Hit Policy</span>
         <Select
           className="input h-8 text-xs"
           value={hitPolicy}
           onChange={(e) => { setHitPolicy(e.target.value); emit({ hitPolicy: e.target.value }); }}
         >
           {HIT_POLICIES.map(p => <option key={p.code} value={p.code}>{p.label} — {p.description}</option>)}
-        </Select>
+        </Select></>}
 
         <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-subtle" />
@@ -243,17 +244,17 @@ export function TableDesigner({
               </th>
               <th className="px-2 py-2 w-10 text-subtle">#</th>
               {inputs.map((c, i) => (
-                <ColumnHeader key={'i' + i} col={c} side="condition" inputSchema={inputSchema}
+                <ColumnHeader key={'i' + i} label={label} col={c} side="condition" inputSchema={inputSchema}
                   onUpdate={(next) => { const nx = inputs.map((x, idx) => idx === i ? { ...next, side: 'condition' as const } : x); setInputs(nx); emit({ inputs: nx }); }}
                   onRemove={() => removeColumn('condition', i)} />
               ))}
               <th className="px-1 py-2 border-l border-border" />
               {outputs.map((c, i) => (
-                <ColumnHeader key={'o' + i} col={c} side="result" inputSchema={outputSchema}
+                <ColumnHeader key={'o' + i} label={label} col={c} side="result" inputSchema={outputSchema}
                   onUpdate={(next) => { const nx = outputs.map((x, idx) => idx === i ? { ...next, side: 'result' as const } : x); setOutputs(nx); emit({ outputs: nx }); }}
                   onRemove={() => removeColumn('result', i)} />
               ))}
-              <th className="px-2 py-2">Annotation</th>
+              <th className="px-2 py-2">Note</th>
             </tr>
           </thead>
           <tbody>
@@ -300,7 +301,7 @@ export function TableDesigner({
                   <td className="px-2 py-1.5">
                     <input
                       className="bg-transparent w-full text-subtle text-[11px] outline-none"
-                      placeholder="annotation…"
+                      placeholder="Note"
                       value={r.annotation || ''}
                       onChange={(e) => {
                         const next = rows.map(x => x.id === r.id ? { ...x, annotation: e.target.value } : x);
@@ -322,7 +323,8 @@ export function TableDesigner({
   );
 }
 
-function ColumnHeader({ col, side, inputSchema, onUpdate, onRemove }: {
+function ColumnHeader({ col, side, inputSchema, onUpdate, onRemove, label = (k: string) => k }: {
+  label?: (k: string) => string;
   col: Column; side: ColumnSide; inputSchema?: any;
   onUpdate: (c: Column) => void; onRemove: () => void;
 }) {
@@ -331,6 +333,7 @@ function ColumnHeader({ col, side, inputSchema, onUpdate, onRemove }: {
     <th className="px-2 py-1.5 text-left align-top min-w-[120px] border-r border-border/30">
       <div className="flex items-start gap-1">
         <div className="flex-1 min-w-0">
+          {label(col.name) !== col.name && <div className="text-[14px] font-semibold text-[#161616] leading-5">{label(col.name)}</div>}
           {fields.length > 0 ? (
             <Select
               className="bg-transparent border-0 outline-none text-[#161616] text-[14px] w-full p-0 cursor-pointer"

@@ -26,7 +26,7 @@ export function DecisionTableView({ rule, projectId, onChange }: { rule: any; pr
   return (
     <div>
       <div className="flex items-center gap-3 mb-4">
-        {view === 'sentence' && (
+        {(
           <div className="w-[240px]"><Dropdown value={String(def.hitPolicy || 'STANDARD').toUpperCase() === 'FIRST' ? 'FIRST_MATCH' : String(def.hitPolicy || 'STANDARD').toUpperCase()}
             options={POLICY_TH} onChange={v => change({ ...def, hitPolicy: v })} /></div>
         )}
@@ -40,7 +40,7 @@ export function DecisionTableView({ rule, projectId, onChange }: { rule: any; pr
       </div>
       {view === 'sentence'
         ? <RuleSentences def={def} onChange={change} label={label} term={term} terms={terms} />
-        : <TableDesigner key={gen} definition={def} inputSchema={rule.inputSchema} outputSchema={rule.outputSchema} onChange={change} />}
+        : <TableDesigner key={gen} definition={def} inputSchema={rule.inputSchema} outputSchema={rule.outputSchema} onChange={change} hidePolicy label={label} />}
     </div>
   );
 }
