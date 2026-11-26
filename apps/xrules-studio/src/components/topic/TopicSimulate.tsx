@@ -96,6 +96,7 @@ export function SimResult({ r, label }: { r: any; label: (k: string) => string }
         })}
         {r.errors > 0 && row('Errors', undefined, r.errors)}
       </div>
+      {r.firstError && <div className="text-[14px] text-[#da1e28]">First error: {r.firstError}</div>}
       {r.changed?.length > 0 && <List title={`Changed results, first ${r.changed.length}`} items={r.changed.map((c: any) => ({ a: String(c.name ?? '—'), b: `Live ${JSON.stringify(c.live)} · Draft ${JSON.stringify(c.draft)}` }))} />}
     </div>
   );

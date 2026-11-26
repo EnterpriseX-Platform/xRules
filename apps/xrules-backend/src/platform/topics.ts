@@ -133,9 +133,9 @@ export async function simulate(id: string, data: { decisionId: string; dataset?:
     if (!ds?.activeSnapshotId) throw new ValidationError(`Data set '${data.dataset}' has no data yet`);
     const rows = (await prisma.datasetRow.findMany({ where: { snapshotId: ds.activeSnapshotId }, take: Math.min(Number(data.limit) || 2000, 5000), orderBy: { idx: 'asc' }, select: { data: true } })).map(r => r.data as any);
     const pub = await prisma.ruleVersion.findFirst({ where: { ruleId: rule!.id, status: 'PUBLISHED' as any }, orderBy: { version: 'desc' } });
-    const dOut: any[] = [], lOut: any[] = []; const changed: any[] = []; let errors = 0;
+    const dOut: any[] = [], lOut: any[] = []; const changed: any[] = []; let errors = 0; let firstError: string | null = null;
     for (const row of rows) {
-      const a = await runRuleDef(rule, rule!.definition, row).catch(e => { errors++; return { error: e.message }; });
+      const a = await (async () => { const { executeRule } = await import('../services/execute.service.js'); return ((await executeRule(rule!.id, row, {}, { userId: '__system__', email: 'simulation@xrules', tenantId: '*', roles: ['OWNER'] } as any)) as any).output; })().catch(e => { errors++; firstError ||= String(e?.response?.data?.error?.message || e?.response?.data?.error || e?.message || e); return { error: e.message }; });
       dOut.push(a);
       if (pub) {
         const b = await runRuleDef(rule, pub.definition, row).catch(e => ({ error: e.message }));
@@ -143,7 +143,7 @@ export async function simulate(id: string, data: { decisionId: string; dataset?:
         if (JSON.stringify(a) !== JSON.stringify(b) && changed.length < 50) changed.push({ name: nameOf(row), input: row, live: b, draft: a });
       }
     }
-    result = { kind: 'rule', rows: rows.length, errors, draft: summarise(dOut), live: pub ? summarise(lOut) : null, liveVersion: pub?.version ?? null,
+    result = { kind: 'rule', rows: rows.length, errors, firstError, draft: summarise(dOut), live: pub ? summarise(lOut) : null, liveVersion: pub?.version ?? null,
       changedCount: pub ? dOut.filter((o, i) => JSON.stringify(o) !== JSON.stringify(lOut[i])).length : null, changed };
   }
   result = { ...result, decisionId: data.decisionId, dataset: data.dataset || null, ms: Date.now() - started, at: new Date().toISOString(), by: user.email || user.userId };
