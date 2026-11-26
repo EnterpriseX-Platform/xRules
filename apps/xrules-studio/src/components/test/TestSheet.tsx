@@ -178,7 +178,7 @@ export function TestSheet({ targetType, targetId, inputs, outputs, projectId }: 
                   <span title={c.name}>{c.kind === 'out' ? <>Expected · {label(c.name)}</> : c.kind === 'in' ? label(c.name) : 'Case'}</span>
                 </th>
               ))}
-              <th className={`${th} bg-[#f4f4f4] text-[#161616]`}>ผล</th>
+              <th className={`${th} bg-[#f4f4f4] text-[#161616]`}>Result</th>
               <th className={`${th} w-9 bg-[#f4f4f4]`} />
             </tr>
           </thead>
@@ -198,10 +198,10 @@ export function TestSheet({ targetType, targetId, inputs, outputs, projectId }: 
                     </td>
                   ))}
                   <td className={`${td} px-2 whitespace-nowrap`}>
-                    {st === 'PASS' && <span className="text-[#198038]">✓ ผ่าน</span>}
+                    {st === 'PASS' && <span className="text-[#198038]">✓ Passed</span>}
                     {(st === 'FAIL' || st === 'ERROR') && (
                       <span className="text-[#da1e28]" title={(r.checks || []).filter((x: any) => !x.ok).map((x: any) => x.message).join('\n')}>
-                        ✗ ได้ {outCols.map(o => r.expect[o] !== undefined ? `${label(o)} = ${toText(read(r.output, o))}` : null).filter(Boolean).join(' · ') || (r.checks || []).find((x: any) => !x.ok)?.message || 'Failed'}
+                        ✗ Got {outCols.map(o => r.expect[o] !== undefined ? `${label(o)} = ${toText(read(r.output, o))}` : null).filter(Boolean).join(' · ') || (r.checks || []).find((x: any) => !x.ok)?.message || 'Failed'}
                       </span>
                     )}
                   </td>

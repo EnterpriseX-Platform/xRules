@@ -34,10 +34,10 @@ export function useTerms(projectId?: string, ensure?: { path: string; type?: str
 }
 
 const nf = new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 });
-/** A value as a business user reads it: 15,000 บาท */
+/** A value as a business user reads it: 15,000 THB */
 export function showValue(v: any, t?: Term): string {
   if (v === null || v === undefined || v === '') return '—';
-  if (typeof v === 'boolean') return v ? 'ใช่' : 'ไม่ใช่';
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
   const n = typeof v === 'number' ? v : (typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(v.trim()) ? Number(v) : NaN);
   const s = !isNaN(n) && (t?.type === 'number' || t?.type === 'money' || typeof v === 'number' || !t) ? nf.format(n) : String(v);
   return t?.unit ? `${s} ${t.unit}` : s;

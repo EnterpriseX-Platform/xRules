@@ -63,12 +63,12 @@ function meet(x: Cond, y: Cond): Cond | null | undefined {   // null = no common
 export function rangeText(c: Cond, fmt: (n: number) => string): string {
   if (c.k === 'num') {
     if (c.lo === c.hi) return `= ${fmt(c.lo)}`;
-    if (c.lo === -INF) return `${c.hiIn ? 'ไม่เกิน' : 'น้อยกว่า'} ${fmt(c.hi)}`;
-    if (c.hi === INF) return `${c.loIn ? 'ตั้งแต่' : 'มากกว่า'} ${fmt(c.lo)}`;
-    return `${c.loIn ? 'ตั้งแต่' : 'มากกว่า'} ${fmt(c.lo)} ${c.hiIn ? 'ถึง' : 'แต่น้อยกว่า'} ${fmt(c.hi)}`;
+    if (c.lo === -INF) return `${c.hiIn ? 'at most' : 'less than'} ${fmt(c.hi)}`;
+    if (c.hi === INF) return `${c.loIn ? 'at least' : 'more than'} ${fmt(c.lo)}`;
+    return `${c.loIn ? 'from' : 'over'} ${fmt(c.lo)} ${c.hiIn ? 'to' : 'up to, not including,'} ${fmt(c.hi)}`;
   }
-  if (c.k === 'set') return `${c.neg ? 'ไม่ใช่' : 'เป็น'} ${c.vals.join(', ')}`;
-  if (c.k === 'null') return c.neg ? 'มีค่า' : 'ไม่ได้กรอก';
+  if (c.k === 'set') return `${c.neg ? 'not' : 'is'} ${c.vals.join(', ')}`;
+  if (c.k === 'null') return c.neg ? 'given' : 'not given';
   return '';
 }
 
@@ -87,11 +87,11 @@ export function tableChecks(def: any, label: (name: string) => string, fmt: (nam
     if (allAny(i) || allAny(j)) continue;
     const common: (Cond | null | undefined)[] = cols.map((_, c) => meet(grid[i][c], grid[j][c]));
     if (common.some(c => c === null || c === undefined)) continue;
-    const where = common.map((c, k) => (c as Cond).k === 'any' ? '' : `${label(cols[k].name)} ${rangeText(c as Cond, n => fmt(cols[k].name, n))}`).filter(Boolean).join(' และ ');
+    const where = common.map((c, k) => (c as Cond).k === 'any' ? '' : `${label(cols[k].name)} ${rangeText(c as Cond, n => fmt(cols[k].name, n))}`).filter(Boolean).join(' and ');
     const same = JSON.stringify(rows[i].inputs) === JSON.stringify(rows[j].inputs);
     out.push({ kind: 'overlap', rows: [i + 1, j + 1], text: same
-      ? `ข้อ ${i + 1} กับ ${j + 1} มีเงื่อนไขเหมือนกัน`
-      : `ข้อ ${i + 1} กับ ${j + 1} ใช้ได้พร้อมกัน เมื่อ${where ? ' ' + where : 'ทุกกรณี'}${first ? ' · ใช้ข้อแรกที่ตรง' : unique ? ' · ต้องมีข้อเดียวที่ตรง' : ''}` });
+      ? `Lines ${i + 1} and ${j + 1} have the same conditions`
+      : `Lines ${i + 1} and ${j + 1} both match ${where ? 'when ' + where : 'every case'}${first ? ' · the first one is used' : unique ? ' · only one may match' : ''}` });
   }
 
   // gaps: only when every row constrains the same one column (others any) — then the union on that column is exact
@@ -119,8 +119,8 @@ export function tableChecks(def: any, label: (name: string) => string, fmt: (nam
     }
     if (curHi < INF) gaps.push({ k: 'num', lo: curHi, loIn: !curHiIn, hi: INF, hiIn: false });
     void lo; void loIn;
-    for (const g of gaps) out.push({ kind: 'gap', rows: [], text: `ยังไม่มีข้อไหนรองรับ ${label(name)} ${rangeText(g, n => fmt(name, n))}` });
+    for (const g of gaps) out.push({ kind: 'gap', rows: [], text: `No line covers ${label(name)} ${rangeText(g, n => fmt(name, n))}` });
   }
-  if (!conds.some(c => c.k === 'null' && !c.neg)) out.push({ kind: 'gap', rows: [], text: `ยังไม่มีข้อไหนรองรับกรณีไม่ได้กรอก ${label(name)}` });
+  if (!conds.some(c => c.k === 'null' && !c.neg)) out.push({ kind: 'gap', rows: [], text: `No line covers ${label(name)} not given` });
   return out;
 }

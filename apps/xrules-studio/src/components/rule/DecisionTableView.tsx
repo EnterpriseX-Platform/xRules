@@ -8,10 +8,10 @@ import { useTerms } from '@/lib/terms';
 
 const VIEW_KEY = 'xrules:table-view';
 const POLICY_TH = [
-  { value: 'FIRST_MATCH', label: 'ใช้ข้อแรกที่ตรง' },
-  { value: 'STANDARD', label: 'ทุกข้อที่ตรง' },
-  { value: 'ARRAY', label: 'รวมทุกข้อที่ตรงเป็นรายการ' },
-  { value: 'EVALUATE_ALL', label: 'แสดงทุกข้อพร้อมผล' },
+  { value: 'FIRST_MATCH', label: 'First line that matches' },
+  { value: 'STANDARD', label: 'Every line that matches' },
+  { value: 'ARRAY', label: 'Every match, as a list' },
+  { value: 'EVALUATE_ALL', label: 'Every line with its result' },
 ];
 
 export function DecisionTableView({ rule, projectId, onChange }: { rule: any; projectId: string; onChange: (def: any) => void }) {
@@ -34,7 +34,7 @@ export function DecisionTableView({ rule, projectId, onChange }: { rule: any; pr
         <div className="flex border border-[#8d8d8d]" role="tablist" aria-label="View">
           {(['sentence', 'table'] as const).map(v => (
             <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => pick(v)}
-              className={`h-8 px-4 text-[14px] ${view === v ? 'bg-[#161616] text-white' : 'text-[#161616] hover:bg-[#e8e8e8]'}`}>{v === 'sentence' ? 'ประโยค' : 'ตาราง'}</button>
+              className={`h-8 px-4 text-[14px] ${view === v ? 'bg-[#161616] text-white' : 'text-[#161616] hover:bg-[#e8e8e8]'}`}>{v === 'sentence' ? 'Sentences' : 'Table'}</button>
           ))}
         </div>
       </div>

@@ -103,7 +103,7 @@ function Terms({ projectId }: { projectId: string }) {
           <Input id="t-term" label="Term" value={f.term} onChange={(v: string) => setF({ ...f, term: v })} />
           <Input id="t-path" label="Data path" mono value={f.path} onChange={(v: string) => setF({ ...f, path: v })} placeholder="item.unitPrice" />
           <div><div className="text-[12px] text-[#525252] mb-1.5">Type</div><Dropdown value={f.type} onChange={v => setF({ ...f, type: v })} options={[{ value: 'text', label: 'Text' }, { value: 'number', label: 'Number' }, { value: 'money', label: 'Money' }, { value: 'date', label: 'Date' }, { value: 'enum', label: 'List of values' }]} /></div>
-          <Input id="t-unit" label="Unit" value={f.unit} onChange={(v: string) => setF({ ...f, unit: v })} placeholder="บาท" />
+          <Input id="t-unit" label="Unit" value={f.unit} onChange={(v: string) => setF({ ...f, unit: v })} placeholder="THB" />
           <Input id="t-vals" label="Allowed values (comma separated)" value={f.values} onChange={(v: string) => setF({ ...f, values: v })} />
         </div>
       </Modal>}

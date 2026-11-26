@@ -1,6 +1,6 @@
 'use client';
 // A decision table read and edited as business sentences:
-//   1  ถ้า รายได้ต่อเดือน น้อยกว่า 15,000 บาท แล้ว วงเงินอนุมัติ = 0 บาท
+//   1  If monthly income is less than 15,000 THB then approved limit = 0 THB
 // Same definition as the table view ({ inputs, outputs, rules }); only the presentation differs.
 import { useMemo, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
@@ -11,17 +11,17 @@ import { showValue, type Term } from '@/lib/terms';
 import { FmtInput } from '@/components/ui/FmtInput';
 
 export const OP_TH: { value: string; label: string; args: 0 | 1 | 2 }[] = [
-  { value: '=', label: 'เท่ากับ', args: 1 },
-  { value: '!=', label: 'ไม่เท่ากับ', args: 1 },
-  { value: '<', label: 'น้อยกว่า', args: 1 },
-  { value: '<=', label: 'ไม่เกิน', args: 1 },
-  { value: '>', label: 'มากกว่า', args: 1 },
-  { value: '>=', label: 'ตั้งแต่', args: 1 },
-  { value: 'BTW', label: 'ระหว่าง', args: 2 },
-  { value: 'IN', label: 'เป็นหนึ่งใน', args: 1 },
-  { value: '!IN', label: 'ไม่ใช่', args: 1 },
-  { value: 'NULL', label: 'ว่าง', args: 0 },
-  { value: '!NULL', label: 'ไม่ว่าง', args: 0 },
+  { value: '=', label: 'is', args: 1 },
+  { value: '!=', label: 'is not', args: 1 },
+  { value: '<', label: 'is less than', args: 1 },
+  { value: '<=', label: 'is at most', args: 1 },
+  { value: '>', label: 'is more than', args: 1 },
+  { value: '>=', label: 'is at least', args: 1 },
+  { value: 'BTW', label: 'is between', args: 2 },
+  { value: 'IN', label: 'is one of', args: 1 },
+  { value: '!IN', label: 'is not one of', args: 1 },
+  { value: 'NULL', label: 'is empty', args: 0 },
+  { value: '!NULL', label: 'is not empty', args: 0 },
 ];
 
 type Def = { hitPolicy?: string; inputs?: any[]; outputs?: any[]; rules?: any[] };
@@ -76,7 +76,7 @@ export function RuleSentences({ def, onChange, label, term, terms }: {
             <div key={r.id || ri} className="group flex items-start gap-3 px-4 py-2 border-b border-[#e0e0e0] last:border-b-0 text-[15px] text-[#161616] leading-8">
               <span className="w-6 shrink-0 text-right text-[13px] text-[#6f6f6f] tabular-nums pt-px">{ri + 1}</span>
               <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-1.5">
-                {conds.length === 0 && ri === rules.length - 1 ? <span>กรณีอื่น</span> : <span>ถ้า</span>}
+                {conds.length === 0 && ri === rules.length - 1 ? <span>Otherwise</span> : <span>If</span>}
                 {conds.map(({ c, ci, cell }, k) => {
                   const { operator, args } = parseCellExpression(cell);
                   const spec = OP_TH.find(o => o.value === operator) || OP_TH[0];
@@ -84,28 +84,28 @@ export function RuleSentences({ def, onChange, label, term, terms }: {
                   const set = (op: string, a: any[]) => setCell(ri, 'inputs', ci, formatCellExpression(op, a));
                   return (
                     <span key={ci} className="inline-flex flex-wrap items-center gap-x-1.5">
-                      {k > 0 && <span>และ</span>}
+                      {k > 0 && <span>and</span>}
                       <Chip>{label(c.name)}</Chip>
                       <span className="inline-block min-w-[96px] [&_button]:h-8 [&_button]:border-0 [&_button]:border-b-2 [&_button]:border-[#0f62fe] [&_button]:bg-transparent [&_button]:text-[#0f62fe] [&_button]:text-[15px]">
                         <Dropdown value={spec.value} options={OP_TH.map(o => ({ value: o.value, label: o.label }))}
                           onChange={op => set(op, OP_TH.find(o => o.value === op)!.args === 2 ? [args[0] ?? '', args[1] ?? ''] : [args[0] ?? ''])} />
                       </span>
                       {spec.args >= 1 && (t?.type === 'enum' && t.values?.length && spec.args === 1 && (operator === '=' || operator === '!=')
-                        ? <span className="inline-block min-w-[120px]"><Dropdown value={String(args[0] ?? '')} placeholder="เลือก" options={t.values.map(v => ({ value: v, label: v }))} onChange={v => set(operator, [v])} /></span>
+                        ? <span className="inline-block min-w-[120px]"><Dropdown value={String(args[0] ?? '')} placeholder="Choose" options={t.values.map(v => ({ value: v, label: v }))} onChange={v => set(operator, [v])} /></span>
                         : <FmtInput className={`${plain} text-right`} value={args[0] ?? ''} aria-label={`${label(c.name)} value`} onChange={v => set(operator, spec.args === 2 ? [v, args[1] ?? ''] : [v])} />)}
-                      {spec.args === 2 && <><span>ถึง</span><FmtInput className={`${plain} text-right`} value={args[1] ?? ''} aria-label={`${label(c.name)} to`} onChange={v => set(operator, [args[0] ?? '', v])} /></>}
+                      {spec.args === 2 && <><span>and</span><FmtInput className={`${plain} text-right`} value={args[1] ?? ''} aria-label={`${label(c.name)} to`} onChange={v => set(operator, [args[0] ?? '', v])} /></>}
                       {spec.args >= 1 && t?.unit && <span className="text-[#525252]">{t.unit}</span>}
                       <button type="button" aria-label="Remove condition" className="h-6 w-6 text-[#8d8d8d] hover:text-[#da1e28] opacity-0 group-hover:opacity-100" onClick={() => setCell(ri, 'inputs', ci, '-')}>×</button>
                     </span>
                   );
                 })}
                 {adding === ri ? (
-                  <span className="inline-block min-w-[180px]"><Dropdown value="" placeholder="เลือกข้อมูล"
+                  <span className="inline-block min-w-[180px]"><Dropdown value="" placeholder="Choose data"
                     options={[...free, ...more].map(p => ({ value: p, label: label(p) }))} onChange={p => p && addCondition(ri, p)} /></span>
                 ) : (
-                  <button type="button" className="h-8 px-1 text-[13px] text-[#0f62fe] hover:underline" onClick={() => setAdding(ri)}>{conds.length ? '+ และ' : '+ เงื่อนไข'}</button>
+                  <button type="button" className="h-8 px-1 text-[13px] text-[#0f62fe] hover:underline" onClick={() => setAdding(ri)}>{conds.length ? '+ and' : '+ condition'}</button>
                 )}
-                <span className="mx-1">แล้ว</span>
+                <span className="mx-1">then</span>
                 {outputs.map((o, oi) => {
                   const t = term(o.name);
                   return (
@@ -125,7 +125,7 @@ export function RuleSentences({ def, onChange, label, term, terms }: {
           );
         })}
         <button type="button" className="h-10 px-4 text-[14px] text-[#0f62fe] hover:bg-[#f4f4f4] w-full text-left flex items-center gap-1" onClick={addRow}>
-          <Plus className="h-4 w-4" /> เพิ่มข้อ
+          <Plus className="h-4 w-4" /> Add line
         </button>
       </div>
       {findings.length > 0 && (

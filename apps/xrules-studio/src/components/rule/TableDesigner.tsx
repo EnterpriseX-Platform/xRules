@@ -231,7 +231,7 @@ export function TableDesigner({
 
       {/* Grid */}
       <div className="card overflow-x-auto">
-        <table className="w-full font-mono text-xs">
+        <table className="w-full text-[14px]">
           <thead>
             <tr className="border-b border-border">
               <th className="px-2 py-2 w-10">
@@ -285,7 +285,7 @@ export function TableDesigner({
                       }}
                     />
                   </td>
-                  <td className="px-2 py-1.5 text-subtle tabular-nums">{String(ri + 1).padStart(2, '0')}</td>
+                  <td className="px-2 py-1.5 text-subtle tabular-nums">{ri + 1}</td>
                   {inputs.map((_, ci) => (
                     <td key={ci} className="border-r border-border/30 bg-warn/[0.04]">
                       <Cell side="condition" value={r.inputs[ci]} onChange={(v) => setCell(r.id, 'inputs', ci, v)} />
@@ -333,7 +333,7 @@ function ColumnHeader({ col, side, inputSchema, onUpdate, onRemove }: {
         <div className="flex-1 min-w-0">
           {fields.length > 0 ? (
             <Select
-              className="bg-transparent border-0 outline-none text-text font-mono text-xs w-full p-0 cursor-pointer"
+              className="bg-transparent border-0 outline-none text-[#161616] text-[14px] w-full p-0 cursor-pointer"
               value={col.name}
               onChange={(e) => onUpdate({ ...col, name: e.target.value })}
             >
@@ -343,20 +343,20 @@ function ColumnHeader({ col, side, inputSchema, onUpdate, onRemove }: {
           ) : (
             <input
               aria-label="Column name"
-              className="bg-transparent border-0 outline-none text-text font-mono text-xs w-full p-0"
+              className="bg-transparent border-0 outline-none text-[#161616] text-[14px] w-full p-0"
               value={col.name}
               onFocus={(e) => e.currentTarget.select()}
               onChange={(e) => onUpdate({ ...col, name: e.target.value })}
             />
           )}
-          <div className="flex items-center gap-1 mt-0.5 text-[10px] uppercase text-subtle">
-            <span>{side === 'condition' ? 'condition' : 'result'} ·</span>
+          <div className="flex items-center gap-1 mt-0.5 text-[12px] text-[#525252]">
+            <span>{side === 'condition' ? 'If' : 'Then'} ·</span>
             <Select aria-label={`Type of ${col.name}`} value={col.type || 'string'} onChange={(e) => onUpdate({ ...col, type: e.target.value })}
               className="w-24 h-6 text-[11px] !bg-transparent !border-0 !px-1">
-              <option value="string">string</option>
-              <option value="number">number</option>
-              <option value="boolean">boolean</option>
-              <option value="date">date</option>
+              <option value="string">Text</option>
+              <option value="number">Number</option>
+              <option value="boolean">Yes / No</option>
+              <option value="date">Date</option>
             </Select>
           </div>
         </div>
@@ -389,7 +389,7 @@ function Cell({ side, value, onChange }: { side: ColumnSide; value: any; onChang
     <div className="flex items-center gap-1 px-1 py-1">
       <Select
         aria-label="Operator"
-        className="w-24 shrink-0 h-8 text-[12px] font-mono"
+        className="w-24 shrink-0 h-8 text-[14px]"
         value={parsed.operator}
         onChange={(e) => setOp(e.target.value)}
       >
@@ -398,7 +398,7 @@ function Cell({ side, value, onChange }: { side: ColumnSide; value: any; onChang
       {opSpec.argCount >= 1 && (
         <input
           aria-label="Condition value"
-          className="h-8 px-2 bg-white border-b border-[#8d8d8d] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2 text-[12px] font-mono text-text flex-1 min-w-[60px]"
+          className="h-8 px-2 bg-white border-b border-[#8d8d8d] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2 text-[14px] text-text flex-1 min-w-[60px]"
           placeholder="value"
           value={parsed.args[0] ?? ''}
           onChange={(e) => setArg(0, e.target.value)}
@@ -409,7 +409,7 @@ function Cell({ side, value, onChange }: { side: ColumnSide; value: any; onChang
           <span className="text-[10px] text-subtle">AND</span>
           <input
             aria-label="Condition value 2"
-            className="h-8 px-2 bg-white border-b border-[#8d8d8d] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2 text-[12px] font-mono text-text flex-1 min-w-[60px]"
+            className="h-8 px-2 bg-white border-b border-[#8d8d8d] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2 text-[14px] text-text flex-1 min-w-[60px]"
             placeholder="value"
             value={parsed.args[1] ?? ''}
             onChange={(e) => setArg(1, e.target.value)}
@@ -424,7 +424,7 @@ function ResultCell({ value, onChange }: { value: any; onChange: (v: any) => voi
   const stringValue = value === null || value === undefined ? '' : String(value);
   return (
     <input
-      className="bg-transparent border-0 outline-none text-[11px] font-mono text-text w-full px-2 py-1.5"
+      className="bg-transparent border-0 outline-none text-[14px] text-[#161616] w-full px-2 py-1.5"
       value={stringValue}
       onChange={(e) => {
         const v = e.target.value;
