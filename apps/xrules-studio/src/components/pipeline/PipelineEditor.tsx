@@ -217,11 +217,16 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
   return (
     <div className="h-[calc(100vh-48px)] flex flex-col bg-[#f4f4f4]">
       {/* header */}
-      <div className="bg-white border-b border-[#e0e0e0] px-6 h-16 flex items-center gap-4 min-w-0">
-        <h1 className="text-[20px] text-[#161616] font-semibold truncate min-w-0">{flow.name}</h1>
+      <div className="bg-white border-b border-[#e0e0e0] px-6 py-3 flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0">
+        <div className="min-w-[min(100%,260px)]">
+          <div className="text-[13px] flex gap-2">{(flow as any).topicId
+            ? <><Link href={`/p/${projectId}/topics`} className="text-[#0f62fe] hover:underline">Topics</Link><span className="text-[#6f6f6f]">/</span><Link href={`/p/${projectId}/topics/${(flow as any).topicId}/choose`} className="text-[#0f62fe] hover:underline">Topic</Link></>
+            : backHref ? <Link href={backHref} className="text-[#0f62fe] hover:underline">{backLabel || 'Back'}</Link> : null}</div>
+          <h1 className="text-[20px] leading-7 text-[#161616] break-words">{flow.name}</h1>
+        </div>
         <span className="flex items-center gap-1.5 text-[13px] text-[#525252] whitespace-nowrap"><span className="h-2 w-2 rounded-full" style={{ background: state.dot }} />{state.text}</span>
         {(save.error || publish.error) && <span className="text-[13px] text-[#da1e28] truncate">{String((save.error as any)?.message || (publish.error as any)?.message)}</span>}
-        <div className="ml-auto flex items-center gap-2 shrink-0">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           {dirty && <button className="h-10 px-3 text-[14px] text-[#525252] hover:bg-[#e8e8e8]" onClick={() => load(flow)}>Discard</button>}
           {kind === 'decision' && <button className={`h-10 px-4 text-[14px] border flex items-center gap-2 ${testOpen ? 'bg-[#161616] text-white border-[#161616]' : 'border-[#8d8d8d] text-[#161616] hover:bg-[#e8e8e8]'}`} onClick={() => { setTestOpen(o => !o); setSelectedId(null); }}><Play className="h-4 w-4" /> Test</button>}
           {kind === 'data' && <>

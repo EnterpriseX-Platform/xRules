@@ -75,7 +75,7 @@ export default function RuleDetailPage() {
       <RuleRelations ruleId={rule.id} home={projectId} />
 
       <div className="flex border-b border-[#e0e0e0] mb-6 overflow-x-auto" role="tablist">
-        {TABS.filter(t => !(t.key === 'schemas' && String(rule.type || '').toUpperCase() === 'DECISION_TABLE')).map(({ key, label }) => (
+        {TABS.filter(t => !(t.key === 'schemas' && ['DECISION_TABLE', 'FORMULA'].includes(String(rule.type || '').toUpperCase()))).map(({ key, label }) => (
           <button key={key} role="tab" aria-selected={tab === key} onClick={() => setTab(key)}
             className={`h-11 px-4 text-[14px] whitespace-nowrap border-b-2 -mb-px ${tab === key ? 'border-[#0f62fe] text-[#161616] font-semibold' : 'border-transparent text-[#525252] hover:text-[#161616]'}`}>{label}</button>
         ))}

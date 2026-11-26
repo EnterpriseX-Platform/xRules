@@ -9,6 +9,7 @@ function format(flow: any) {
     id: flow.id,
     name: flow.name,
     slug: flow.slug,
+    topicId: flow.topicId ?? null,
     alias: flow.alias,
     description: flow.description,
     reviewState: flow.reviewState,
