@@ -116,7 +116,16 @@ export async function simulate(id: string, data: { decisionId: string; dataset?:
   if (flow) {
     // a strategy runs once over the whole list; compare who is chosen
     const { runArtifact } = await import('./runner.js');
-    const input = data.input || {};
+    const input: any = { ...(data.input || {}) };
+    // a data set fills the list the strategy's Items step reads
+    if (data.dataset) {
+      const ds = await (await import('../data/datasets-runtime.js')).findDataset(t.projectId, data.dataset);
+      if (!ds?.activeSnapshotId) throw new ValidationError(`Data set '${data.dataset}' has no data yet`);
+      const rows = (await prisma.datasetRow.findMany({ where: { snapshotId: ds.activeSnapshotId }, take: 5000, orderBy: { idx: 'asc' }, select: { data: true } })).map(r => r.data as any);
+      const itemsNode = ((flow.graph as any)?.nodes || []).find((n: any) => n.type === 'items');
+      const path = String(itemsNode?.data?.from || 'input.items').replace(/^input\./, '');
+      input[path] = rows;
+    }
     const draft = await runArtifact(t.projectId, flow.id, input, { draft: true });
     const hasLive = !!(await prisma.flowVersion.findFirst({ where: { flowId: flow.id, status: 'PUBLISHED' } }));
     const live = hasLive ? await runArtifact(t.projectId, flow.id, input, {}) : null;

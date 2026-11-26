@@ -23,28 +23,27 @@ export function TopicSimulate({ projectId, topicId, decisions, last }: { project
   const asks: string[] = isFlow ? ((flow?.graph?.nodes || []) as any[]).filter(x => x.type === 'pick' && x.data?.mode === 'budget' && typeof x.data.budget === 'string').map(x => x.data.budget) : [];
   const [res, setRes] = useState<any>(last && last.decisionId === decisionId ? last : null);
   const run = useMutation({ meta: { silent: true },
-    mutationFn: (attach: boolean) => api.post<any>(`/platform/topics/${topicId}/simulate`, { decisionId, dataset: isFlow ? undefined : dataset, input, attach }),
+    mutationFn: (attach: boolean) => api.post<any>(`/platform/topics/${topicId}/simulate`, { decisionId, dataset: dataset || undefined, input, attach }),
     onSuccess: r => { setRes(r); qc.invalidateQueries({ queryKey: ['topic', topicId] }); qc.invalidateQueries({ queryKey: ['reviews', projectId] }); } });
   const r = res && res.decisionId === decisionId ? res : null;
   if (!decisions.length) return <div className="bg-white border border-[#e0e0e0] px-5 py-8 text-[14px] text-[#525252]">No decisions to simulate yet</div>;
 
   return (
     <div className="space-y-6">
-      <div className="bg-white border border-[#e0e0e0] p-5 grid gap-4 md:grid-cols-[1fr_1fr_auto] items-end">
+      <div className="bg-white border border-[#e0e0e0] p-5 grid gap-4 md:grid-cols-[1fr_1fr_1fr_auto] items-end">
         <div><div className="text-[12px] text-[#525252] mb-1">Decision</div>
           <Dropdown value={decisionId} onChange={v => { setDecisionId(v); setRes(null); }} options={decisions.map(x => ({ value: x.id, label: x.name, hint: x.kind === 'flow' ? 'Strategy' : x.type === 'FORMULA' ? 'Calculation' : 'Rules' }))} /></div>
-        {isFlow ? (
+        <div><div className="text-[12px] text-[#525252] mb-1">{isFlow ? 'Items from data set' : 'Data set'}</div>
+          <Dropdown value={dataset} placeholder="Choose a data set" onChange={setDataset} options={(sets as any[]).map(s => ({ value: s.slug, label: s.name || s.slug, hint: s.rowCount ? `${n(s.rowCount)} rows` : undefined }))} /></div>
+        {isFlow && (
           <div className="grid gap-3 grid-cols-1">{asks.map(a => (
             <label key={a} className="block"><span className="block text-[12px] text-[#525252] mb-1">{label(a)}</span>
               <input className="h-10 w-full px-3 bg-[#f4f4f4] border-b border-[#8d8d8d] text-[14px] tabular-nums outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2"
                 value={input[a] == null ? '' : Number(input[a]).toLocaleString('en-US')} onChange={e => { const v = e.target.value.replace(/,/g, ''); setInput({ ...input, [a]: v === '' ? undefined : Number(v) }); }} /></label>))}
           </div>
-        ) : (
-          <div><div className="text-[12px] text-[#525252] mb-1">Data set</div>
-            <Dropdown value={dataset} placeholder="Choose a data set" onChange={setDataset} options={(sets as any[]).map(s => ({ value: s.slug, label: s.name || s.slug, hint: s.rowCount ? `${n(s.rowCount)} rows` : undefined }))} /></div>
         )}
         <div className="flex gap-2">
-          <Btn onClick={() => run.mutate(false)} disabled={run.isPending || (!isFlow && !dataset)}>{run.isPending ? 'Running' : 'Run simulation'}</Btn>
+          <Btn onClick={() => run.mutate(false)} disabled={run.isPending || !dataset}>{run.isPending ? 'Running' : 'Run simulation'}</Btn>
           {d?.reviewState === 'PENDING' && <Btn kind="secondary" onClick={() => run.mutate(true)} disabled={run.isPending || (!isFlow && !dataset)}>Run and attach to approval</Btn>}
         </div>
       </div>
