@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { Search, Sun, Moon, ChevronDown, ChevronRight, Settings, LogOut, Shield } from 'lucide-react';
+import { Sparkles, Search, Sun, Moon, ChevronDown, ChevronRight, Settings, LogOut, Shield } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme, useAuth, useProject } from '@/lib/store';
 import { api, projectsApi } from '@/lib/api';
@@ -69,6 +69,9 @@ export function Topbar() {
 
       <button className="md:hidden h-12 w-12 flex items-center justify-center hover:bg-[#262626]" aria-label="Search"
         onClick={() => window.dispatchEvent(new CustomEvent('xrules:open-palette'))}><Search className="h-4 w-4" /></button>
+
+      <button className="h-12 px-3 flex items-center gap-2 text-[13px] text-[#c6c6c6] hover:bg-[#262626] hover:text-white" title="Assistant (⌘;)"
+        onClick={() => window.dispatchEvent(new CustomEvent('xrules:toggle-assistant'))}><Sparkles className="h-4 w-4" /><span className="hidden lg:inline">Assistant</span></button>
 
       <div className="relative h-full" ref={ref}>
         <button type="button" onClick={() => setMenu(m => !m)} aria-haspopup="menu" aria-expanded={menu}

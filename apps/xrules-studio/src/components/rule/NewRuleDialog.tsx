@@ -37,7 +37,7 @@ const TYPES: RuleTypeCard[] = [
     icon: BarChart3, tone: 'accent',
   },
   {
-    type: 'FORMULA', label: 'Formula', tagline: 'expression',
+    type: 'FORMULA', label: 'Calculation', tagline: 'expression',
     description: 'Single expression returns a value. Lightweight calculations.',
     icon: Sigma, tone: 'warn',
   },

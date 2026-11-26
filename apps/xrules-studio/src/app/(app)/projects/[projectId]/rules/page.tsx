@@ -1,4 +1,5 @@
 'use client';
+import { kindName } from '@/lib/kinds';
 
 import Link from 'next/link';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
@@ -119,7 +120,7 @@ export default function RulesPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#525252]" />
               <input className="input w-full pl-9" placeholder="Search" aria-label="Search rules" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
-            <div className="w-[160px]"><Dropdown value={typeFilter} onChange={v => router.push(v ? `/p/${projectId}/rules?type=${v}` : `/p/${projectId}/rules`)} options={[{ value: '', label: 'All types' }, { value: 'DECISION_TABLE', label: 'Decision Table' }, { value: 'DECISION_TREE', label: 'Decision Tree' }, { value: 'SCORECARD', label: 'Scorecard' }, { value: 'FORMULA', label: 'Formula' }, { value: 'SCRIPT', label: 'Scripting' }, { value: 'LOOKUP', label: 'Lookup' }, { value: 'AI_AGENT', label: 'AI Agent' }, { value: 'MODEL_CALL', label: 'Model Call' }]} /></div>
+            <div className="w-[160px]"><Dropdown value={typeFilter} onChange={v => router.push(v ? `/p/${projectId}/rules?type=${v}` : `/p/${projectId}/rules`)} options={[{ value: '', label: 'All types' }, ...['DECISION_TABLE', 'DECISION_TREE', 'SCORECARD', 'FORMULA', 'SCRIPT', 'LOOKUP', 'AI_AGENT', 'MODEL_CALL'].map(v => ({ value: v, label: kindName(v) }))]} /></div>
             {folders.length > 0 && <div className="w-[160px] xl:hidden"><Dropdown value={folderId || ''} onChange={v => setFolderId(v || null)} options={[{ value: '', label: 'All folders' }, ...flatten(folders).map((f: any) => ({ value: f.id, label: f.name }))]} /></div>}
             <div className="flex border border-[#c6c6c6] h-10">
               {['all', 'published', 'draft', 'archived'].map((t) => (
@@ -162,7 +163,7 @@ export default function RulesPage() {
                   </Link>
                 </td>
                 <td className="py-3 px-4">
-                  <span className="text-[14px] text-[#525252] whitespace-nowrap">{T.charAt(0) + T.slice(1).toLowerCase().replace(/_/g, ' ')}</span>
+                  <span className="text-[14px] text-[#525252] whitespace-nowrap">{kindName(T)}</span>
                 </td>
                 {folderList.length > 0 && <td className="py-3 px-4 hidden lg:table-cell text-[14px] text-[#525252]">{folderList.find(f => f.id === r.folderId)?.path || '—'}</td>}
                 <td className="py-3 px-4"><StatusPill status={r.status} /></td>

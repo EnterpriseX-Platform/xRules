@@ -83,11 +83,17 @@ r.get('/flows', authMiddleware, async (req, res, next) => {
 r.get('/datasets', authMiddleware, async (req, res, next) => {
   try {
     const p = await assertProjectAccess(String(req.query.project_id), req.user!);
-    const sets = await prisma.dataset.findMany({ where: { projectId: p.id }, orderBy: { slug: 'asc' } });
+    // all=1 (the shared Data Sets page): the hub's data sets and those of every project the caller can open
+    let ids = [p.id]; const names = new Map<string, string>([[p.id, p.name]]);
+    if (req.query.all === '1') {
+      const others = await prisma.project.findMany({ where: { workspaceId: p.workspaceId, NOT: { id: p.id } }, select: { id: true, name: true } });
+      for (const o of others) { try { await assertProjectAccess(o.id, req.user!); ids.push(o.id); names.set(o.id, o.name); } catch { /* not visible */ } }
+    }
+    const sets = await prisma.dataset.findMany({ where: { projectId: { in: ids } }, orderBy: { slug: 'asc' } });
     const out = await Promise.all(sets.map(async d => {
       const latest = await prisma.datasetSnapshot.findFirst({ where: { datasetId: d.id }, orderBy: { createdAt: 'desc' } });
       const active = d.activeSnapshotId ? await prisma.datasetSnapshot.findUnique({ where: { id: d.activeSnapshotId } }) : null;
-      return { id: d.id, slug: d.slug, name: d.name, keyFields: d.keyFields, rowCount: d.rowCount, format: d.format,
+      return { id: d.id, projectId: d.projectId, project: d.projectId === p.id ? null : names.get(d.projectId), slug: d.slug, name: d.name, keyFields: d.keyFields, rowCount: d.rowCount, format: d.format,
         active: active ? { id: active.id, at: active.createdAt.toISOString() } : null,
         latest: latest ? { id: latest.id, status: latest.status, at: latest.createdAt.toISOString() } : null,
         stale: !!latest && !!active && latest.id !== active.id && latest.status === 'REJECTED' };

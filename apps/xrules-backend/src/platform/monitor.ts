@@ -23,12 +23,12 @@ export async function traffic(projectIdOrSlug: string, user: AuthUser, hours = 2
   const keys = await prisma.$queryRawUnsafe<any[]>(`
     SELECT k.id, k.name, k."systemName", k.prefix, count(e.id)::int AS calls, count(e.id) FILTER (WHERE e.status <> 'SUCCESS')::int AS errors
     FROM executions e JOIN api_keys k ON k.id = e."apiKeyId" JOIN api_operations o ON o.id = e."operationId" JOIN api_specs s ON s.id = o."specId"
-    WHERE s."projectId" = ANY($1) AND e."createdAt" >= $2 GROUP BY k.id ORDER BY calls DESC`, ids, since(hours));
+    WHERE s."projectId" = ANY($1) AND e."createdAt" >= $2 AND e."targetType" = 'operation' GROUP BY k.id ORDER BY calls DESC`, ids, since(hours));
   const series = await prisma.$queryRawUnsafe<any[]>(`
     SELECT date_trunc('hour', e."createdAt") AS t, count(*)::int AS calls, count(*) FILTER (WHERE e.status <> 'SUCCESS')::int AS errors,
       percentile_cont(0.95) WITHIN GROUP (ORDER BY e.duration) AS p95
     FROM executions e JOIN api_operations o ON o.id = e."operationId" JOIN api_specs s ON s.id = o."specId"
-    WHERE s."projectId" = ANY($1) AND e."createdAt" >= $2 GROUP BY 1 ORDER BY 1`, ids, since(hours));
+    WHERE s."projectId" = ANY($1) AND e."createdAt" >= $2 AND e."targetType" = 'operation' GROUP BY 1 ORDER BY 1`, ids, since(hours));
   return { hours, operations: ops.map(n), keys, series: series.map(n) };
 }
 const n = (r: any) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, typeof v === 'bigint' ? Number(v) : v instanceof Date ? v.toISOString() : v === null ? null : typeof v === 'object' && v && 'toNumber' in (v as any) ? (v as any).toNumber() : v]));

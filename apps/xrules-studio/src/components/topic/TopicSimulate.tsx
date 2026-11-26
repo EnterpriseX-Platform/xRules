@@ -1,4 +1,5 @@
 'use client';
+import { kindName } from '@/lib/kinds';
 // Simulate a topic's decision on real data: live version beside the draft, in counts and money.
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -32,7 +33,7 @@ export function TopicSimulate({ projectId, topicId, decisions, last }: { project
     <div className="space-y-6">
       <div className="bg-white border border-[#e0e0e0] p-5 grid gap-4 md:grid-cols-[1fr_1fr_1fr_auto] items-end">
         <div><div className="text-[12px] text-[#525252] mb-1">Decision</div>
-          <Dropdown value={decisionId} onChange={v => { setDecisionId(v); setRes(null); }} options={decisions.map(x => ({ value: x.id, label: x.name, hint: x.kind === 'flow' ? 'Strategy' : x.type === 'FORMULA' ? 'Calculation' : 'Rules' }))} /></div>
+          <Dropdown value={decisionId} onChange={v => { setDecisionId(v); setRes(null); }} options={decisions.map(x => ({ value: x.id, label: x.name, hint: kindName(x.type) }))} /></div>
         <div><div className="text-[12px] text-[#525252] mb-1">{isFlow ? 'Items from data set' : 'Data set'}</div>
           <Dropdown value={dataset} placeholder="Choose a data set" onChange={setDataset} options={(sets as any[]).map(s => ({ value: s.slug, label: s.name || s.slug, hint: s.rowCount ? `${n(s.rowCount)} rows` : undefined }))} /></div>
         {isFlow && (

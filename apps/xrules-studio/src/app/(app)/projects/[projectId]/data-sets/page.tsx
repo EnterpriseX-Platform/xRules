@@ -20,7 +20,7 @@ export default function DataSetsPage() {
     },
     onSuccess: (d: any) => { qc.invalidateQueries({ queryKey: ['data-sets', projectId] }); router.push(`/p/${projectId}/data-sets/${d.id}`); },
   });
-  const { data: sets } = useQuery({ queryKey: ['data-sets', projectId], queryFn: () => api.get<any[]>(`/data/datasets?project_id=${projectId}`) });
+  const { data: sets } = useQuery({ queryKey: ['data-sets', projectId], queryFn: () => api.get<any[]>(`/data/datasets?project_id=${projectId}${projectId.startsWith('_') ? '&all=1' : ''}`) });
   useEffect(() => { const s = sp.get('slug'); const hit = s && sets?.find(x => x.slug === s); if (hit) router.replace(`/p/${projectId}/data-sets/${hit.id}`); }, [sp, sets, projectId, router]);
   return (
     <div className="px-8 py-6">
@@ -35,11 +35,12 @@ export default function DataSetsPage() {
         {upload.error && <div className="mt-3"><Notice kind="error">{(upload.error as any).message}</Notice></div>}
         <div className="mt-4"><Btn onClick={() => upload.mutate()} disabled={!name.trim() || !file || upload.isPending}>Upload</Btn></div>
       </Panel>}
-      <Table head={['Data Set', 'Key', 'Rows', 'Active snapshot', 'Latest snapshot']}
+      <Table head={['Data Set', 'Project', 'Key', 'Rows', 'Active snapshot', 'Latest snapshot']}
         empty={sets && !sets.length ? <div className="px-4 py-8 text-[14px] text-[#525252]">No Data Sets yet. Create one with a Write Data Set step in a Data Flow</div> : null}>
         {(sets || []).map(d => (
-          <tr key={d.id} className="hover:bg-[#e8e8e8] cursor-pointer" onClick={() => router.push(`/p/${projectId}/data-sets/${d.id}`)}>
-            <Td><span className="font-semibold font-mono text-[13px]">{d.slug}</span></Td>
+          <tr key={d.id} className="hover:bg-[#e8e8e8] cursor-pointer" onClick={() => router.push(`/p/${d.project ? d.projectId : projectId}/data-sets/${d.id}`)}>
+            <Td><span className="font-semibold">{d.name || d.slug}</span></Td>
+            <Td>{d.project || 'Shared'}</Td>
             <Td mono>{d.keyFields.join(' + ') || '—'}</Td>
             <Td mono>{d.rowCount.toLocaleString()}</Td>
             <Td>{d.active ? <span className="flex items-center gap-2">{fmtTime(d.active.at)}{d.stale && <Tag tone="orange">stale</Tag>}</span> : <Tag>None</Tag>}</Td>

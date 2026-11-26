@@ -117,7 +117,7 @@ export async function start(data: { projectId: string; template?: string; descri
   }
   if (tpl.strategy) {
     const s = tpl.strategy; const ids = s.steps.map(([k], i) => `${k}${i}`);
-    const graph = { nodes: s.steps.map(([type, d], i) => ({ id: ids[i], type, position: { x: 60 + i * 300, y: 120 }, data: { kind: type, ...d } })), edges: ids.slice(1).map((id, i) => ({ id: `e${i}`, source: ids[i], target: id })) };
+    const graph = { nodes: s.steps.map(([type, d], i) => ({ id: ids[i], type, position: { x: 60 + (i % 4) * 300, y: 80 + Math.floor(i / 4) * 180 }, data: { kind: type, ...d } })), edges: ids.slice(1).map((id, i) => ({ id: `e${i}`, source: ids[i], target: id })) };
     const f: any = await createFlow({ name: s.name, projectId: p.id, graph, kind: 'DECISION' } as any, user);
     await prisma.flow.update({ where: { id: f.id }, data: { topicId: topic.id } });
     for (const c of s.tests) await createCase({ name: c.name, targetType: 'decision_flow', targetId: f.id, input: c.input, expectations: expectations(c.expect) }, user).catch(() => {});

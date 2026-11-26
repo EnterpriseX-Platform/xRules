@@ -1,4 +1,5 @@
 'use client';
+import { kindName } from '@/lib/kinds';
 // One topic (เรื่อง): tabs that each answer one business question, over the same decisions.
 import { useState } from 'react';
 import Link from 'next/link';
@@ -28,7 +29,7 @@ const NEW: Record<string, { label: string; type?: string; flow?: boolean }> = {
 function strategyGraph() {
   const steps: [string, string, any][] = [['in', 'input', { label: 'Request' }], ['items', 'items', { label: 'Requests', from: 'input.items' }], ['filter', 'screen', { label: 'Who qualifies' }],
     ['score', 'score', { label: 'Score', expression: '' }], ['rank', 'rank', { label: 'Rank', weights: [{ term: 'score', weight: 1 }] }], ['pick', 'pick', { label: 'Allocate', mode: 'budget', budget: 'budget', cost: '' }], ['out', 'output', { label: 'Result' }]];
-  return { nodes: steps.map(([id, type, data], i) => ({ id, type, position: { x: 60 + i * 300, y: 120 }, data: { kind: type, ...data } })),
+  return { nodes: steps.map(([id, type, data], i) => ({ id, type, position: { x: 60 + (i % 4) * 300, y: 80 + Math.floor(i / 4) * 180 }, data: { kind: type, ...data } })),
     edges: steps.slice(1).map(([id], i) => ({ id: `e${i}`, source: steps[i][0], target: id })) };
 }
 const STATUS = (d: any) => d.reviewState === 'PENDING' ? <Tag tone="blue">In review</Tag> : d.status === 'published' ? <Tag tone="green">Live v{d.version}</Tag> : <Tag tone="orange">Draft</Tag>;
@@ -64,7 +65,7 @@ export default function TopicPage() {
         {items.map(d => (
           <Link key={d.id} href={href(d)} className="flex flex-wrap items-center gap-x-6 gap-y-1 px-5 py-4 border-b border-[#e0e0e0] last:border-b-0 hover:bg-[#f4f4f4]">
             <span className="flex-1 min-w-[220px] text-[15px] text-[#161616]">{d.name}</span>
-            <span className="text-[13px] text-[#525252] w-[130px]">{d.type === 'FLOW' ? 'Strategy' : d.type === 'FORMULA' ? 'Calculation' : d.type === 'SCORECARD' ? 'Scorecard' : 'Rules'}</span>
+            <span className="text-[13px] text-[#525252] w-[130px]">{kindName(d.type)}</span>
             <span className={`text-[13px] w-[120px] tabular-nums ${!d.tests.total || (!d.tests.fail && d.tests.pass < d.tests.total) ? 'text-[#6f6f6f]' : d.tests.pass === d.tests.total ? 'text-[#198038]' : 'text-[#da1e28]'}`}>{!d.tests.total ? 'No tests' : !d.tests.fail && d.tests.pass < d.tests.total ? `${d.tests.total - d.tests.pass} not run` : `${d.tests.pass}/${d.tests.total} pass`}</span>
             <span className="w-[110px]">{STATUS(d)}</span>
             <span className="text-[12px] text-[#6f6f6f] w-[150px]">{fmtTime(d.updatedAt)}</span>
