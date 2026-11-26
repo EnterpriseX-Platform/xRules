@@ -133,17 +133,9 @@ export default function FlowsPage() {
                   </div>
                   <div>
                     <div className="text-sm font-medium">{f.name}</div>
-                    <div className="text-xs text-subtle">{f.slug}</div>
                   </div>
                 </div>
               );
-            },
-          },
-          {
-            header: 'Kind',
-            cell: (f: any) => {
-              const isInt = String(f.kind || 'DECISION').toUpperCase() === 'INTEGRATION';
-              return <Pill tone={isInt ? 'warn' : 'info'}>{isInt ? 'integration' : 'decision'}</Pill>;
             },
           },
           {
