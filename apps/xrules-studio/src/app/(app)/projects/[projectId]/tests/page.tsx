@@ -40,7 +40,7 @@ export default function TestsPage() {
   const passed = (cases as any[]).filter(c => c.lastStatus === 'PASS').length;
   return (
     <div className="px-8 py-6">
-      <PageHead title="Test Suites" sub={`${cases.length} cases · ${passed} passed`} actions={<>
+      <PageHead title="Test Suites" sub={`${cases.length} case${cases.length === 1 ? "" : "s"} · ${passed} passed`} actions={<>
         {suite && <Btn kind="tertiary" onClick={() => runSuite.mutate()} disabled={runSuite.isPending}>Run suite</Btn>}
         {perms.write && <Btn onClick={() => setOpen(true)}>New Test Case</Btn>}</>} />
       <div className="flex gap-2 items-end mb-4">

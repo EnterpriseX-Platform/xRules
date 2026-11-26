@@ -160,7 +160,7 @@ export function TestSheet({ targetType, targetId, inputs, outputs, projectId }: 
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <span className="text-[14px] text-[#161616] tabular-nums mr-2">{rows.length} cases{ran && !dirty ? ` · ${passed} passed` : ''}{dirty ? ' · not saved' : ''}</span>
+        <span className="text-[14px] text-[#161616] tabular-nums mr-2">{rows.length} case{rows.length === 1 ? "" : "s"}{ran && !dirty ? ` · ${passed} passed` : ''}{dirty ? ' · not saved' : ''}</span>
         <div className="flex-1" />
         <button type="button" onClick={() => setImporting(true)} className="h-9 px-3 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8] flex items-center gap-1.5"><Upload className="h-4 w-4" />Import .xlsx</button>
         <button type="button" onClick={exportXlsx} className="h-9 px-3 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8] flex items-center gap-1.5"><Download className="h-4 w-4" />Download .xlsx</button>
