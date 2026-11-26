@@ -660,6 +660,7 @@ model TestSuite {
   rules TestSuiteRule[]
   runs  TestRun[]
 
+  deletedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

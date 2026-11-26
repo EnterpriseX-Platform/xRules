@@ -154,7 +154,7 @@ export async function runSuite(suiteId: string, user: AuthUser | null) {
 
 // nightly: all suites; failures go to the outbox as webhook alerts if NIGHTLY_ALERT_URL is set
 registerHandler('tests.nightly', async () => {
-  for (const s of await prisma.testSuite.findMany()) {
+  for (const s of await prisma.testSuite.findMany({ where: { deletedAt: null } })) {
     const r = await runSuite(s.id, null);
     if (r.failed && process.env.NIGHTLY_ALERT_URL) await outbox('webhook', process.env.NIGHTLY_ALERT_URL, { event: 'tests.nightly.failed', suite: s.name, failed: r.failed, total: r.totalRows });
   }

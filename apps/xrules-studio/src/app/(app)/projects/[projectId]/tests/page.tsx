@@ -34,6 +34,8 @@ export default function TestsPage() {
   const names: Record<string, string> = Object.fromEntries([...targetOpts, ...(flows as any[]).map(x => ({ value: x.id, label: x.name })), ...ruleList.map(r => ({ value: r.id, label: r.name }))].map(o => [o.value, o.label]));
   const inv = () => qc.invalidateQueries({ queryKey: ['tests', projectId] });
   const run = useMutation({ meta: { failLabel: "Couldn't run" }, mutationFn: (id: string) => api.post(`/platform/tests/${id}/run`), onSettled: inv });
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const removeSuite = useMutation({ meta: { failLabel: "Couldn't remove" }, mutationFn: () => api.post(`/platform/suites/${suite}/remove`), onSuccess: () => { setConfirmRemove(false); setSuite(''); qc.invalidateQueries({ queryKey: ['suites'] }); inv(); } });
   const runSuite = useMutation({ meta: { failLabel: "Couldn't run" }, mutationFn: () => api.post(`/platform/suites/${suite}/run`), onSettled: inv });
   const newSuite = useMutation({ mutationFn: (name: string) => api.post<any>('/platform/suites', { projectId, name }), onSuccess: s => { qc.invalidateQueries({ queryKey: ['suites', projectId] }); setSuite(s.id); } });
   const create = useMutation({ meta: { silent: true }, mutationFn: () => api.post('/platform/tests', { projectId, name: f.name, targetType: f.targetType, targetId: f.targetId, input: f.input, expectations: f.expectations, suiteIds: suite ? [suite] : [] }), onSuccess: () => { setOpen(false); inv(); } });
@@ -41,6 +43,7 @@ export default function TestsPage() {
   return (
     <div className="px-8 py-6">
       <PageHead title="Test Suites" sub={`${cases.length} case${cases.length === 1 ? "" : "s"} · ${passed} passed`} actions={<>
+        {suite && perms.write && <Btn kind="ghost" onClick={() => setConfirmRemove(true)}>Remove suite</Btn>}
         {suite && <Btn kind="tertiary" onClick={() => runSuite.mutate()} disabled={runSuite.isPending}>Run suite</Btn>}
         {perms.write && <Btn onClick={() => setOpen(true)}>New Test Case</Btn>}</>} />
       <div className="flex gap-2 items-end mb-4">
@@ -75,6 +78,9 @@ export default function TestsPage() {
           </tr>
         ))}
       </Table>
+      {confirmRemove && <Modal title="Remove suite" onClose={() => setConfirmRemove(false)} onSubmit={() => removeSuite.mutate()} submitLabel="Remove" submitDisabled={removeSuite.isPending}>
+        <div className="text-[14px]">The suite stops running at night and leaves the list. Its test cases and past runs are kept.</div>
+      </Modal>}
     </div>
   );
 }

@@ -104,7 +104,7 @@ r.get('/test-runs', authMiddleware, h(async req => {
 }));
 r.get('/suites', authMiddleware, h(async req => {
   const ids = await projectScope(req.query.project_id as string, req.user);
-  return prisma.testSuite.findMany({ where: { projectId: { in: ids } }, orderBy: { name: 'asc' } });
+  return prisma.testSuite.findMany({ where: { projectId: { in: ids }, deletedAt: null }, orderBy: { name: 'asc' } });
 }));
 r.post('/suites', authMiddleware, h(async req => {
   // a suite created on the tenant-level Testing screen belongs to the tenant's first decision project it targets later; default: integration hub
@@ -113,6 +113,13 @@ r.post('/suites', authMiddleware, h(async req => {
   const slug = String(req.body.name).toLowerCase().replace(/[^a-z0-9]+/g, '-') || `suite-${Date.now()}`;
   return prisma.testSuite.create({ data: { projectId: p.id, name: req.body.name, slug, description: req.body.description } });
 }, 201));
+r.post('/suites/:id/remove', authMiddleware, h(async req => {
+  // stamped, not erased: the suite and its past runs stay; it no longer lists or runs at night
+  const s = await prisma.testSuite.findUnique({ where: { id: req.params.id } }); if (!s) throw new Error('Suite not found');
+  await assertProjectAccess(s.projectId, req.user, 'write');
+  await prisma.testSuite.update({ where: { id: s.id }, data: { deletedAt: new Date() } });
+  return { removed: s.id };
+}));
 r.post('/suites/:id/run', authMiddleware, h(async req => (await import('../platform/testing.js')).runSuite(req.params.id, req.user)));
 
 // ---- Vocabulary + Rule Cowork
