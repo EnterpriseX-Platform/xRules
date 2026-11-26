@@ -68,55 +68,16 @@ export default function RuleDetailPage() {
 
   return (
     <PageContent>
-      {/* Compact header — rule meta + actions */}
-      <div className="flex flex-wrap items-start gap-4 mb-6">
-        <div className="flex-1 min-w-[min(100%,320px)]">
-          <div className="flex items-center gap-2 mb-1 text-[13px]">
-            {rule.topicId ? <Link href={`/p/${projectId}/topics/${rule.topicId}`} className="text-[#0f62fe] hover:underline">Topic</Link> : <Link href={`/p/${projectId}/rules`} className="text-[#0f62fe] hover:underline">Rules</Link>}
-            <span className="text-[#6f6f6f]">/</span>
-            <span className="text-[#525252]">{({ DECISION_TABLE: 'Who qualifies', DECISION_TREE: 'Who qualifies', FORMULA: 'Calculation', SCORECARD: 'Scorecard', SCRIPT: 'Script', LOOKUP: 'Lookup', MODEL_CALL: 'Model', AI_AGENT: 'AI agent' } as any)[String(rule.type).toUpperCase()] || rule.type}</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
-            <h1 className="text-[28px] leading-9 font-normal text-[#161616] min-w-0 break-words">{rule.name}</h1>
-            <StatusPill status={rule.status} />
-            <span className="text-[13px] text-[#525252] shrink-0 tabular-nums">v{rule.version}</span>
-            {rule.locked && <Pill tone="warn"><Lock className="h-2.5 w-2.5 inline mr-0.5" />locked</Pill>}
-          </div>
-          {rule.description && <p className="text-sm text-subtle mt-1">{rule.description}</p>}
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button className="btn-ghost text-xs" onClick={() => {
-            const evt = new CustomEvent('xrules:open-compare', { detail: { ruleId: rule.id } });
-            window.dispatchEvent(evt);
-          }} title="Compare versions">
-            <GitCompare className="h-3.5 w-3.5" />
-          </button>
-          <button className="btn-ghost text-xs" onClick={async () => {
-            await api.patch(rule.locked ? `/rules/${rule.id}/unlock` : `/rules/${rule.id}/lock`);
-            qc.invalidateQueries({ queryKey: ['rule', rule.id] });
-          }} title={rule.locked ? 'Unlock' : 'Lock'}>
-            {rule.locked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
-          </button>
-          <TestBadge targetType="rule" targetId={rule.id} onOpen={() => setTab('test')} changedAt={rule.updatedAt} />
-          <GoLive targetType="rule" targetId={rule.id} reviewState={rule.reviewState} onPublish={() => publish.mutate()} publishing={publish.isPending} disabled={rule.locked} invalidate={[['rule', rule.id]]} />
-        </div>
-      </div>
+      <RuleHead rule={rule} projectId={projectId} onTests={() => setTab('test')} publish={() => publish.mutate()} publishing={publish.isPending} />
 
       <CompareModal ruleId={rule.id} currentVersion={rule.version} />
 
       <RuleRelations ruleId={rule.id} home={projectId} />
 
-      {/* Tabs */}
-      <div className="tabs-row mb-6 max-w-full overflow-x-auto">
-        {TABS.filter(t => !(t.key === 'schemas' && String(rule.type || '').toUpperCase() === 'DECISION_TABLE')).map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`tab inline-flex items-center gap-1.5 ${tab === key ? 'tab-active' : ''}`}
-          >
-            <Icon className="h-3 w-3" />
-            {label}
-          </button>
+      <div className="flex border-b border-[#e0e0e0] mb-6 overflow-x-auto" role="tablist">
+        {TABS.filter(t => !(t.key === 'schemas' && String(rule.type || '').toUpperCase() === 'DECISION_TABLE')).map(({ key, label }) => (
+          <button key={key} role="tab" aria-selected={tab === key} onClick={() => setTab(key)}
+            className={`h-11 px-4 text-[14px] whitespace-nowrap border-b-2 -mb-px ${tab === key ? 'border-[#0f62fe] text-[#161616] font-semibold' : 'border-transparent text-[#525252] hover:text-[#161616]'}`}>{label}</button>
         ))}
       </div>
 
@@ -729,3 +690,36 @@ function CompareModal({ ruleId, currentVersion }: { ruleId: string; currentVersi
   );
 }
 
+
+const KIND: Record<string, string> = { DECISION_TABLE: 'Who qualifies', DECISION_TREE: 'Who qualifies', FORMULA: 'Calculation', SCORECARD: 'Scorecard', SCRIPT: 'Script', LOOKUP: 'Lookup', MODEL_CALL: 'Model', AI_AGENT: 'AI agent' };
+function RuleHead({ rule, projectId, onTests, publish, publishing }: { rule: any; projectId: string; onTests: () => void; publish: () => void; publishing: boolean }) {
+  const qc = useQueryClient();
+  const { data: topic } = useQuery({ queryKey: ['topic', rule.topicId], queryFn: () => api.get<any>(`/platform/topics/${rule.topicId}`), enabled: !!rule.topicId });
+  const st = String(rule.status).toLowerCase();
+  return (
+    <div className="mb-5">
+      <div className="flex flex-wrap items-center gap-x-2 text-[13px] mb-2">
+        {rule.topicId
+          ? <><Link href={`/p/${projectId}/topics`} className="text-[#0f62fe] hover:underline">Topics</Link><span className="text-[#6f6f6f]">/</span><Link href={`/p/${projectId}/topics/${rule.topicId}`} className="text-[#0f62fe] hover:underline">{topic?.name || 'Topic'}</Link></>
+          : <Link href={`/p/${projectId}/rules`} className="text-[#0f62fe] hover:underline">Rules</Link>}
+      </div>
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+        <div className="flex-1 min-w-[min(100%,320px)]">
+          <h1 className="text-[28px] leading-9 font-normal text-[#161616] break-words">{rule.name}</h1>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#525252]">
+            <span>{KIND[String(rule.type).toUpperCase()] || rule.type}</span><span className="text-[#c6c6c6]">|</span>
+            <span>{st === 'published' ? `Live v${rule.version}` : `Draft · last live v${rule.version}`}</span>
+            {rule.locked && <><span className="text-[#c6c6c6]">|</span><span className="text-[#8a3800]">Locked</span></>}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <TestBadge targetType="rule" targetId={rule.id} onOpen={onTests} changedAt={rule.updatedAt} />
+          <button className="h-10 px-3 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => window.dispatchEvent(new CustomEvent('xrules:open-compare', { detail: { ruleId: rule.id } }))}>Compare versions</button>
+          <button className="h-10 px-3 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={async () => { await api.patch(rule.locked ? `/rules/${rule.id}/unlock` : `/rules/${rule.id}/lock`); qc.invalidateQueries({ queryKey: ['rule', rule.id] }); }}>{rule.locked ? 'Unlock' : 'Lock'}</button>
+          <GoLive targetType="rule" targetId={rule.id} reviewState={rule.reviewState} onPublish={publish} publishing={publishing} disabled={rule.locked} invalidate={[['rule', rule.id]]} />
+        </div>
+      </div>
+      {rule.description && <p className="text-[14px] text-[#525252] mt-2">{rule.description}</p>}
+    </div>
+  );
+}
