@@ -24,7 +24,7 @@ export default function AlertsPage() {
         </div>
       </Panel>
       <Table head={['Condition', 'Threshold', 'Window', 'Send to', 'Enabled']}>
-        {data.rules.map((r: any) => <tr key={r.id}><Td>{r.name}</Td><Td mono>{r.threshold}</Td><Td mono>{r.windowMin} min</Td><Td className="text-[12px]">{(r.channels || []).map((c: any) => c.url).join(', ') || '—'}</Td>
+        {data.rules.map((r: any) => <tr key={r.id}><Td>{r.name}</Td><Td>{showThreshold(r)}</Td><Td>{showWindow(r.windowMin)}</Td><Td className="text-[12px]">{(r.channels || []).map((c: any) => c.url).join(', ') || '—'}</Td>
           <Td><input type="checkbox" checked={r.enabled} onChange={e => upd.mutate({ id: r.id, body: { enabled: e.target.checked } })} /></Td></tr>)}
       </Table>
       <h2 className="text-[20px] mt-8 mb-3">Alert history</h2>
@@ -34,4 +34,10 @@ export default function AlertsPage() {
       </Table>
     </div>
   );
+}
+
+function showWindow(m: number) { return m >= 1440 && m % 1440 === 0 ? `${m / 1440} day${m === 1440 ? '' : 's'}` : m >= 60 && m % 60 === 0 ? `${m / 60} hour${m === 60 ? '' : 's'}` : `${m} min`; }
+function showThreshold(r: any) {
+  const n = /rate/i.test(r.name) ? `${Math.round(Number(r.threshold) * 1000) / 10}%` : /p95|response/i.test(r.name) ? `${Number(r.threshold) / 1000} s` : /older|hours| h /i.test(r.name) ? `${r.threshold} hours` : /expires|days/i.test(r.name) ? `${r.threshold} days` : String(r.threshold);
+  return n;
 }

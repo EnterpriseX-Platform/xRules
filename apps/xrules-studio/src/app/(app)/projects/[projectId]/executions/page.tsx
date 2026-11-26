@@ -30,7 +30,7 @@ export default function ExecutionsPage() {
           <Table head={['Flow', 'Result', 'When', 'Duration']}>
             {flowRuns.map((r: any) => (
               <tr key={r.id} className="hover:bg-[#e8e8e8]">
-                <Td><Link className="text-[#0f62fe] hover:underline" href={`/p/${projectId}/executions/${r.id}`}>{r.flow}</Link> <span className="font-mono text-[12px] text-[#525252]">v{r.version}</span></Td>
+                <Td><Link className="text-[#0f62fe] hover:underline" href={`/p/${projectId}/executions/${r.id}`}>{r.flow}</Link> <span className="text-[13px] text-[#525252]">v{r.version}</span></Td>
                 <Td><span className="flex gap-1">{r.summary?.error ? <Tag tone="red">ERROR {r.summary.error}</Tag> : <Tag tone="green">Passed</Tag>}{r.summary?.warning ? <Tag tone="orange">WARNING {r.summary.warning}</Tag> : null}{r.summary?.skipped ? <Tag>SKIPPED {r.summary.skipped}</Tag> : null}</span></Td>
                 <Td>{fmtTime(r.at)}</Td>
                 <Td mono>{r.ms} ms</Td>
@@ -48,13 +48,13 @@ export default function ExecutionsPage() {
           { header: 'Rule', cell: (r: any) => (
               <div>
                 <div className="text-sm font-medium">{r.ruleName || r.rule?.name || 'unnamed'}</div>
-                <div className="text-[10px] text-subtle font-mono">{(r.ruleType || '').replace('_', ' ')}</div>
+                
               </div>
             ),
           },
           { header: 'Status', cell: (r: any) => <StatusPill status={r.status} /> },
-          { header: 'Duration', cell: (r: any) => <span className="font-mono text-xs text-subtle tabular-nums">{r.duration ?? '—'}ms</span>, align: 'right' },
-          { header: 'When', cell: (r: any) => <span className="font-mono text-xs text-subtle">{fmtTime(r.createdAt)}</span>, align: 'right' },
+          { header: 'Duration', cell: (r: any) => <span className="tabular-nums">{r.duration ?? '—'} ms</span>, align: 'right' },
+          { header: 'When', cell: (r: any) => <span className="text-[#525252]">{fmtTime(r.createdAt)}</span>, align: 'right' },
         ]}
       />
     </PageContent>
