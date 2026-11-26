@@ -88,7 +88,7 @@ async function runRuleDef(rule: any, definition: any, input: any) {
   if (local != null) return local;
   const axios = (await import('axios')).default; const { env } = await import('../config/env.js');
   const resp = await axios.post(`${env.engineHubUrl}/api/v1/execute`, { rule: { type: rule.type, engine: rule.engine || 'rules', definition: transformDefinitionForEngine(r) }, input, context: { rule_id: rule.id } }, { timeout: 30000 });
-  let out = resp.data.output ?? resp.data;
+  let out = resp.data && typeof resp.data === 'object' && 'output' in resp.data ? resp.data.output : resp.data;
   try { out = shapeByHitPolicy(r, applyElseRow(r, out)); } catch { /* keep raw */ }
   return out;
 }

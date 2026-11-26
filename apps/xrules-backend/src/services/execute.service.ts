@@ -250,7 +250,7 @@ export async function executeRule(ruleId: string, input: any, context: any, user
         },
       );
 
-      output = shapeByHitPolicy(rule, applyElseRow(rule, engineResponse.data.output ?? engineResponse.data));
+      output = shapeByHitPolicy(rule, applyElseRow(rule, engineResponse.data && typeof engineResponse.data === 'object' && 'output' in engineResponse.data ? engineResponse.data.output : engineResponse.data));
     } catch (engineError: any) {
       // Only fallback to local DMN for connection errors, not for all errors
       const isConnectionError = engineError?.code === 'ECONNREFUSED' || engineError?.code === 'ENOTFOUND' || engineError?.code === 'ETIMEDOUT';
