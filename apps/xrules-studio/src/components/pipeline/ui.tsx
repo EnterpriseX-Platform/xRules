@@ -23,7 +23,7 @@ export function Table({ head, children, empty }: { head: string[]; children: Rea
         <thead><tr className="bg-[#e0e0e0]">{head.map(h => <th key={h} className="text-left font-semibold px-4 h-12 whitespace-nowrap">{h}</th>)}</tr></thead>
         <tbody>{children}</tbody>
       </table>
-      {empty}
+      {empty ?? (React.Children.toArray(children).length === 0 ? <div className="px-4 py-6 text-[14px] text-[#525252]">Nothing here yet</div> : null)}
     </div>
   );
 }

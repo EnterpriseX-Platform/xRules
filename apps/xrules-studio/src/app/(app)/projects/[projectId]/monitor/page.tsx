@@ -15,9 +15,9 @@ export default function MonitorOverview() {
   return (
     <div className="px-8 py-6">
       <PageHead title="Overview" />
-      <div className="grid gap-px bg-[#e0e0e0] border border-[#e0e0e0] grid-cols-2 lg:grid-cols-5 mb-6">
-        {([['REST API calls, 24 h', o.callsToday.toLocaleString('en-US'), diff === null ? 'No calls the day before' : `${diff >= 0 ? '+' : ''}${diff}% on the day before`],
-          ['Open alerts', o.alerts.length, ''], ['Slow or failing APIs', o.slowOrFailing.length, ''], ['Stale data sets', o.staleData.length, ''], ['Bulk runs in progress', o.bulkRunning || 0, '']] as [string, any, string][]).map(([k, v, sub]) => (
+      <div className="grid gap-px bg-[#e0e0e0] border border-[#e0e0e0] grid-cols-2 lg:grid-cols-4 mb-6">
+        {([['REST API calls, 24 h', o.callsToday.toLocaleString('en-US'), diff === null ? 'No calls the day before' : `${diff >= 0 ? '+' : ''}${diff}% on the day before`, ],
+          ['Open alerts', o.alerts.length, ''], ['Slow or failing APIs', o.slowOrFailing.length, ''], ['Stale data sets', o.staleData.length, o.bulkRunning ? `${o.bulkRunning} bulk run${o.bulkRunning === 1 ? '' : 's'} in progress` : '']] as [string, any, string][]).map(([k, v, sub]) => (
           <div key={k} className="bg-white p-4"><div className="text-[12px] text-[#525252]">{k}</div><div className="text-[28px] font-light tabular-nums mt-1">{v}</div>{sub && <div className="text-[12px] text-[#6f6f6f]">{sub}</div>}</div>
         ))}
       </div>
