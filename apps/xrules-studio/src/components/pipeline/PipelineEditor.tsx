@@ -324,7 +324,7 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
             <div className="flex-1 overflow-y-auto">
               {testResult && <div className="px-4 h-11 flex items-center gap-3 border-b border-[#e0e0e0]">
                 <span className="text-[14px] font-semibold text-[#161616]">Result</span>
-                {testResult.error ? <span className="px-2 rounded-full text-[12px] bg-[#ffd7d9] text-[#a2191f]">Failed</span> : <span className="px-2 rounded-full text-[12px] bg-[#a7f0ba] text-[#0e6027]">Passed</span>}
+                {testResult.error ? <span className="text-[13px] text-[#a2191f]">Failed</span> : <span className="text-[13px] text-[#198038]">Passed</span>}
                 {testResult.duration_ms !== undefined && <span className="ml-auto text-[12px] text-[#525252] tabular-nums">{testResult.duration_ms} ms</span>}
               </div>}
               {testResult?.error && <div className="px-4 py-3 text-[13px] text-[#a2191f]">{testResult.error}</div>}
@@ -349,7 +349,7 @@ function PreviewDrawer({ result, onClose }: { result: any; onClose: () => void }
   return (
     <div className="h-[300px] bg-white border-t border-[#e0e0e0] flex flex-col">
       <div className="h-12 px-6 flex items-center gap-4 border-b border-[#e0e0e0]">
-        <span className={`px-2 rounded-full text-[12px] ${ok ? 'bg-[#a7f0ba] text-[#0e6027]' : 'bg-[#ffd7d9] text-[#a2191f]'}`}>{ok ? (result.mode === 'run' ? 'Run succeeded' : 'Passed') : 'Failed'}</span>
+        <span className={`text-[13px] ${ok ? 'text-[#198038]' : 'text-[#da1e28]'}`}>{ok ? (result.mode === 'run' ? 'Run succeeded' : 'Passed') : 'Failed'}</span>
         <span className="text-[14px] text-[#161616]">
           {result.mode === 'run' ? (result.rowCount !== undefined ? `Saved ${result.rowCount} rows` : 'Run finished') : `${result.rowCount ?? rows.length} rows passed · ${result.rejectedCount ?? 0} rejected`}
           {result.error && <span className="text-[#a2191f]"> · {result.error}</span>}

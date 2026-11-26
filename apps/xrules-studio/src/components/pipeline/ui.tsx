@@ -13,8 +13,8 @@ export function PageHead({ title, sub, actions }: { title: string; sub?: React.R
   );
 }
 export function Tag({ tone = 'gray', children }: { tone?: 'gray' | 'green' | 'red' | 'blue' | 'orange'; children: React.ReactNode }) {
-  const c = { gray: 'bg-[#e0e0e0] text-[#161616]', green: 'bg-[#a7f0ba] text-[#0e6027]', red: 'bg-[#ffd7d9] text-[#a2191f]', blue: 'bg-[#d0e2ff] text-[#0043ce]', orange: 'bg-[#ffd8bd] text-[#8a3800]' }[tone];
-  return <span className={`inline-flex items-center h-6 px-2 rounded-full text-[12px] whitespace-nowrap ${c}`}>{children}</span>;
+  const c = { gray: 'text-[#525252]', green: 'text-[#198038]', red: 'text-[#da1e28]', blue: 'text-[#0043ce]', orange: 'text-[#8a3800]' }[tone];
+  return <span className={`inline-flex items-center text-[13px] whitespace-nowrap ${c}`}>{children}</span>;
 }
 export function Table({ head, children, empty }: { head: string[]; children: React.ReactNode; empty?: React.ReactNode }) {
   return (

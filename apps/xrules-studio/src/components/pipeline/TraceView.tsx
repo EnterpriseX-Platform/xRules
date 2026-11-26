@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { metaFor } from './registry';
 
-const TONE: Record<string, string> = { ok: 'bg-[#a7f0ba] text-[#0e6027]', skipped: 'bg-[#e0e0e0] text-[#161616]', error: 'bg-[#ffd7d9] text-[#a2191f]' };
+const TONE: Record<string, string> = { ok: 'text-[#198038]', skipped: 'text-[#525252]', error: 'text-[#da1e28]' };
 const WORD: Record<string, string> = { ok: 'OK', skipped: 'Skipped', error: 'Error' };
 
 export function TraceView({ steps, depth = 0 }: { steps: any[]; depth?: number }) {
@@ -25,7 +25,7 @@ function Step({ s, depth }: { s: any; depth: number }) {
         <span className="h-5 w-5 flex items-center justify-center" style={{ background: m.tile }}><Icon className="h-3 w-3" style={{ color: m.ink }} /></span>
         <span className="text-[13px] font-semibold">{s.label || (s.kind === 'subflow' ? s.label : m.title)}</span>
         <span className="text-[11px] text-[#525252] tracking-[0.04em]">{m.label}</span>
-        <span className={`ml-auto inline-flex h-5 items-center px-2 rounded-full text-[11px] ${TONE[s.status] || TONE.ok}`}>{WORD[s.status] || s.status}</span>
+        <span className={`ml-auto inline-flex items-center text-[13px] ${TONE[s.status] || TONE.ok}`}>{WORD[s.status] || s.status}</span>
         <span className="font-mono text-[11px] text-[#525252] w-14 text-right">{s.ms} ms</span>
       </button>
       {open && hasDetail && (
