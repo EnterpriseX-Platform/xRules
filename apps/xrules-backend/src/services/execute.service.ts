@@ -345,7 +345,7 @@ export function applyElseRow(rule: any, out: any): any {
   if (rule.type !== 'DECISION_TABLE') return out;
   const def = rule.definition as any;
   const row = (def?.rules || []).find(isElseRow);
-  const empty = out == null || (Array.isArray(out) && out.length === 0) || (typeof out === 'object' && !Array.isArray(out) && Object.keys(out).length === 0);
+  const empty = out == null || (Array.isArray(out) && out.length === 0) || (typeof out === 'object' && !Array.isArray(out) && Object.values(out).every(v => v == null));
   if (!row || !empty) return out;
   const names: string[] = (def?.outputs || []).map((o: any) => o.name);
   const value: Record<string, unknown> = {};
