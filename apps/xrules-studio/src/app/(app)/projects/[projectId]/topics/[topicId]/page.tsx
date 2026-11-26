@@ -10,6 +10,7 @@ import { Btn, Input, Modal, Tag, fmtTime } from '@/components/pipeline/ui';
 import { usePerms } from '@/lib/perms';
 import { TopicSimulate } from '@/components/topic/TopicSimulate';
 import { RequestData } from '@/components/topic/RequestData';
+import { TopicDoc } from '@/components/topic/TopicDoc';
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
@@ -90,18 +91,7 @@ export default function TopicPage() {
         ))}
       </div>
 
-      {tab === 'overview' && (
-        <div className="space-y-6">
-          <div className="grid gap-px bg-[#e0e0e0] border border-[#e0e0e0] grid-cols-2 lg:grid-cols-4">
-            {[['Decisions', ds.length], ['Live', ds.filter(d => d.status === 'published').length], ['In review', ds.filter(d => d.reviewState === 'PENDING').length], ['Tests passing', tests.total ? `${tests.pass}/${tests.total}` : '—']].map(([k, v]) => (
-              <div key={String(k)} className="bg-white p-4"><div className="text-[12px] text-[#6f6f6f]">{k}</div><div className="text-[28px] font-light tabular-nums mt-1">{v}</div></div>
-            ))}
-          </div>
-          {(['qualify', 'amount', 'choose'] as const).map(q => (
-            <div key={q}><div className="text-[16px] text-[#161616] mb-2">{TABS.find(x => x.key === q)!.label}</div>{list(by(q))}</div>
-          ))}
-        </div>
-      )}
+      {tab === 'overview' && <TopicDoc projectId={projectId} topic={t} onTab={go} />}
       {(tab === 'qualify' || tab === 'amount' || tab === 'choose') && list(by(tab), tab)}
       {tab === 'tests' && list(ds.filter(d => true))}
       {tab === 'simulate' && <TopicSimulate projectId={projectId} topicId={topicId} decisions={ds} last={t.lastSimulation} />}

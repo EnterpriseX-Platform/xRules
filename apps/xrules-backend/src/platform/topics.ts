@@ -40,12 +40,12 @@ export async function get(id: string, user: AuthUser) {
   const t = await prisma.topic.findFirst({ where: { id, deletedAt: null } });
   if (!t) throw new NotFoundError('Topic');
   await assertProjectAccess(t.projectId, user);
-  const rules = await prisma.rule.findMany({ where: { topicId: t.id }, select: { id: true, name: true, type: true, status: true, reviewState: true, version: true, updatedAt: true, definition: true }, orderBy: { createdAt: 'asc' } });
-  const flows = await prisma.flow.findMany({ where: { topicId: t.id }, select: { id: true, name: true, status: true, reviewState: true, version: true, updatedAt: true, kind: true }, orderBy: { createdAt: 'asc' } });
+  const rules = await prisma.rule.findMany({ where: { topicId: t.id }, select: { id: true, name: true, slug: true, type: true, status: true, reviewState: true, version: true, updatedAt: true, definition: true }, orderBy: { createdAt: 'asc' } });
+  const flows = await prisma.flow.findMany({ where: { topicId: t.id, status: { not: 'ARCHIVED' as any } }, select: { id: true, name: true, status: true, reviewState: true, version: true, updatedAt: true, kind: true, graph: true }, orderBy: { createdAt: 'asc' } });
   const rt = await testsFor('rule', rules.map(r => r.id)); const ft = await testsFor('decision_flow', flows.map(f => f.id));
   const decisions = [
-    ...rules.map(r => ({ id: r.id, kind: 'rule' as const, name: r.name, type: r.type, question: QUESTION[String(r.type).toUpperCase()] || 'qualify', status: String(r.status).toLowerCase(), reviewState: r.reviewState, version: r.version, updatedAt: r.updatedAt, tests: rt.get(r.id) || { total: 0, pass: 0 }, definition: r.definition })),
-    ...flows.map(f => ({ id: f.id, kind: 'flow' as const, name: f.name, type: 'FLOW', question: 'choose' as const, status: String(f.status).toLowerCase(), reviewState: f.reviewState, version: f.version, updatedAt: f.updatedAt, tests: ft.get(f.id) || { total: 0, pass: 0 }, definition: null })),
+    ...rules.map(r => ({ id: r.id, kind: 'rule' as const, name: r.name, slug: r.slug, type: r.type, question: QUESTION[String(r.type).toUpperCase()] || 'qualify', status: String(r.status).toLowerCase(), reviewState: r.reviewState, version: r.version, updatedAt: r.updatedAt, tests: rt.get(r.id) || { total: 0, pass: 0 }, definition: r.definition })),
+    ...flows.map(f => ({ id: f.id, kind: 'flow' as const, name: f.name, type: 'FLOW', question: 'choose' as const, status: String(f.status).toLowerCase(), reviewState: f.reviewState, version: f.version, updatedAt: f.updatedAt, tests: ft.get(f.id) || { total: 0, pass: 0 }, definition: null, graph: f.graph })),
   ];
   return { id: t.id, projectId: t.projectId, name: t.name, description: t.description, goal: t.goal, createdAt: t.createdAt, updatedAt: t.updatedAt, lastSimulation: t.lastSimulation, decisions };
 }

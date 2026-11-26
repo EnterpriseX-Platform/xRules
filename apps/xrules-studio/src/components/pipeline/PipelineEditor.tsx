@@ -3,6 +3,7 @@
 // title + live version, undo/redo, lock, publish state, Save draft / Publish vN,
 // dotted canvas with Tidy up / Add step, zoom control, and "Build with AI".
 import Link from 'next/link';
+import { LinksBar } from '@/components/links/Links';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ReactFlow, {
@@ -224,6 +225,7 @@ function Inner({ projectId, flowId, backHref, backLabel }: { projectId: string; 
             ? <><Link href={`/p/${projectId}/topics`} className="text-[#0f62fe] hover:underline">Topics</Link><span className="text-[#6f6f6f]">/</span><Link href={`/p/${projectId}/topics/${(flow as any).topicId}/choose`} className="text-[#0f62fe] hover:underline">Topic</Link></>
             : backHref ? <Link href={backHref} className="text-[#0f62fe] hover:underline">{backLabel || 'Back'}</Link> : null}</div>
           <h1 className="text-[20px] leading-7 text-[#161616] break-words">{flow.name}</h1>
+          {kind === 'decision' && <div className="mt-2"><LinksBar kind="flow" id={flowId} name={flow.name} href={`/p/${projectId}/flows/${flowId}`} /></div>}
         </div>
         <span className="flex items-center gap-1.5 text-[13px] text-[#525252] whitespace-nowrap"><span className="h-2 w-2 rounded-full" style={{ background: state.dot }} />{state.text}</span>
         {(save.error || publish.error) && <span className="text-[13px] text-[#da1e28] truncate">{String((save.error as any)?.message || (publish.error as any)?.message)}</span>}

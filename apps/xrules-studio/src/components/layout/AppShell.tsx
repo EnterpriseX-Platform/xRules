@@ -6,9 +6,11 @@ import { CommandPalette } from './CommandPalette';
 import { Shortcuts } from './Shortcuts';
 import { AssistantPanel } from '@/components/assistant/AssistantPanel';
 import { ScopeBar } from './ScopeBar';
+import { BesideProvider } from '@/components/links/Links';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
+    <BesideProvider>
     <div className="flex flex-col h-screen overflow-hidden bg-bg">
       <Topbar />
       <div className="flex-1 flex min-h-0">
@@ -22,6 +24,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Shortcuts />
       <AssistantPanel />
     </div>
+    </BesideProvider>
   );
 }
 

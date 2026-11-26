@@ -1,5 +1,6 @@
 'use client';
 import { kindName } from '@/lib/kinds';
+import { LinksBar } from '@/components/links/Links';
 import { fmtTime } from '@/components/pipeline/ui';
 import { InputFields, ResultView, inputFieldsOf, outputFieldsOf } from '@/components/test/FieldsEditor';
 import { TestSheet } from '@/components/test/TestSheet';
@@ -721,6 +722,7 @@ function RuleHead({ rule, projectId, onTests, publish, publishing }: { rule: any
         </div>
       </div>
       {rule.description && <p className="text-[14px] text-[#525252] mt-2">{rule.description}</p>}
+      <div className="mt-3"><LinksBar kind="rule" id={rule.id} name={rule.name} href={`/p/${projectId}/rules/${rule.id}`} /></div>
     </div>
   );
 }
