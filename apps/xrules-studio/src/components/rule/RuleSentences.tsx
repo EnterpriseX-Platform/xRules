@@ -15,6 +15,8 @@ import { tableSentences } from '@/components/review/sentences';
 import { readTable } from '@/lib/termImport';
 
 const PAGE = 100;
+/** Words every step of a topic run can read: what the earlier steps raised. */
+export const RUN_WORDS = ['reasons so far', 'outcomes so far', 'top reason so far', 'top outcome so far'];
 
 export const OP_TH: { value: string; label: string; args: 0 | 1 | 2 }[] = [
   { value: '=', label: 'is', args: 1 },
@@ -52,17 +54,31 @@ function TermPicker({ options, onPick, onCreate, placeholder = 'Choose data', on
   // focus after the box left behind has finished its blur, so nothing typed lands in the old value
   const box = useRef<HTMLInputElement>(null);
   useEffect(() => { const h = setTimeout(() => box.current?.focus(), 140); box.current?.focus(); return () => clearTimeout(h); }, []);
-  const shown = options.filter(o => !q || o.label.toLowerCase().includes(q.toLowerCase()) || o.value.toLowerCase().includes(q.toLowerCase())).slice(0, 40);
-  const exact = options.some(o => o.label.toLowerCase() === q.trim().toLowerCase());
+  // exact first, then names that start with what is typed, then a word inside that starts with it, then anywhere
+  const ql = q.trim().toLowerCase();
+  const rank = (o: { value: string; label: string }) => { const l = o.label.toLowerCase(), v = o.value.toLowerCase();
+    if (!ql) return 0; if (l === ql || v === ql) return 0; if (l.startsWith(ql) || v.startsWith(ql)) return 1;
+    if (l.split(/[\s_.:\-]+/).some(w => w.startsWith(ql))) return 2; if (l.includes(ql) || v.includes(ql)) return 3; return 9; };
+  const shown = options.map(o => ({ o, r: rank(o) })).filter(x => x.r < 9).sort((a, b) => a.r - b.r || a.o.label.length - b.o.label.length).slice(0, 40);
+  const exact = options.some(o => o.label.toLowerCase() === ql);
+  // Enter takes the highlighted one; a hit only somewhere inside a name is never taken without the arrow keys
+  const [hi, setHi] = useState(0);
+  useEffect(() => { setHi(shown[0] && shown[0].r <= 2 ? 0 : -1); }, [q]); // eslint-disable-line react-hooks/exhaustive-deps
+  const list = useRef<HTMLSpanElement>(null);
+  useEffect(() => { (list.current?.children[hi] as HTMLElement | undefined)?.scrollIntoView?.({ block: 'nearest' }); }, [hi]);
   return (
     <span className="relative inline-block min-w-[220px]">
       <input ref={box} aria-label={placeholder} placeholder={placeholder} className={`${plain} w-full`} value={q} onChange={e => setQ(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } if (e.key === 'Enter') { e.preventDefault(); if (shown[0]) onPick(shown[0].value); } }}
+        role="combobox" aria-expanded="true" aria-autocomplete="list" aria-activedescendant={hi >= 0 ? `tp-${hi}` : undefined}
+        onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); }
+          if (e.key === 'ArrowDown') { e.preventDefault(); setHi(h => Math.min(shown.length - 1, h + 1)); }
+          if (e.key === 'ArrowUp') { e.preventDefault(); setHi(h => Math.max(0, h - 1)); }
+          if (e.key === 'Enter') { e.preventDefault(); if (hi >= 0 && shown[hi]) onPick(shown[hi].o.value); } }}
         onBlur={() => setTimeout(() => { if (!busy) onClose(); }, 150)} />
-      <span className="absolute left-0 top-full z-20 mt-px w-[280px] max-h-[280px] overflow-auto bg-white shadow-[0_2px_6px_rgba(0,0,0,.3)] text-[14px] text-[#161616] leading-normal">
-        {shown.map(o => <button key={o.value} type="button" className="block w-full text-left px-3 h-9 hover:bg-[#e8e8e8] truncate" onMouseDown={e => e.preventDefault()} onClick={() => onPick(o.value)}>{o.label}</button>)}
+      <span ref={list} role="listbox" className="absolute left-0 top-full z-20 mt-px w-[280px] max-h-[280px] overflow-auto bg-white shadow-[0_2px_6px_rgba(0,0,0,.3)] text-[14px] text-[#161616] leading-normal">
+        {shown.map(({ o }, k) => <button key={o.value} id={`tp-${k}`} role="option" aria-selected={k === hi} tabIndex={-1} type="button" className={`block w-full text-left px-3 h-9 hover:bg-[#e8e8e8] truncate ${k === hi ? 'bg-[#e0e0e0]' : ''}`} onMouseEnter={() => setHi(k)} onMouseDown={e => e.preventDefault()} onClick={() => onPick(o.value)}>{o.label}</button>)}
         {onCreate && q.trim() && !exact && (
-          <button type="button" className="block w-full text-left px-3 h-9 text-[#0f62fe] hover:bg-[#e8e8e8] border-t border-[#e0e0e0] truncate" disabled={busy} onMouseDown={e => e.preventDefault()}
+          <button type="button" tabIndex={-1} className="block w-full text-left px-3 h-9 text-[#0f62fe] hover:bg-[#e8e8e8] border-t border-[#e0e0e0] truncate" disabled={busy} onMouseDown={e => e.preventDefault()}
             onClick={async () => { setBusy(true); const p = await onCreate(q.trim()).catch(() => null); setBusy(false); if (p) onPick(p); }}>Add term &ldquo;{q.trim()}&rdquo;</button>
         )}
         {!shown.length && !q.trim() && <span className="block px-3 py-2 text-[#6f6f6f]">{emptyText}</span>}
@@ -77,7 +93,9 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
 }) {
   const inputs: any[] = def.inputs || []; const outputs: any[] = def.outputs || []; const rules: any[] = def.rules || [];
   // which picker is open: "and" on the main group, "or" for a new group, a group index, a result or a reason
-  const [adding, setAdding] = useState<{ ri: number; to: 'and' | 'or' | number | 'result' | 'reason' } | null>(null);
+  const [adding, setAddingRaw] = useState<{ ri: number; to: 'and' | 'or' | number | 'result' | 'reason' | 'clear' | 'decision' } | null>(null);
+  // opening a picker cancels a focus move still waiting from the condition just added (it used to close the picker again)
+  const setAdding = (x: typeof adding) => { if (x) setFocusAt(null); setAddingRaw(x); };
   const emit = (p: Partial<Def>) => onChange({ ...def, ...p });
   const setCell = (ri: number, side: 'inputs' | 'outputs', ci: number, v: any) =>
     emit({ rules: rules.map((r, i) => (i === ri ? { ...r, [side]: Object.assign([...(r[side] || [])], { [ci]: v }) } : r)) });
@@ -140,11 +158,11 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
 
   function addRow() {
     // an empty line already waiting is used instead of adding another one
-    const empty = (r: any) => (r.inputs || []).every(isAny) && !(r.or || []).length && !(r.reasons || []).length && (r.outputs || []).every((x: any) => x === null || x === undefined || x === '');
+    const empty = (r: any) => (r.inputs || []).every(isAny) && !(r.or || []).length && !(r.reasons || []).length && !(r.more || []).length && !(r.clear || []).length && !r.decision && (r.outputs || []).every((x: any) => x === null || x === undefined || x === '');
     if (rules.some(empty)) return;
     const blank = { id: nid(), inputs: inputs.map(() => '-'), outputs: outputs.map(() => null) };
     const last = rules[rules.length - 1];
-    const catchAll = last && (last.inputs || []).every(isAny) && !(last.or || []).length && !(last.reasons || []).length;
+    const catchAll = last && (last.inputs || []).every(isAny) && !(last.or || []).length && !(last.reasons || []).length && !(last.more || []).length;
     emit({ rules: catchAll ? [...rules.slice(0, -1), blank, last] : [...rules, blank] });
   }
   // make sure a column exists for the field (new columns start as "any" on every line)
@@ -159,11 +177,13 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
     setAdding(null);
     const { nextInputs, nextRules, ci } = withColumn(path);
     // the new condition's comparison takes the focus next (always the same order: word → comparison → value)
-    setFocusAt({ ri, key: to === 'and' ? `m${ci}` : `g${to === 'or' ? (rules[ri]?.or || []).length : to}${path}`, part: 0 });
+    const again = to === 'and' && !isAny(nextRules[ri]?.inputs?.[ci]);
+    setFocusAt({ ri, key: again ? `x${(nextRules[ri]?.more || []).length}` : to === 'and' ? `m${ci}` : `g${to === 'or' ? (rules[ri]?.or || []).length : to}${path}`, part: 0 });
     const rows = nextRules.map((r, i) => {
       if (i !== ri) return r;
       // a word that already has a condition here is never overwritten: it becomes its own "or" condition
-      if (to === 'and' && !isAny(r.inputs?.[ci])) return { ...r, or: [...(r.or || []), { when: { [path]: '= ' } }] };
+      // a word that already has a condition here gets a further "and" condition of its own
+      if (to === 'and' && !isAny(r.inputs?.[ci])) return { ...r, more: [...(r.more || []), { name: path, cell: '= ' }] };
       if (to === 'and') return { ...r, inputs: Object.assign([...r.inputs], { [ci]: '= ' }), seq: [...(r.seq || nextInputs.filter((_: any, k: number) => !isAny(r.inputs?.[k])).map((c: any) => c.name)).filter((n: string) => n !== path), path] };
       const or = [...(r.or || [])];
       if (to === 'or') or.push({ when: { [path]: '= ' } }); else or[to] = { ...or[to], when: { ...(or[to]?.when || {}), [path]: '= ' } };
@@ -200,7 +220,7 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
     const put = (op: string, a: any[]) => set(formatCellExpression(op, a));
     // a value the word does not allow (its allowed values or value set); formulas and dates like "180 days ago" are not checked
     // only a value set is a closed list; values seen in imported samples are suggestions, numbers are never checked
-    const notKnown = (v: any) => { const x = String(v ?? '').trim(); const vs = t?.values || []; return !!x && !!(t?.valueSetId || t?.valueSet) && isNaN(Number(x.replace(/,/g, ''))) && vs.length > 0 && !/^GROUP:/i.test(x) && !/[*/+×÷()]|\s-\s|\bago$|^today$|^in \d/i.test(x) && !vs.includes(x) && !vs.some(o => valueLabel(o).toLowerCase() === x.toLowerCase()); };
+    const notKnown = (v: any) => { const x = String(v ?? '').trim(); if (terms.some(w => w.path === x || w.term?.toLowerCase() === x.toLowerCase())) return false; const vs = t?.values || []; return !!x && !!(t?.valueSetId || t?.valueSet) && isNaN(Number(x.replace(/,/g, ''))) && vs.length > 0 && !/^GROUP:/i.test(x) && !/[*/+×÷()]|\s-\s|\bago$|^today$|^in \d/i.test(x) && !vs.includes(x) && !vs.some(o => valueLabel(o).toLowerCase() === x.toLowerCase()); };
     return (
       <span key={key} data-cond={key} className="inline-flex flex-wrap items-center gap-x-1.5">
         <Chip title={name}>{label(name)}</Chip>
@@ -233,7 +253,7 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
   );
   const picker = (ri: number, to: 'and' | 'or' | number, exclude: string[]) => (
     <TermPicker onClose={() => setAdding(null)} onCreate={onAddTerm} onPick={p => p && addCondition(ri, p, to)}
-      options={[...inputs.map(c => c.name), ...terms.map(t => t.path)].filter((p, i, a) => a.indexOf(p) === i && !exclude.includes(p) && !outputs.some(o => o.name === p)).map(p => ({ value: p, label: label(p) }))} />
+      options={[...inputs.map(c => c.name), ...terms.map(t => t.path), ...RUN_WORDS].filter((p, i, a) => a.indexOf(p) === i && !exclude.includes(p) && !outputs.some(o => o.name === p)).map(p => ({ value: p, label: label(p) }))} />
   );
 
   return (
@@ -270,7 +290,7 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
           const join = r.match === 'any' ? 'or' : 'and';
           const rowReasons: string[] = r.reasons || [];
           const open = adding?.ri === ri ? adding.to : null;
-          const nothing = conds.length === 0 && !groups.length;
+          const nothing = conds.length === 0 && !groups.length && !(r.more || []).length;
           return (
             <div key={r.id || ri} data-line={ri} className="group flex items-start gap-3 px-4 py-2 border-b border-[#e0e0e0] last:border-b-0 text-[15px] text-[#161616] leading-8">
               <span className="w-6 shrink-0 text-right text-[13px] text-[#6f6f6f] tabular-nums pt-px">{ri + 1}</span>
@@ -280,7 +300,10 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
                 {conds.map(({ c, ci, cell }, k) => (
                   <span key={ci} className="inline-flex flex-wrap items-center gap-x-1.5">{k > 0 && <span>{join}</span>}{condEditor(`m${ci}`, c.name, cell, v => setCell(ri, 'inputs', ci, v), ri)}</span>
                 ))}
-                {open === 'and' ? picker(ri, 'and', conds.map(x => x.c.name))
+                {(r.more || []).map((m: any, k: number) => (
+                  <span key={`x${k}`} className="inline-flex flex-wrap items-center gap-x-1.5"><span>{join}</span>{condEditor(`x${k}`, m.name, m.cell, v => setRow(ri, { more: v === '-' ? (r.more || []).filter((_: any, j: number) => j !== k) : (r.more || []).map((x: any, j: number) => (j === k ? { ...x, cell: v } : x)) }), ri)}</span>
+                ))}
+                {open === 'and' ? picker(ri, 'and', [])
                   : <button type="button" className={word} onClick={() => setAdding({ ri, to: 'and' })}>{conds.length ? `+ ${join}` : '+ condition'}</button>}
                 {groups.map((g, gi) => {
                   const cells = Object.entries(g.when || {});
@@ -318,7 +341,20 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
                     </span>
                   );
                 })}
-                {open === 'result'
+                {(r.clear || []).map((c: string) => (
+                  <span key={`c${c}`} className="inline-flex items-center gap-x-1.5"><span>,</span><span>clear</span>
+                    <Chip>{/^all$/i.test(c) ? 'all reasons so far' : /^outcome:/i.test(c) ? `every ${c.slice(8)} reason so far` : <><span className="font-mono text-[13px] mr-1.5">{c}</span>{reasons.find(x => x.code === c)?.text || ''}</>}</Chip>
+                    <button type="button" aria-label={`Do not clear ${c}`} className="h-6 w-6 text-[#8d8d8d] hover:text-[#da1e28] opacity-0 group-hover:opacity-100" onClick={() => setRow(ri, { clear: (r.clear || []).filter((x: string) => x !== c) })}>×</button></span>
+                ))}
+                {r.decision && <span className="inline-flex items-center gap-x-1.5"><span>,</span><span>set decision</span><Chip>{r.decision}</Chip>
+                  <button type="button" aria-label="Do not set the decision" className="h-6 w-6 text-[#8d8d8d] hover:text-[#da1e28] opacity-0 group-hover:opacity-100" onClick={() => setRow(ri, { decision: undefined })}>×</button></span>}
+                {open === 'clear'
+                  ? <TermPicker placeholder="Reasons to clear" onClose={() => setAdding(null)} onPick={v => { setAdding(null); setRow(ri, { clear: Array.from(new Set([...(r.clear || []), v])) }); }}
+                      options={[{ value: 'all', label: 'All reasons so far' }, ...Array.from(new Set(reasons.map(x => x.outcome).filter(Boolean))).map(o => ({ value: `outcome:${o}`, label: `Every ${o} reason so far` })), ...reasons.map(x => ({ value: x.code, label: `${x.code} ${x.text}` }))].filter(o => !(r.clear || []).includes(o.value))} />
+                  : open === 'decision'
+                  ? <TermPicker placeholder="Decision" onClose={() => setAdding(null)} onPick={v => { setAdding(null); setRow(ri, { decision: v }); }}
+                      options={Array.from(new Set(['Approve', ...reasons.map(x => x.outcome).filter(Boolean)])).map(o => ({ value: o, label: o }))} />
+                  : open === 'result'
                   ? <TermPicker placeholder="Choose result" onClose={() => setAdding(null)} onCreate={onAddTerm} onPick={addResult}
                       options={terms.map(t => t.path).filter(p => !outputs.some(o => o.name === p) && !inputs.some(c => c.name === p)).map(p => ({ value: p, label: label(p) }))} />
                   : open === 'reason'
@@ -327,6 +363,8 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
                   : <>
                       <button type="button" className={`${word} ${outputs.length || rowReasons.length ? 'opacity-0 group-hover:opacity-100' : ''}`} onClick={() => setAdding({ ri, to: 'result' })}>+ result</button>
                       <button type="button" className={`${word} ${outputs.length || rowReasons.length ? 'opacity-0 group-hover:opacity-100' : ''}`} onClick={() => setAdding({ ri, to: 'reason' })}>+ add reason</button>
+                      <button type="button" className={`${word} opacity-0 group-hover:opacity-100 focus:opacity-100`} onClick={() => setAdding({ ri, to: 'clear' })}>+ clear reasons</button>
+                      {!r.decision && <button type="button" className={`${word} opacity-0 group-hover:opacity-100 focus:opacity-100`} onClick={() => setAdding({ ri, to: 'decision' })}>+ set decision</button>}
                     </>}
               </div>
               {change.m.has(ri) && <span className={`shrink-0 text-[13px] pt-px ${change.m.get(ri) === 'New' ? 'text-[#198038]' : 'text-[#0043ce]'}`}>{change.m.get(ri)}</span>}

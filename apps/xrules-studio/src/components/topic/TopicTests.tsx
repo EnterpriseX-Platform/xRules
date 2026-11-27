@@ -34,8 +34,12 @@ export function TopicTests({ projectId, topicId, runKey, focusId, canWrite = tru
     const all = cases as any[]; if (!staleSince || !all.length || run.isPending || staleRun.current === staleSince) return;
     if (all.some(c => !c.updatedAt || c.updatedAt < staleSince)) { staleRun.current = staleSince; const t = setTimeout(() => run.mutate(), 900); return () => clearTimeout(t); }
   }, [staleSince, cases]); // eslint-disable-line react-hooks/exhaustive-deps
-  const shownCases = cases as any[];
-  const list = shownCases.filter(c => !c._removed);
+  const [failingOnly, setFailingOnly] = useState(false);
+  const [byField, setByField] = useState<string | null>(null);
+  const failsField = (c: any, path: string) => (c.expectations || []).some((e: any, i: number) => e?.path === path && c.lastResult?.checks?.[i] && !c.lastResult.checks[i].ok);
+  const allCases = cases as any[];
+  const shownCases = allCases.filter(c => c._removed || ((!failingOnly || c.lastStatus === 'FAIL' || c.lastStatus === 'ERROR') && (!byField || failsField(c, byField))));
+  const list = allCases.filter(c => !c._removed);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const bulk = useBulkRemove<any>({ queryKey: ['topic-tests', topicId], also: [['topics', projectId]], noun: 'test case',
     remove: rows => api.post('/platform/tests/remove', { ids: rows.map(r => r.id) }), restore: rows => api.post('/platform/tests/restore', { ids: rows.map(r => r.id) }) });
@@ -71,9 +75,17 @@ export function TopicTests({ projectId, topicId, runKey, focusId, canWrite = tru
       {!list.length && <div className="px-4 py-4 text-[14px] text-[#6f6f6f]">No test cases yet</div>}
       {fields.length > 0 && (
         <div className="px-4 py-2 border-b border-[#e0e0e0] text-[13px]">
-          {fields.map(f => <div key={f.path} className="grid grid-cols-[1fr_auto] gap-x-3 h-7 items-center"><span className="text-[#525252] truncate">{label(String(f.path).replace(/^\$\.?/, ''))}</span>
-            <span className={`tabular-nums ${f.ok === f.of ? 'text-[#198038]' : 'text-[#da1e28]'}`}>matched {f.ok} of {f.of}</span></div>)}
-          <div className="flex gap-1 pt-1">
+          {/* each expected word: how many cases match; click to see only the cases that miss it */}
+          {fields.map(f => <button key={f.path} type="button" aria-pressed={byField === f.path} title={f.ok === f.of ? undefined : 'Show the cases that miss this'}
+            onClick={() => setByField(b => (b === f.path ? null : f.path))}
+            className={`w-full text-left grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 py-1 items-center hover:bg-[#f4f4f4] ${byField === f.path ? 'bg-[#e0e0e0]' : ''}`}>
+            <span className="text-[#161616] break-words min-w-0">{label(String(f.path).replace(/^\$\.?/, ''))}</span>
+            <span className={`tabular-nums ${f.ok === f.of ? 'text-[#198038]' : 'text-[#da1e28]'}`}>{f.ok} of {f.of}</span>
+            <span className="col-span-2 h-[3px] bg-[#e0e0e0] mt-1"><span className={`block h-full ${f.ok === f.of ? 'bg-[#198038]' : 'bg-[#da1e28]'}`} style={{ width: `${f.of ? (100 * f.ok) / f.of : 0}%` }} /></span>
+          </button>)}
+          <div className="flex flex-wrap gap-1 pt-1">
+            <button type="button" aria-pressed={failingOnly} className={`h-8 px-2 text-[13px] ${failingOnly ? 'bg-[#161616] text-white' : 'text-[#0f62fe] hover:bg-[#e8e8e8]'}`} onClick={() => setFailingOnly(x => !x)}>Failing only</button>
+            {byField && <button type="button" className="h-8 px-2 text-[13px] text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => setByField(null)}>Missing {label(byField.replace(/^\$\.?/, ''))} · show all</button>}
             <button type="button" className="h-8 px-2 text-[13px] text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => { setAsTable(false); setAll(a => !a); setOpenSet(new Set()); }}>{all ? 'Collapse all' : 'Expand all'}</button>
             <button type="button" className="h-8 px-2 text-[13px] text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => setAsTable(t => !t)}>{asTable ? 'Show as list' : 'Show as table'}</button>
           </div>
@@ -101,10 +113,13 @@ export function TopicTests({ projectId, topicId, runKey, focusId, canWrite = tru
             <div key={c.id} className="border-b border-[#e0e0e0] last:border-b-0">
               <div className="flex items-center">
               {canWrite && <Tick className="ml-4 h-4 w-4 shrink-0 accent-[#161616]" aria-label={`Select ${c.name}`} checked={picked.has(c.id)} onSet={on => setPicked(s => { const n = new Set(s); on ? n.add(c.id) : n.delete(c.id); return n; })} />}
-              <button type="button" className="flex-1 min-w-0 flex items-center gap-3 px-4 h-10 text-left hover:bg-[#f4f4f4]" onClick={() => toggle(c.id)} aria-expanded={isOpen(c.id)}>
-                <span className={`w-12 text-[13px] ${c.lastStatus === 'PASS' ? 'text-[#198038]' : bad ? 'text-[#da1e28]' : 'text-[#6f6f6f]'}`}>{c.lastStatus === 'PASS' ? 'Pass' : c.lastStatus === 'ERROR' ? 'Error' : bad ? 'Fail' : 'Not run'}</span>
-                <span className="flex-1 truncate text-[14px] text-[#161616]">{c.name}</span>
-                {here?.lines?.length ? <span className="text-[12px] text-[#525252] tabular-nums">{here.lines.map((n: number, k: number) => `line ${n}${here.from?.[k] ? ` · ${here.from[k]}` : ''}`).join(', ')}</span> : null}
+              <button type="button" className="flex-1 min-w-0 flex items-start gap-3 px-4 py-2 min-h-10 text-left hover:bg-[#f4f4f4]" onClick={() => toggle(c.id)} aria-expanded={isOpen(c.id)}>
+                <span className={`w-12 shrink-0 text-[13px] leading-5 ${c.lastStatus === 'PASS' ? 'text-[#198038]' : bad ? 'text-[#da1e28]' : 'text-[#6f6f6f]'}`}>{c.lastStatus === 'PASS' ? 'Pass' : c.lastStatus === 'ERROR' ? 'Error' : bad ? 'Fail' : 'Not run'}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="block truncate text-[14px] text-[#161616]">{c.name}{here?.lines?.length ? <span className="ml-2 text-[12px] text-[#525252] tabular-nums">{here.lines.map((n: number, k: number) => `line ${n}${here.from?.[k] ? ` · ${here.from[k]}` : ''}`).join(', ')}</span> : null}</span>
+                  {bad && !isOpen(c.id) && (r.checks || []).map((k: any, i: number) => { const e = (c.expectations || [])[i]; if (k.ok) return null;
+                    return <span key={i} className="block text-[12px] text-[#da1e28] break-words">{e?.path ? `${label(String(e.path).replace(/^\$\.?/, ''))}: expected ${show(e.value)} · got ${show(readPath(r.output, e.path))}` : k.message}</span>; })}
+                </span>
               </button>
               </div>
               {isOpen(c.id) && (
@@ -118,7 +133,13 @@ export function TopicTests({ projectId, topicId, runKey, focusId, canWrite = tru
                       </div>
                     ) : <div key={i} className="text-[#da1e28]">{k.message}</div>;
                   })}
-                  {trace.length > 0 && <div className="pt-1 text-[#525252]">{trace.map(t => <div key={t.id} className={t.id === focusId ? 'text-[#161616]' : ''}>{t.name}: {t.error ? <span className="text-[#da1e28]">{t.error}</span> : t.lines ? (t.lines.length ? t.lines.map((n: number, k: number) => `line ${n}${t.from?.[k] ? ` (${t.from[k]})` : ''}`).join(', ') : 'no line') : workedOut(t.output, label)}</div>)}</div>}
+                  {trace.length > 0 && <div className="pt-1 text-[#525252] space-y-1">{trace.map(t => <div key={t.id} className={`break-words ${t.id === focusId ? 'text-[#161616]' : ''}`}>
+                    <span className="font-semibold">{t.name}</span>: {t.error ? <span className="text-[#da1e28]">{t.error}</span> : t.lines ? (t.lines.length ? t.lines.map((n: number, k: number) => `line ${n}${t.from?.[k] ? ` (${t.from[k]})` : ''}`).join(', ') : 'no line') : workedOut(t.output, label)}
+                    {t.added?.length ? <span> · added {t.added.join(' ')}</span> : null}
+                    {t.cleared?.length ? <span> · cleared {t.cleared.join(' ')}</span> : null}
+                    {t.decision ? <span> · decision set to {t.decision}</span> : null}
+                    {t.lineErrors && Object.entries(t.lineErrors).map(([w, e]: [string, any]) => <div key={w} className="text-[#da1e28]">line {e?.line} {/^line \d+$/.test(w) ? '' : label(w)}: {e?.dependsOn ? `depends on ${label(e.dependsOn)} (error)` : e?.error}</div>)}
+                  </div>)}</div>}
                 </div>
               )}
             </div>
