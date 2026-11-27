@@ -24,10 +24,13 @@ async function runSteps(t: any, input: any, set: ReturnType<typeof topicSettings
   const { withSettings } = await import('./product-settings.js');
   const product = typeof input?.product === 'string' && input.product.trim() ? input.product.trim() : t.product || null;
   // a decision replaced for this run (approval ripple, a newer library version) and settings filled for the product
-  const rules = await Promise.all((await prisma.rule.findMany({ where: { topicId }, orderBy: { createdAt: 'asc' } }))
+  const stages: any[] = Array.isArray(t.stages) ? (t.stages as any[]) : [];
+  // an archived decision never runs; once the topic has steps, a decision taken out of every step does not run either
+  const staged = new Set(stages.flatMap((s: any) => (s?.items || []).map(String)));
+  const rules = await Promise.all((await prisma.rule.findMany({ where: { topicId, status: { not: 'ARCHIVED' as any } }, orderBy: { createdAt: 'asc' } }))
+    .filter(r => t.shape !== 'steps' || !stages.length || staged.has(r.id))
     .map(r => { const x = overrides[r.id] ? { ...r, definition: overrides[r.id], libraryRef: null } : r; return withSettings(x, input, product).catch((e: any) => ({ ...x, settingError: String(e?.message || e) })); }));
   const flows = await prisma.flow.findMany({ where: { topicId, status: { not: 'ARCHIVED' as any } }, orderBy: { createdAt: 'asc' } });
-  const stages: any[] = Array.isArray(t.stages) ? (t.stages as any[]) : [];
   const order: string[] = [];
   // within a step, a rule that works out a word runs before the rules that use it; else the step's own order
   for (const s of stages) for (const i of byDependency((s?.items || []).map(String), rules)) if (!order.includes(i)) order.push(i);
