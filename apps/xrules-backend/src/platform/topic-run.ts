@@ -5,11 +5,22 @@ import { prisma } from '../config/database.js';
 import { NotFoundError } from '../utils/errors.js';
 
 const SYSTEM = { userId: '__system__', email: 'test@xrules', tenantId: '*', roles: ['OWNER'] } as any;
-const REASON_KEYS = new Set(['reasons', 'reason', 'reasonText', 'outcome']);
+const REASON_KEYS = new Set(['reasons', 'reason', 'reasonText', 'outcome', 'decisionResult']);
+
+/** What a topic answers when no reason fires, and its decision date. */
+export const topicSettings = (t: any) => { const s = t?.settings && typeof t.settings === 'object' ? t.settings : {}; return { decisionDate: s.decisionDate || null, noReason: { outcome: s.noReason?.outcome || 'Approve', result: s.noReason?.result || s.noReason?.outcome || 'Approve' } }; };
 
 export async function runTopic(topicId: string, input: any) {
   const t = await prisma.topic.findFirst({ where: { id: topicId, deletedAt: null } });
   if (!t) throw new NotFoundError('Topic');
+  const { withDecisionDate, decisionDateIn } = await import('../services/table-eval.js');
+  const set = topicSettings(t);
+  // a case's own decision date wins over the topic's
+  return withDecisionDate(decisionDateIn(input) || set.decisionDate, () => runSteps(t, input, set));
+}
+
+async function runSteps(t: any, input: any, set: ReturnType<typeof topicSettings>) {
+  const topicId = t.id;
   const rules = await prisma.rule.findMany({ where: { topicId }, orderBy: { createdAt: 'asc' } });
   const flows = await prisma.flow.findMany({ where: { topicId, status: { not: 'ARCHIVED' as any } }, orderBy: { createdAt: 'asc' } });
   const stages: any[] = Array.isArray(t.stages) ? (t.stages as any[]) : [];
@@ -20,7 +31,7 @@ export async function runTopic(topicId: string, input: any) {
 
   const { executeRule, reasonCatalogue } = await import('../services/execute.service.js');
   const { evaluateTable, rowMatches, usesGroupsOrReasons } = await import('../services/table-eval.js');
-  const catalogue = await reasonCatalogue(t.projectId);
+  const catalogue = Object.assign(await reasonCatalogue(t.projectId), { noReason: set.noReason });
   const ctx: any = JSON.parse(JSON.stringify(input || {}));
   const out: Record<string, any> = {}; const codes: string[] = []; const trace: any[] = [];
   const take = (o: any) => {
@@ -54,9 +65,10 @@ export async function runTopic(topicId: string, input: any) {
       trace.push({ id, name: r?.name || f?.name, error: String(e?.response?.data?.error?.message || e?.message || e) });
     }
   }
-  const known = codes.map(c => catalogue.find((x: any) => x.code === c) || { code: c, text: c, outcome: 'Decline', priority: Number.MAX_SAFE_INTEGER });
+  const known = codes.map(c => catalogue.find((x: any) => x.code === c) || { code: c, text: c, outcome: 'Decline', result: null, priority: Number.MAX_SAFE_INTEGER });
   const top = [...known].sort((a: any, b: any) => a.priority - b.priority)[0] as any;
-  return { output: { ...out, reasons: codes, reason: top?.code ?? null, reasonText: top?.text ?? null, outcome: top?.outcome ?? 'Approve' }, trace };
+  return { output: { ...out, reasons: codes, reason: top?.code ?? null, reasonText: top?.text ?? null, outcome: top ? top.outcome : set.noReason.outcome,
+    decisionResult: top ? top.result || top.outcome : set.noReason.result }, trace };
 }
 
 /** Bring in many cases at once: each row has input words and expected results (by data path). */

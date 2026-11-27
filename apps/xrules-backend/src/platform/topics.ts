@@ -49,7 +49,7 @@ export async function get(id: string, user: AuthUser) {
   ];
   const ids = new Set(decisions.map(d => d.id));
   const stages = stagesOf(t).map(st => ({ ...st, items: st.items.filter(i => ids.has(i)) }));
-  return { id: t.id, projectId: t.projectId, name: t.name, description: t.description, goal: t.goal, product: t.product, shape: t.shape, stages, createdAt: t.createdAt, updatedAt: t.updatedAt, lastSimulation: t.lastSimulation, decisions };
+  return { id: t.id, projectId: t.projectId, name: t.name, description: t.description, goal: t.goal, product: t.product, settings: t.settings || {}, shape: t.shape, stages, createdAt: t.createdAt, updatedAt: t.updatedAt, lastSimulation: t.lastSimulation, decisions };
 }
 
 // a "steps" topic: an ordered list of named stages, each holding decisions and calculations
@@ -89,10 +89,20 @@ export async function setStages(id: string, data: { stages: any[] }, user: AuthU
   return { stages };
 }
 
-export async function update(id: string, data: { name?: string; description?: string; goal?: string; product?: string | null }, user: AuthUser) {
+export async function update(id: string, data: { name?: string; description?: string; goal?: string; product?: string | null; settings?: any }, user: AuthUser) {
   const t = await prisma.topic.findFirst({ where: { id, deletedAt: null } }); if (!t) throw new NotFoundError('Topic');
   await assertProjectAccess(t.projectId, user, 'write');
-  return prisma.topic.update({ where: { id }, data: { ...(data.name !== undefined && { name: String(data.name).trim() || t.name }), ...(data.description !== undefined && { description: data.description }), ...(data.goal !== undefined && { goal: data.goal }), ...(data.product !== undefined && { product: String(data.product || '').trim() || null }) } });
+  return prisma.topic.update({ where: { id }, data: { ...(data.name !== undefined && { name: String(data.name).trim() || t.name }), ...(data.description !== undefined && { description: data.description }), ...(data.goal !== undefined && { goal: data.goal }), ...(data.product !== undefined && { product: String(data.product || '').trim() || null }), ...(data.settings !== undefined && { settings: settingsOf(data.settings, t.settings) }) } });
+}
+function settingsOf(v: any, prev: any) {
+  const s: any = { ...(prev && typeof prev === 'object' ? prev : {}) };
+  if (v && 'decisionDate' in v) {
+    const d = String(v.decisionDate ?? '').trim();
+    if (d && !/^\d{4}-?\d{2}-?\d{2}$/.test(d)) throw new ValidationError('Decision date is a date like 2025-11-26');
+    s.decisionDate = d ? d.replace(/^(\d{4})-?(\d{2})-?(\d{2})$/, '$1-$2-$3') : null;
+  }
+  if (v && 'noReason' in v) s.noReason = { outcome: String(v.noReason?.outcome ?? '').trim().slice(0, 40) || null, result: String(v.noReason?.result ?? '').trim().slice(0, 40) || null };
+  return s;
 }
 
 /** Removing a topic stamps it; its rules and flows stay, unassigned. */

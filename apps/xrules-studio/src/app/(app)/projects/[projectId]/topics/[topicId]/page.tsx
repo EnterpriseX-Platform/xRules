@@ -36,6 +36,7 @@ export default function TopicPage() {
   const { data: topicCases = [] } = useQuery({ queryKey: ['topic-tests', topicId], queryFn: () => api.get<any[]>(`/platform/tests/target/topic/${topicId}`) });
   const { data: allTopics = [] } = useQuery({ queryKey: ['topics', projectId], queryFn: () => api.get<any[]>(`/platform/topics?project_id=${projectId}`) });
   const setProduct = useMutation({ mutationFn: (product: string) => api.post(`/platform/topics/${topicId}/update`, { product }), onSuccess: () => { qc.invalidateQueries({ queryKey: ['topic', topicId] }); qc.invalidateQueries({ queryKey: ['topics', projectId] }); } });
+  const setSettings = useMutation({ meta: { failLabel: "Couldn't save" }, mutationFn: (settings: any) => api.post(`/platform/topics/${topicId}/update`, { settings }), onSuccess: () => { qc.invalidateQueries({ queryKey: ['topic', topicId] }); } });
   const [name, setName] = useState('');
   // the name box takes the typing straight away
   useEffect(() => { if (creating) { const h = setTimeout(() => document.getElementById('tp-new')?.focus(), 60); return () => clearTimeout(h); } }, [creating]);
@@ -60,9 +61,10 @@ export default function TopicPage() {
       <div className="text-[13px] mb-1"><Link href={`/p/${projectId}/topics`} className="text-[#0f62fe] hover:underline">Topics</Link></div>
       <div className="flex items-start gap-4"><h1 className="flex-1 text-[28px] leading-9 text-[#161616]">{t.name}</h1><div className="flex gap-2 shrink-0 whitespace-nowrap">{perms.write && <RequestData projectId={projectId} topicId={topicId} />}<Btn kind="secondary" onClick={() => show('simulate')}>Try on real data</Btn>{perms.write && <Btn onClick={() => show('approval')}>Request approval</Btn>}</div></div>
       {t.goal && <div className="text-[15px] text-[#525252] mt-1">{t.goal}</div>}
-      <div className="flex items-center gap-2 mt-2 text-[14px]"><span className="text-[#525252]">Product</span>
+      <div className="flex flex-wrap items-center gap-2 mt-2 text-[14px]"><span className="text-[#525252]">Product</span>
         {perms.write ? <ValueCombo className="h-8 min-w-[160px] bg-transparent border-b border-[#8d8d8d] px-1 text-[14px] text-[#161616] outline-none focus:border-[#0f62fe]" value={t.product || ''} placeholder="None" ariaLabel="Product"
           values={Array.from(new Set(((allTopics as any[]) || []).map((x: any) => x.product).filter(Boolean)))} onChange={v => setProduct.mutate(v)} /> : <span>{t.product || 'None'}</span>}
+        <TopicSettings settings={t.settings || {}} canWrite={!!perms.write} error={setSettings.error ? String((setSettings.error as any).message) : null} onSave={v => setSettings.mutate(v)} />
       </div>
       <div className="text-[13px] text-[#525252] mt-2 mb-6 border-b border-[#e0e0e0] pb-3">{ds.length} decision{ds.length === 1 ? '' : 's'}{t.shape === 'steps' ? ` in ${(t.stages || []).length} step${(t.stages || []).length === 1 ? '' : 's'}` : ''} · <span className={tests.fail ? 'text-[#da1e28]' : ''}>{tests.total ? `tests ${tests.pass}/${tests.total} pass${tests.fail ? ` · ${tests.fail} fail` : ''}` : 'no tests yet'}</span></div>
 
@@ -80,5 +82,26 @@ export default function TopicPage() {
         </Modal>
       )}
     </div>
+  );
+}
+
+const OUTS = ['Approve', 'Refer', 'Decline', 'Reject', 'Cancel', 'Pending'];
+/** The topic's decision date (blank = today) and what it answers when no reason code fires. */
+function TopicSettings({ settings, canWrite, onSave, error }: { settings: any; canWrite: boolean; onSave: (v: any) => void; error: string | null }) {
+  const [d, setD] = useState<string | null>(null);
+  const date = d ?? (settings.decisionDate || '');
+  const nr = settings.noReason || {};
+  const box = 'h-8 bg-transparent border-b border-[#8d8d8d] px-1 text-[14px] text-[#161616] outline-none focus:border-[#0f62fe]';
+  const commit = () => { if (d === null) return; if (d.trim() !== (settings.decisionDate || '')) onSave({ decisionDate: d.trim() }); setD(null); };
+  if (!canWrite) return <><span className="ml-6 text-[#525252]">Decision date</span><span>{settings.decisionDate || 'Today'}</span><span className="ml-6 text-[#525252]">No reason</span><span>{nr.outcome || 'Approve'}{nr.result && nr.result !== nr.outcome ? ` · ${nr.result}` : ''}</span></>;
+  return (
+    <>
+      <label htmlFor="tp-asof" className="ml-6 text-[#525252]">Decision date</label>
+      <input id="tp-asof" className={`${box} w-[120px] tabular-nums`} placeholder="Today" value={date} onChange={e => setD(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commit(); } if (e.key === 'Escape') setD(null); }} />
+      <span className="ml-6 text-[#525252]">No reason</span>
+      <ValueCombo className={`${box} w-[110px]`} value={nr.outcome || ''} placeholder="Approve" ariaLabel="Final decision when no reason fires" values={OUTS} onChange={v => onSave({ noReason: { outcome: v, result: nr.result || '' } })} />
+      <ValueCombo className={`${box} w-[110px]`} value={nr.result || ''} placeholder={nr.outcome || 'Approve'} ariaLabel="Result when no reason fires" values={OUTS} onChange={v => onSave({ noReason: { outcome: nr.outcome || '', result: v } })} />
+      {error && <span className="text-[#da1e28]">{error}</span>}
+    </>
   );
 }

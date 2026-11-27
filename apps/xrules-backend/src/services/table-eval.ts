@@ -4,10 +4,21 @@
 // The same cell language as the table: "-", "= x", "!= x", "< n", "<= n", "> n", ">= n", "BTW a AND b",
 // "BTW LO/RO", "!BTW", "IN a,b", "!IN a,b", "null", "!null"/"not null", or a bare value (equals).
 
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { evalExpression } from './sandbox.service.js';
 
+// The decision date: "today", "days since", "N days ago" read it; a topic or a test case sets it, else the real date.
+const AS_OF = new AsyncLocalStorage<{ asOf: Date | null }>();
+export function withDecisionDate<T>(d: any, fn: () => T): T { return AS_OF.run({ asOf: d ? toDate(d) : null }, fn); }
+/** A decision date carried by the data (a "decision date" / "decisionDate" field), if any. */
+export function decisionDateIn(input: any): any {
+  if (!input || typeof input !== 'object') return null;
+  const k = Object.keys(input).find(x => /^(_|as[ _-]?of[ _-]?)?decision[ _-]?date$|^as[ _-]?of$/i.test(x.replace(/\s+/g, ' ')));
+  return k ? input[k] : null;
+}
+
 type Group = { match?: string; cells: { name: string; cell: any }[] };
-type Reason = { code: string; text: string; outcome: string; priority: number };
+type Reason = { code: string; text: string; outcome: string; result?: string | null; priority: number };
 
 const blank = (c: any) => c === null || c === undefined || (typeof c === 'string' && ['', '-', 'any'].includes(c.trim().toLowerCase()));
 export const isElseCell = (c: any) => typeof c === 'string' && ['else', '_else_'].includes(c.trim().toLowerCase());
@@ -101,7 +112,7 @@ export function toDate(v: any): Date | null {
   if (m) return new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]));
   return null;
 }
-const today = () => { const n = new Date(); return new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate())); };
+const today = () => { const a = AS_OF.getStore()?.asOf; if (a) return new Date(a.getTime()); const n = new Date(); return new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate())); };
 const DAY = 86400000;
 /** Functions a calculation or a line's value can use. */
 export const DATE_FUNCS = {
@@ -291,7 +302,9 @@ function evaluateIn(def: any, input: any, catalogue: Reason[]): any {
   const codes = Array.from(new Set(hits.flatMap((h: any) => (Array.isArray(h.reasons) ? h.reasons : []).map(String))));
   const known = codes.map(c => catalogue.find(x => x.code === c) || { code: c, text: c, outcome: 'Decline', priority: Number.MAX_SAFE_INTEGER });
   const top = [...known].sort((a, b) => a.priority - b.priority)[0];
-  const reasons = { reasons: codes, reason: top?.code ?? null, reasonText: top?.text ?? null, outcome: top?.outcome ?? 'Approve' };
+  const none = (catalogue as any)?.noReason || {};
+  const reasons = { reasons: codes, reason: top?.code ?? null, reasonText: top?.text ?? null, outcome: top ? top.outcome : none.outcome || 'Approve',
+    decisionResult: top ? (top as any).result || top.outcome : none.result || none.outcome || 'Approve' };
   if (!outs.length) return withExtra(reasons);
   if (result && typeof result === 'object' && !Array.isArray(result)) return withExtra({ ...result, ...reasons });
   return withExtra({ lines: result, ...reasons });

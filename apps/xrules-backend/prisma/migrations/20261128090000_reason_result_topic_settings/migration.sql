@@ -1,0 +1,2 @@
+ALTER TABLE "reason_codes" ADD COLUMN IF NOT EXISTS "result" TEXT;
+ALTER TABLE "topics" ADD COLUMN IF NOT EXISTS "settings" JSONB;

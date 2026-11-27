@@ -12,7 +12,7 @@ import { evaluateTable, expandForEngine, usesGroupsOrReasons, DATE_FUNCS } from 
 /** The project's reason codes, for tables whose lines add reasons. */
 export async function reasonCatalogue(projectId: string) {
   const [list, words, sets] = await Promise.all([
-    prisma.reasonCode.findMany({ where: { projectId, deletedAt: null }, select: { code: true, text: true, outcome: true, priority: true } }),
+    prisma.reasonCode.findMany({ where: { projectId, deletedAt: null }, select: { code: true, text: true, outcome: true, result: true, priority: true } }),
     prisma.vocabularyTerm.findMany({ where: { projectId, deletedAt: null }, select: { path: true, aggregate: true, valueSetId: true } }).catch(() => [] as any[]),
     prisma.valueSet.findMany({ where: { projectId, deletedAt: null } }).catch(() => [] as any[]),
   ]);

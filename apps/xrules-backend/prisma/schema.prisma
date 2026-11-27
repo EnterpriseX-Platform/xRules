@@ -1226,6 +1226,9 @@ model Topic {
   stages      Json?
   // the product the topic belongs to (New Acquisition, CLIP, …); topics without one stand alone
   product     String?
+  // { decisionDate?: "2025-11-26", noReason?: { outcome, result } } — the as-of date for Today / days since,
+  // and what the topic answers when no reason code fires
+  settings    Json?
   deletedAt   DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -1240,7 +1243,8 @@ model ReasonCode {
   projectId String
   code      String
   text      String
-  outcome   String    @default("Decline") // Decline | Refer | Approve
+  outcome   String    @default("Decline") // the final decision: Reject | Cancel | Decline | Refer | …
+  result    String?   // a second answer the code maps to (e.g. MCP result Decline / Refer)
   priority  Int       @default(100)
   deletedAt DateTime?
   createdAt DateTime  @default(now())
