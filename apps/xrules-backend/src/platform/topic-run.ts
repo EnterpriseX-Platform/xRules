@@ -8,7 +8,7 @@ const SYSTEM = { userId: '__system__', email: 'test@xrules', tenantId: '*', role
 const REASON_KEYS = new Set(['reasons', 'reason', 'reasonText', 'outcome', 'decisionResult']);
 
 /** What a topic answers when no reason fires, and its decision date. */
-export const topicSettings = (t: any) => { const s = t?.settings && typeof t.settings === 'object' ? t.settings : {}; return { decisionDate: s.decisionDate || null, noReason: { outcome: s.noReason?.outcome || 'Approve', result: s.noReason?.result || s.noReason?.outcome || 'Approve' } }; };
+export const topicSettings = (t: any) => { const s = t?.settings && typeof t.settings === 'object' ? t.settings : {}; return { decisionDate: s.decisionDate || null, outputs: { result: s.outputs?.result || null, decision: s.outputs?.decision || null, reasons: s.outputs?.reasons || null } as Record<'result' | 'decision' | 'reasons', string | null>, noReason: { outcome: s.noReason?.outcome || 'Approve', result: s.noReason?.result || s.noReason?.outcome || 'Approve' } }; };
 
 export async function runTopic(topicId: string, input: any) {
   const t = await prisma.topic.findFirst({ where: { id: topicId, deletedAt: null } });
@@ -25,7 +25,8 @@ async function runSteps(t: any, input: any, set: ReturnType<typeof topicSettings
   const flows = await prisma.flow.findMany({ where: { topicId, status: { not: 'ARCHIVED' as any } }, orderBy: { createdAt: 'asc' } });
   const stages: any[] = Array.isArray(t.stages) ? (t.stages as any[]) : [];
   const order: string[] = [];
-  for (const s of stages) for (const i of s?.items || []) if (!order.includes(String(i))) order.push(String(i));
+  // within a step, a rule that works out a word runs before the rules that use it; else the step's own order
+  for (const s of stages) for (const i of byDependency((s?.items || []).map(String), rules)) if (!order.includes(i)) order.push(i);
   for (const r of rules) if (!order.includes(r.id)) order.push(r.id);
   for (const f of flows) if (!order.includes(f.id)) order.push(f.id);
 
@@ -67,8 +68,13 @@ async function runSteps(t: any, input: any, set: ReturnType<typeof topicSettings
   }
   const known = codes.map(c => catalogue.find((x: any) => x.code === c) || { code: c, text: c, outcome: 'Decline', result: null, priority: Number.MAX_SAFE_INTEGER });
   const top = [...known].sort((a: any, b: any) => a.priority - b.priority)[0] as any;
-  return { output: { ...out, reasons: codes, reason: top?.code ?? null, reasonText: top?.text ?? null, outcome: top ? top.outcome : set.noReason.outcome,
-    decisionResult: top ? top.result || top.outcome : set.noReason.result }, trace };
+  const final: any = { ...out, reasons: codes, reason: top?.code ?? null, reasonText: top?.text ?? null, outcome: top ? top.outcome : set.noReason.outcome,
+    decisionResult: top ? top.result || top.outcome : set.noReason.result };
+  // the topic names the words that receive the top reason's result, the final decision and the reasons list
+  if (set.outputs.result) final[set.outputs.result] = final.decisionResult;
+  if (set.outputs.decision) final[set.outputs.decision] = final.outcome;
+  if (set.outputs.reasons) final[set.outputs.reasons] = codes;
+  return { output: final, trace };
 }
 
 /** Bring in many cases at once: each row has input words and expected results (by data path). */
@@ -94,4 +100,24 @@ export async function importCases(data: { projectId?: string; topicId?: string; 
 /** Cases brought in before the project had a topic move to the first topic made. */
 export async function adoptProjectCases(projectId: string, topicId: string) {
   await prisma.testCase.updateMany({ where: { deletedAt: null, targetType: 'project', targetId: projectId }, data: { targetType: 'topic', targetId: topicId } });
+}
+
+/** Words a rule works out, and the text it reads them from. */
+function makes(r: any): string[] {
+  const d: any = r?.definition || {};
+  if (Array.isArray(d.lines)) return d.lines.map((l: any) => String(l?.name || '')).filter(Boolean);
+  return (d.outputs || []).map((o: any) => String(o?.name || '')).filter(Boolean);
+}
+function reads(r: any): string { const d: any = r?.definition || {}; return JSON.stringify({ i: d.inputs, r: d.rules, l: (d.lines || []).map((l: any) => l?.expr) }); }
+export function byDependency(ids: string[], rules: any[]): string[] {
+  const of = new Map(ids.map(id => [id, rules.find(r => r.id === id)]));
+  const needs = new Map<string, Set<string>>();
+  for (const a of ids) {
+    const ra = of.get(a); const txt = ra ? reads(ra) : '';
+    needs.set(a, new Set(ids.filter(b => b !== a && of.get(b) && makes(of.get(b)).some(w => new RegExp(`(?<![\\w.])${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w])`).test(txt)))));
+  }
+  const out: string[] = []; const seen = new Set<string>(); const busy = new Set<string>();
+  const visit = (id: string) => { if (seen.has(id) || busy.has(id)) return; busy.add(id); for (const n of ids) if (needs.get(id)!.has(n)) visit(n); busy.delete(id); seen.add(id); out.push(id); };
+  ids.forEach(visit);
+  return out;
 }
