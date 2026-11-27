@@ -14,6 +14,8 @@ const FUNCS: { name: string; insert: string; label: string }[] = [
   { name: 'SUM', insert: 'SUM(', label: 'Sum' }, { name: 'AVG', insert: 'AVG(', label: 'Average' }, { name: 'COUNT', insert: 'COUNT(', label: 'Count' },
   { name: 'MIN', insert: 'MIN(', label: 'Lowest' }, { name: 'MAX', insert: 'MAX(', label: 'Highest' },
   { name: 'ROUND', insert: 'ROUND(', label: 'Round' }, { name: 'ROUNDDOWN', insert: 'ROUNDDOWN(', label: 'Round down' }, { name: 'IF', insert: 'IF(', label: 'If … then … else' },
+  { name: 'TODAY', insert: 'TODAY()', label: 'Today' }, { name: 'DAYS', insert: 'DAYS(', label: 'Days since' }, { name: 'MONTHS', insert: 'MONTHS(', label: 'Months since' },
+  { name: 'SPLIT', insert: 'SPLIT(', label: 'Split list' }, { name: 'CONTAINS', insert: 'CONTAINS(', label: 'List has' }, { name: 'ITEM', insert: 'ITEM(', label: 'Item no.' },
 ];
 const OPS = ['+', '−', '×', '÷', '(', ')', '≥', '≤', '='];
 
@@ -27,7 +29,26 @@ const F: Record<string, any> = {
   ROUNDDOWN: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.floor(Number(x) * f) / f; },
   ROUNDUP: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.ceil(Number(x) * f) / f; },
   IF: (c: any, a: any, b: any) => (c ? a : b),
+  TODAY: () => { const n = new Date(); return new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate())); },
+  DATE: (v: any) => toDate(v),
+  DAYS: (a: any, b?: any) => { const x = toDate(a), y = b === undefined ? F.TODAY() : toDate(b); return x && y ? Math.round((y.getTime() - x.getTime()) / 86400000) : null; },
+  MONTHS: (a: any, b?: any) => { const x = toDate(a), y = b === undefined ? F.TODAY() : toDate(b); return x && y ? (y.getUTCFullYear() - x.getUTCFullYear()) * 12 + (y.getUTCMonth() - x.getUTCMonth()) - (y.getUTCDate() < x.getUTCDate() ? 1 : 0) : null; },
+  YEARS: (a: any, b?: any) => { const m = F.MONTHS(a, b); return m === null ? null : Math.floor(m / 12); },
+  ADD_DAYS: (a: any, n: any) => { const x = toDate(a); return x ? new Date(x.getTime() + Number(n) * 86400000) : null; },
+  SPLIT: (v: any, sep = ':') => (Array.isArray(v) ? v : String(v ?? '').split(sep).map((x: string) => x.trim()).filter((x: string) => x !== '')),
+  CONTAINS: (list: any, v: any) => (Array.isArray(list) ? list : String(list ?? '').split(/[:,]/)).map((x: any) => String(x).trim()).includes(String(v)),
+  ITEM: (list: any, i: any) => (Array.isArray(list) ? list : String(list ?? '').split(':'))[Number(i) - 1] ?? null,
 };
+function toDate(v: any): Date | null {
+  if (v instanceof Date) return v; if (v === null || v === undefined || v === '') return null;
+  const m = String(v).trim().match(/^(\d{4})-?(\d{2})-?(\d{2})/); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null;
+}
+const getPath = (o: any, p: string) => (p in (o || {}) ? o[p] : p.split('.').reduce((a, k) => (a == null ? undefined : a[k]), o));
+function nest(flat: Record<string, any>) {
+  const o: any = {};
+  Object.entries(flat).forEach(([k, v]) => { const ks = k.split('.'); let c = o; ks.slice(0, -1).forEach(x => { c[x] = c[x] && typeof c[x] === 'object' ? c[x] : {}; c = c[x]; }); c[ks[ks.length - 1]] = v; });
+  return o;
+}
 const js = (e: string) => e.replace(/−/g, '-').replace(/×/g, '*').replace(/÷/g, '/').replace(/≥/g, '>=').replace(/≤/g, '<=').replace(/≠/g, '!=').replace(/(^|[^=!<>])=(?!=)/g, '$1==');
 function evaluate(expr: string, scope: Record<string, any>) {
   const names = Object.keys(scope).filter(k => /^[A-Za-z_$][\w$]*$/.test(k));
@@ -59,7 +80,7 @@ export function CalcDesigner({ rule, projectId, onChange }: { rule: any; project
   const produced = lines.map(l => l.name).filter(Boolean);
   const used = useMemo(() => {
     const set = new Set<string>();
-    lines.forEach(l => (l.expr.match(/[A-Za-z_][\w.]*/g) || []).forEach(w => { const root = w.split('.')[0]; if (!F[root] && !produced.includes(root) && root !== 'true' && root !== 'false') set.add(root); }));
+    lines.forEach(l => (l.expr.match(/[A-Za-z_][\w.]*/g) || []).forEach(w => { const root = w.split('.')[0]; if (!F[root] && !produced.includes(w) && !produced.includes(root) && root !== 'true' && root !== 'false') set.add(w); }));
     return Array.from(set);
   }, [lines]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -76,25 +97,28 @@ export function CalcDesigner({ rule, projectId, onChange }: { rule: any; project
   }
   const insert = (text: string) => {
     const el = refs.current[focus]; const cur = toLabels(lines[focus]?.expr || '', terms);
-    const at = el?.selectionStart ?? cur.length;
-    const next = cur.slice(0, at) + text + cur.slice(at);
+    const at = el && document.activeElement === el ? el.selectionStart ?? cur.length : cur.length;
+    const before = cur.slice(0, at) + (at && !/\s$/.test(cur.slice(0, at)) && /^\w/.test(text) ? ' ' : '') + text;
+    const next = before + cur.slice(at);
     emit(lines.map((l, j) => (j === focus ? { ...l, expr: toPaths(next, terms) } : l)));
-    setTimeout(() => { el?.focus(); el?.setSelectionRange(at + text.length, at + text.length); }, 0);
+    // the caret goes right after what was put in, measured in the text as it will be shown
+    const pos = toLabels(toPaths(before, terms), terms).length;
+    setTimeout(() => { el?.focus(); el?.setSelectionRange(pos, pos); }, 0);
   };
 
   // work the sample through the lines
-  const scope: Record<string, any> = { ...sample };
+  const scope: Record<string, any> = { ...nest(sample), ...sample };
   const results = lines.map(l => {
     if (!l.name || !l.expr.trim()) return { ok: true, value: undefined as any };
     // nothing to show until every value the line uses has been given
-    const needs = (l.expr.match(/[A-Za-z_][\w]*/g) || []).filter(w => !F[w] && w !== 'true' && w !== 'false');
-    if (needs.some(w => scope[w] === undefined || scope[w] === '')) return { ok: true, value: undefined as any };
+    const needs = (l.expr.match(/[A-Za-z_][\w.]*/g) || []).filter(w => !F[w.split('.')[0]] && w !== 'true' && w !== 'false');
+    if (needs.some(w => getPath(scope, w) === undefined || getPath(scope, w) === '')) return { ok: true, value: undefined as any };
     try { const v = evaluate(l.expr, scope); scope[l.name] = v; return { ok: true, value: v }; }
     catch (e: any) { return { ok: false, error: String(e?.message || e) }; }
   });
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+    <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="space-y-3">
         <div className="bg-white border border-[#e0e0e0]">
           {lines.map((l, i) => (
@@ -103,7 +127,7 @@ export function CalcDesigner({ rule, projectId, onChange }: { rule: any; project
                 defaultValue={l.name ? label(l.name) : ''} placeholder="Result" onBlur={e => nameLine(i, e.target.value)} />
               <span className="text-[18px] text-[#525252]">=</span>
               <input ref={el => { refs.current[i] = el; }} aria-label={`Formula ${i + 1}`} onFocus={() => setFocus(i)}
-                className="h-10 flex-1 min-w-[260px] px-3 bg-[#f4f4f4] border-b border-[#8d8d8d] text-[15px] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2"
+                className="h-10 flex-1 basis-[420px] min-w-[260px] px-3 bg-[#f4f4f4] border-b border-[#8d8d8d] text-[15px] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2"
                 value={toLabels(l.expr, terms)} placeholder="monthly payment ÷ monthly income × 100"
                 onChange={e => emit(lines.map((x, j) => (j === i ? { ...x, expr: toPaths(e.target.value, terms) } : x)))} />
               <span className={`w-[150px] text-right text-[14px] tabular-nums ${results[i] && !results[i].ok ? 'text-[#da1e28]' : 'text-[#161616]'}`} title={(results[i] as any)?.error}>
@@ -118,7 +142,7 @@ export function CalcDesigner({ rule, projectId, onChange }: { rule: any; project
         <div className="space-y-2">
           <div className="flex flex-wrap gap-1">
             {terms.filter(t => !produced.includes(t.path) || lines.findIndex(l => l.name === t.path) < focus).map(t => (
-              <button key={t.id} type="button" onMouseDown={e => e.preventDefault()} onClick={() => insert(t.term)} className="h-8 px-2 text-[13px] border border-[#c6c6c6] bg-white text-[#0f62fe] hover:bg-[#edf5ff]">{t.term}</button>
+              <button key={t.id} type="button" onMouseDown={e => e.preventDefault()} onClick={() => insert(t.term)} title={t.path} className="h-8 px-2 text-[13px] border border-[#c6c6c6] bg-white text-[#0f62fe] hover:bg-[#edf5ff]">{t.term}</button>
             ))}
             <RequestData projectId={projectId} ruleId={rule.id} />
           </div>
