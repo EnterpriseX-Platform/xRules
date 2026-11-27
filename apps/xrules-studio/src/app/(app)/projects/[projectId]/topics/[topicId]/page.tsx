@@ -10,11 +10,11 @@ import { Btn, Input, Modal, Tag, fmtTime } from '@/components/pipeline/ui';
 import { usePerms } from '@/lib/perms';
 import { TopicSimulate } from '@/components/topic/TopicSimulate';
 import { RequestData } from '@/components/topic/RequestData';
-import { TopicDoc } from '@/components/topic/TopicDoc';
-import { StagesEditor, StagesOverview } from '@/components/topic/TopicStages';
+import { TopicMap } from '@/components/topic/TopicMap';
+import { StagesEditor } from '@/components/topic/TopicStages';
 
 const TABS = [
-  { key: 'overview', label: 'Overview' },
+  { key: 'overview', label: 'Map' },
   { key: 'qualify', label: 'Who qualifies' },
   { key: 'amount', label: 'How much' },
   { key: 'choose', label: 'Which one' },
@@ -85,7 +85,7 @@ export default function TopicPage() {
   return (
     <div className="px-8 py-6">
       <div className="text-[13px] mb-1"><Link href={`/p/${projectId}/topics`} className="text-[#0f62fe] hover:underline">Topics</Link></div>
-      <div className="flex items-start gap-4"><h1 className="flex-1 text-[28px] leading-9 text-[#161616]">{t.name}</h1>{perms.write && <RequestData projectId={projectId} topicId={topicId} />}</div>
+      <div className="flex items-start gap-4"><h1 className="flex-1 text-[28px] leading-9 text-[#161616]">{t.name}</h1><div className="flex gap-2">{perms.write && <RequestData projectId={projectId} topicId={topicId} />}<Btn kind="secondary" onClick={() => go('simulate')}>Try on real data</Btn>{perms.write && <Btn onClick={() => go('approval')}>Request approval</Btn>}</div></div>
       {t.goal && <div className="text-[15px] text-[#525252] mt-1">{t.goal}</div>}
       <div className="flex border-b border-[#e0e0e0] mt-5 mb-6 overflow-x-auto" role="tablist">
         {tabs.map(x => (
@@ -96,7 +96,7 @@ export default function TopicPage() {
         ))}
       </div>
 
-      {tab === 'overview' && (steps ? <StagesOverview projectId={projectId} topic={t} onTab={go} /> : <TopicDoc projectId={projectId} topic={t} onTab={go} />)}
+      {tab === 'overview' && <TopicMap projectId={projectId} topic={t} onTab={go} />}
       {tab === 'steps' && <StagesEditor projectId={projectId} topic={t} canWrite={!!perms.write} />}
       {(tab === 'qualify' || tab === 'amount' || tab === 'choose') && list(by(tab), tab)}
       {tab === 'tests' && list(ds.filter(d => true))}
