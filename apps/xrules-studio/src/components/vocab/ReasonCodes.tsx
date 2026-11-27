@@ -8,6 +8,7 @@ import { Btn, DropZone, Input, Modal, Table, Td, TextArea } from '@/components/p
 import { ValueCombo } from '@/components/rule/ValueCombo';
 import { readTable } from '@/lib/termImport';
 import { usePerms } from '@/lib/perms';
+import { useListRemove } from '@/lib/listRemove';
 
 export type Reason = { id: string; code: string; text: string; outcome: string; priority: number };
 const SUGGESTED = ['Decline', 'Refer', 'Approve', 'Reject', 'Cancel', 'Pending'];
@@ -74,12 +75,14 @@ function OutcomeInput({ value, onChange }: { value: string; onChange: (v: string
 export function ReasonCodes({ projectId }: { projectId: string }) {
   const qc = useQueryClient(); const perms = usePerms();
   const { data: rows = [] } = useReasons(projectId);
-  const blank = { id: '', code: '', text: '', outcome: 'Decline', priority: '' };
+  const blank = { id: '', code: '', text: '', outcome: '', priority: '' };
   const [f, setF] = useState<any>(null);
   const [importing, setImporting] = useState(false);
   const done = () => qc.invalidateQueries({ queryKey: ['reasons', projectId] });
   const save = useMutation({ meta: { silent: true }, mutationFn: () => api.post('/platform/reasons', { projectId, id: f.id || undefined, code: f.code, text: f.text, outcome: f.outcome, priority: String(f.priority).trim() === '' ? undefined : Number(f.priority) }), onSuccess: () => { done(); setF(null); } });
-  const remove = useMutation({ mutationFn: (id: string) => api.post(`/platform/reasons/${id}/remove`), onSuccess: done });
+  const remove = useListRemove<Reason>({ queryKey: ['reasons', projectId], noun: 'reason code', name: r => r.code,
+    remove: r => api.post(`/platform/reasons/${r.id}/remove`),
+    restore: r => api.post('/platform/reasons', { projectId, code: r.code, text: r.text, outcome: r.outcome, priority: r.priority }) });
   const edit = (r: Reason) => { save.reset(); setF({ ...r, priority: String(r.priority) }); };
   return (
     <div className="space-y-4">
@@ -89,10 +92,11 @@ export function ReasonCodes({ projectId }: { projectId: string }) {
         {rows.map(r => (
           <tr key={r.id} className="cursor-pointer hover:bg-[#f4f4f4]" onClick={() => perms.write && edit(r)}>
             <Td mono>{r.code}</Td><Td className="!whitespace-normal">{r.text}</Td><Td>{r.outcome}</Td><Td>{r.priority}</Td>
-            <Td className="whitespace-nowrap">{perms.write && <><button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={e => { e.stopPropagation(); edit(r); }}>Edit</button><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={e => { e.stopPropagation(); remove.mutate(r.id); }}>Remove</button></>}</Td>
+            <Td className="whitespace-nowrap">{perms.write && <><button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8] disabled:text-[#8d8d8d]" disabled={remove.isBusy(r.id)} onClick={e => { e.stopPropagation(); edit(r); }}>Edit</button><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1] disabled:text-[#8d8d8d]" disabled={remove.isBusy(r.id)} onClick={e => { e.stopPropagation(); remove.request(r); }}>Remove</button></>}</Td>
           </tr>
         ))}
       </Table>
+      {remove.confirm}
       {f && (
         <Modal title={f.id ? 'Edit reason' : 'Add reason'} onClose={() => setF(null)} onSubmit={() => save.mutate()} submitLabel={f.id ? 'Save' : 'Add'}
           submitDisabled={!f.code.trim() || !f.text.trim() || save.isPending || (String(f.priority).trim() !== '' && !/^-?\d+$/.test(String(f.priority).trim()))} error={save.error ? String((save.error as any).message) : null}>
@@ -100,7 +104,10 @@ export function ReasonCodes({ projectId }: { projectId: string }) {
             <Input id="rc-code" label="Code" mono value={f.code} onChange={(v: string) => setF({ ...f, code: v })} placeholder="B001" />
             <Input id="rc-text" label="Reason text" value={f.text} onChange={(v: string) => setF({ ...f, text: v })} placeholder="Bankruptcy flag" />
             <OutcomeInput value={f.outcome} onChange={v => setF({ ...f, outcome: v })} />
-            <Input id="rc-prio" label="Priority (1 = most important)" value={f.priority} onChange={(v: string) => setF({ ...f, priority: v })} placeholder="100" />
+            <div>
+              <label htmlFor="rc-prio" className="block text-[12px] text-[#525252] mb-1.5">Priority (1 = most important)</label>
+              <input id="rc-prio" className="input w-full" inputMode="numeric" value={f.priority} placeholder="100" onFocus={e => e.currentTarget.select()} onChange={e => setF({ ...f, priority: e.target.value })} />
+            </div>
           </div>
         </Modal>
       )}

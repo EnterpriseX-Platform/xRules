@@ -9,6 +9,7 @@ import { EntityTable, Pill } from '@/components/EntityList';
 import { datasetsApi, api } from '@/lib/api';
 import { Select } from '@/components/ui/Select';
 import { DropZone } from '@/components/pipeline/ui';
+import { useListRemove } from '@/lib/listRemove';
 
 export default function DatasetsPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -20,10 +21,7 @@ export default function DatasetsPage() {
     queryFn: () => datasetsApi.list(projectId),
   });
 
-  const remove = useMutation({
-    mutationFn: (id: string) => api.del<void>(`/datasets/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['datasets', projectId] }),
-  });
+  const remove = useListRemove<any>({ queryKey: ['datasets', projectId], noun: 'dataset', name: r => `"${r.name}"`, remove: r => api.del(`/datasets/${r.id}`) });
 
   return (
     <PageContent>
@@ -58,7 +56,7 @@ export default function DatasetsPage() {
             cell: (d: any) => (
               <button
                 className="btn-ghost text-danger"
-                onClick={(e) => { e.stopPropagation(); if (confirm(`Delete dataset "${d.name}"?`)) remove.mutate(d.id); }}
+                onClick={(e) => { e.stopPropagation(); remove.request(d); }}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -73,6 +71,7 @@ export default function DatasetsPage() {
           onCreated={() => qc.invalidateQueries({ queryKey: ['datasets', projectId] })}
         />
       )}
+      {remove.confirm}
     </PageContent>
   );
 }

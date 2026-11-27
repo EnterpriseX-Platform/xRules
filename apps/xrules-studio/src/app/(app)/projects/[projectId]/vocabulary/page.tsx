@@ -10,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { PageHead, Table, Td, Tag, Btn, Input, TextArea, Panel, Notice, Tabs, DropZone, Modal } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
+import { useListRemove } from '@/lib/listRemove';
 
 const TABS = [{ key: '', label: 'Vocabulary' }, { key: 'reasons', label: 'Reason codes' }, { key: 'write', label: 'Write rules' }, { key: 'cowork', label: 'Rule Cowork' }];
 
@@ -108,7 +109,9 @@ function Terms({ projectId }: { projectId: string }) {
   const [dev] = useDevMode(); const [q, setQ] = useState('');
   const { data: usage } = useQuery({ queryKey: ['vocab-usage', projectId], queryFn: () => api.get<any>(`/platform/vocabulary-usage?project_id=${projectId}`) });
   const shown = (terms as any[]).filter(t => !q || `${t.term} ${t.path} ${t.description || ''}`.toLowerCase().includes(q.toLowerCase()));
-  const del = useMutation({ mutationFn: (id: string) => api.del(`/platform/vocabulary/${id}`), onSuccess: () => { qc.invalidateQueries({ queryKey: ['vocab', projectId] }); qc.invalidateQueries({ queryKey: ['vocab-sug', projectId] }); } });
+  const del = useListRemove<any>({ queryKey: ['vocab', projectId], also: [['vocab-sug', projectId]], noun: 'word', name: t => `"${t.term}"`,
+    remove: t => api.del(`/platform/vocabulary/${t.id}`),
+    restore: t => api.post('/platform/vocabulary', { projectId, term: t.term, path: t.path, type: t.type, unit: t.unit, description: t.description, values: t.values || [] }) });
   const edit = (t: any) => { save.reset(); setF({ id: t.id, term: t.term, path: t.path, type: t.type, unit: t.unit || '', values: (t.values || []).join(', '), description: t.description }); setAddOpen(true); };
   return (
     <div className="space-y-4">
@@ -138,7 +141,7 @@ function Terms({ projectId }: { projectId: string }) {
               <Td>{TYPE_NAME[t.type] || t.type}{t.unit ? ` · ${t.unit}` : ''}</Td>
               <Td className="!whitespace-normal">{requested ? <span className="text-[#8a3800]">Asked from IT</span> : <span className="text-[#525252]">{t.description || ''}</span>}</Td>
               <Td className="!whitespace-normal">{by.length ? <span className="flex flex-wrap gap-x-3 gap-y-1" onClick={e => e.stopPropagation()}>{by.slice(0, 4).map((u: any) => <Chip key={u.id} item={{ kind: u.kind, id: u.id, name: u.name, href: u.href }} />)}{by.length > 4 && <span className="text-[#525252]">and {by.length - 4} more</span>}</span> : <span className="text-[#6f6f6f]">Not used yet</span>}</Td>
-              <Td className="whitespace-nowrap"><button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={e => { e.stopPropagation(); edit(t); }}>Edit</button><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={e => { e.stopPropagation(); del.mutate(t.id); }}>Remove</button></Td>
+              <Td className="whitespace-nowrap"><button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8] disabled:text-[#8d8d8d]" disabled={del.isBusy(t.id)} onClick={e => { e.stopPropagation(); edit(t); }}>Edit</button><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1] disabled:text-[#8d8d8d]" disabled={del.isBusy(t.id)} onClick={e => { e.stopPropagation(); del.request(t); }}>Remove</button></Td>
             </tr>
           );
         })}

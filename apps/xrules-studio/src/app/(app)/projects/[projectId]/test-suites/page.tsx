@@ -7,6 +7,7 @@ import { PageContent, PageHeader } from '@/components/layout/AppShell';
 import { TestNav } from '@/components/layout/TestNav';
 import { EntityTable, Pill } from '@/components/EntityList';
 import { testSuitesApi, datasetsApi, rulesApi, api } from '@/lib/api';
+import { useListRemove } from '@/lib/listRemove';
 
 export default function TestSuitesPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -18,10 +19,7 @@ export default function TestSuitesPage() {
     queryFn: () => testSuitesApi.list(projectId),
   });
 
-  const remove = useMutation({
-    mutationFn: (id: string) => api.del<void>(`/test-suites/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['test-suites', projectId] }),
-  });
+  const remove = useListRemove<any>({ queryKey: ['test-suites', projectId], noun: 'suite', name: r => `"${r.name}"`, remove: r => api.del(`/test-suites/${r.id}`) });
 
   return (
     <PageContent>
@@ -61,7 +59,7 @@ export default function TestSuitesPage() {
             cell: (s: any) => (
               <button
                 className="btn-ghost text-danger"
-                onClick={(e) => { e.stopPropagation(); if (confirm(`Delete suite "${s.name}"?`)) remove.mutate(s.id); }}
+                onClick={(e) => { e.stopPropagation(); remove.request(s); }}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -76,6 +74,7 @@ export default function TestSuitesPage() {
           onCreated={() => qc.invalidateQueries({ queryKey: ['test-suites', projectId] })}
         />
       )}
+      {remove.confirm}
     </PageContent>
   );
 }

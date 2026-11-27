@@ -8,6 +8,7 @@ import { EntityTable, StatusPill, Pill } from '@/components/EntityList';
 import { api } from '@/lib/api';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { healthOf, HealthLight } from '@/components/model/Health';
+import { useListRemove } from '@/lib/listRemove';
 
 const MODEL_TONE: Record<string, any> = { ML: 'info', LLM: 'warn', PMML: 'mint' };
 
@@ -21,10 +22,7 @@ export default function ModelsPage() {
     queryFn: () => api.get<any[]>(`/models?project_id=${projectId}`),
   });
 
-  const remove = useMutation({
-    mutationFn: (id: string) => api.del<void>(`/models/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['models', projectId] }),
-  });
+  const remove = useListRemove<any>({ queryKey: ['models', projectId], noun: 'model', name: r => `"${r.name}"`, remove: r => api.del(`/models/${r.id}`) });
 
   return (
     <PageContent>
@@ -60,7 +58,7 @@ export default function ModelsPage() {
             cell: (m: any) => (
               <button
                 className="btn-ghost text-danger"
-                onClick={(e) => { e.stopPropagation(); if (confirm(`Delete model "${m.name}"?`)) remove.mutate(m.id); }}
+                onClick={(e) => { e.stopPropagation(); remove.request(m); }}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -75,6 +73,7 @@ export default function ModelsPage() {
           onCreated={() => qc.invalidateQueries({ queryKey: ['models', projectId] })}
         />
       )}
+      {remove.confirm}
     </PageContent>
   );
 }
@@ -82,7 +81,7 @@ export default function ModelsPage() {
 function CreateModelDialog({ projectId, onClose, onCreated }: { projectId: string; onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState('');
   const [type, setType] = useState('ML');
-  const [version, setVersion] = useState('1.0.0');
+  const [version, setVersion] = useState('');
   const [artifactUri, setArtifactUri] = useState('');
   const [configText, setConfigText] = useState('{}');
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +90,7 @@ function CreateModelDialog({ projectId, onClose, onCreated }: { projectId: strin
     mutationFn: () => {
       let config: any = {};
       try { config = JSON.parse(configText || '{}'); } catch { throw new Error('Config must be valid JSON'); }
-      return api.post('/models', { projectId, name, type, version, artifactUri: artifactUri || undefined, config });
+      return api.post('/models', { projectId, name, type, version: version.trim() || '1.0.0', artifactUri: artifactUri || undefined, config });
     },
     onSuccess: () => { onCreated(); onClose(); },
     onError: (e: any) => setError(e.message),
@@ -113,7 +112,7 @@ function CreateModelDialog({ projectId, onClose, onCreated }: { projectId: strin
             </div>
             <div>
               <label className="label-section block mb-1.5">Version</label>
-              <input className="input w-full font-mono" value={version} onChange={(e) => setVersion(e.target.value)} />
+              <input className="input w-full font-mono" placeholder="1.0.0" value={version} onChange={(e) => setVersion(e.target.value)} />
             </div>
           </div>
           <div>

@@ -9,6 +9,7 @@ import { PageContent, PageHeader } from '@/components/layout/AppShell';
 import { EntityTable, Pill } from '@/components/EntityList';
 import { api } from '@/lib/api';
 import { usePerms } from '@/lib/perms';
+import { useListRemove } from '@/lib/listRemove';
 
 const EVENTS = [
   { id: 'execute.success',   label: 'Execute → success' },
@@ -30,10 +31,7 @@ export default function WebhooksPage() {
     queryFn: () => api.get<any[]>('/webhooks'),
   });
 
-  const remove = useMutation({
-    mutationFn: (id: string) => api.del<void>(`/webhooks/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['webhooks'] }),
-  });
+  const remove = useListRemove<any>({ queryKey: ['webhooks'], noun: 'webhook', name: r => `"${r.name}"`, remove: r => api.del(`/webhooks/${r.id}`) });
 
   const orgLevel = String(useOrgParams<any>()?.projectId || '').startsWith('_');
   return (
@@ -78,7 +76,7 @@ export default function WebhooksPage() {
             header: '', align: 'right',
             cell: (h: any) => (
               <button className="btn-ghost text-danger" onClick={() => {
-                if (confirm(`Delete webhook "${h.name}"?`)) remove.mutate(h.id);
+                remove.request(h);
               }}>
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -96,6 +94,7 @@ export default function WebhooksPage() {
           }}
         />
       )}
+      {remove.confirm}
     </PageContent>
   );
 }

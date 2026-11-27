@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useListRemove } from '@/lib/listRemove';
 import { PageHead, Table, Td, Tag, Btn, fmtTime } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { usePerms } from '@/lib/perms';
@@ -25,7 +26,7 @@ export default function ConnectionsPage() {
   const [open, setOpen] = useState(false);
   const { data: rows = [] } = useQuery({ queryKey: ['connections', projectId], queryFn: () => api.get<any[]>(`/connections?project_id=${projectId}`) });
   const test = useMutation({ meta: { failLabel: 'Connection test failed' }, mutationFn: (id: string) => api.post<any>(`/data/connections/${id}/test`), onSettled: () => qc.invalidateQueries({ queryKey: ['connections', projectId] }) });
-  const remove = useMutation({ mutationFn: (id: string) => api.del(`/connections/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ['connections', projectId] }) });
+  const remove = useListRemove<any>({ queryKey: ['connections', projectId], noun: 'connection', name: r => `"${r.name}"`, remove: r => api.del(`/connections/${r.id}`) });
 
   return (
     <div className="px-8 py-6">
@@ -43,12 +44,13 @@ export default function ConnectionsPage() {
               <Td>{t?.readOnly ? (t.readOnly.verified ? <Tag tone="green">Verified</Tag> : <span title={t.readOnly.problems.join('\n')}><Tag tone="red">{t.readOnly.problems.length} write permissions</Tag></span>) : '—'}</Td>
               <Td><div className="flex gap-1">
                 <button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8] disabled:opacity-40" disabled={test.isPending} onClick={() => test.mutate(c.id)}>{test.isPending && test.variables === c.id ? 'Testing' : 'Test connection'}</button>
-                <button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={() => remove.mutate(c.id)}>Delete</button>
+                <button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={() => remove.request(c)}>Delete</button>
               </div></Td>
             </tr>
           );
         })}
       </Table>
+      {remove.confirm}
       {open && <NewConnection projectId={projectId} onClose={() => setOpen(false)} />}
     </div>
   );

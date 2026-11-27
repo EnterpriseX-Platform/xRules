@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { useListRemove } from '@/lib/listRemove';
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -42,7 +43,7 @@ function Operations({ spec, projectId, onChange }: any) {
   const [addOpen, setAddOpen] = useState(false);
   const [f, setF] = useState({ method: 'POST', path: '', summary: '', schema: '' });
   const add = useMutation({ meta: { silent: true }, mutationFn: () => api.post(`/platform/specs/${spec.id}/operations`, { method: f.method, path: f.path, summary: f.summary, requestSchema: f.schema ? JSON.parse(f.schema) : undefined }), onSuccess: () => { setAddOpen(false); setF({ method: 'POST', path: '', summary: '', schema: '' }); onChange(); } });
-  const del = useMutation({ mutationFn: (id: string) => api.del(`/platform/operations/${id}`), onSuccess: onChange });
+  const del = useListRemove<any>({ queryKey: ['spec', spec.id], noun: 'operation', name: o => `${o.method} ${o.path}`, remove: o => api.del(`/platform/operations/${o.id}`) });
   return (
     <div className="space-y-4">
       <Table head={['Method', 'Path', 'Summary', 'Flow', '']} empty={!spec.operations?.length ? <div className="px-4 py-6 text-[14px] text-[#525252]">No operations yet</div> : null}>
@@ -52,10 +53,11 @@ function Operations({ spec, projectId, onChange }: any) {
             <Td mono>{o.path}</Td>
             <Td>{o.summary}</Td>
             <Td><Link className="text-[#0f62fe] hover:underline" href={projectId.startsWith('_') ? `/apis/${spec.id}/ops/${o.id}` : `/p/${projectId}/apis/${spec.id}/ops/${o.id}`}>Edit flow ({o.flow?.nodes} steps)</Link></Td>
-            <Td><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={() => del.mutate(o.id)}>Delete</button></Td>
+            <Td><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={() => del.request(o)}>Delete</button></Td>
           </tr>
         ))}
       </Table>
+      {del.confirm}
       <div><Btn onClick={() => setAddOpen(true)}>Add operation</Btn></div>
       {addOpen && <Modal title="Add operation" onClose={() => setAddOpen(false)} wide onSubmit={() => add.mutate()} submitLabel="Add" submitDisabled={!f.path || add.isPending} error={add.error ? String((add.error as any).message) : null}>
         <div className="grid gap-4">
