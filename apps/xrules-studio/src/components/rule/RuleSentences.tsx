@@ -2,7 +2,7 @@
 // A decision table read and edited as business sentences:
 //   1  If monthly income is less than 15,000 THB then approved limit = 0 THB
 // Same definition as the table view ({ inputs, outputs, rules }); only the presentation differs.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { ValueCombo } from './ValueCombo';
@@ -41,6 +41,7 @@ const plain = 'h-8 bg-transparent outline-none border-b-2 border-[#0f62fe] text-
 
 type Reason = { code: string; text: string; outcome: string; priority: number };
 const word = 'h-8 px-1 text-[13px] text-[#0f62fe] hover:underline';
+const leaveOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } };
 
 /** Choose a term, or type a new name and add it as a term. */
 function TermPicker({ options, onPick, onCreate, placeholder = 'Choose data', onClose, emptyText = 'Type a name to add a term' }: {
@@ -48,12 +49,15 @@ function TermPicker({ options, onPick, onCreate, placeholder = 'Choose data', on
 }) {
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState(false);
+  // focus after the box left behind has finished its blur, so nothing typed lands in the old value
+  const box = useRef<HTMLInputElement>(null);
+  useEffect(() => { const h = setTimeout(() => box.current?.focus(), 140); box.current?.focus(); return () => clearTimeout(h); }, []);
   const shown = options.filter(o => !q || o.label.toLowerCase().includes(q.toLowerCase()) || o.value.toLowerCase().includes(q.toLowerCase())).slice(0, 40);
   const exact = options.some(o => o.label.toLowerCase() === q.trim().toLowerCase());
   return (
     <span className="relative inline-block min-w-[220px]">
-      <input autoFocus aria-label={placeholder} placeholder={placeholder} className={`${plain} w-full`} value={q} onChange={e => setQ(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Escape') onClose(); if (e.key === 'Enter') { e.preventDefault(); if (shown[0]) onPick(shown[0].value); } }}
+      <input ref={box} aria-label={placeholder} placeholder={placeholder} className={`${plain} w-full`} value={q} onChange={e => setQ(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } if (e.key === 'Enter') { e.preventDefault(); if (shown[0]) onPick(shown[0].value); } }}
         onBlur={() => setTimeout(() => { if (!busy) onClose(); }, 150)} />
       <span className="absolute left-0 top-full z-20 mt-px w-[280px] max-h-[280px] overflow-auto bg-white shadow-[0_2px_6px_rgba(0,0,0,.3)] text-[14px] text-[#161616] leading-normal">
         {shown.map(o => <button key={o.value} type="button" className="block w-full text-left px-3 h-9 hover:bg-[#e8e8e8] truncate" onMouseDown={e => e.preventDefault()} onClick={() => onPick(o.value)}>{o.label}</button>)}
@@ -151,8 +155,12 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
   function addCondition(ri: number, path: string, to: 'and' | 'or' | number) {
     setAdding(null);
     const { nextInputs, nextRules, ci } = withColumn(path);
+    // the new condition's comparison takes the focus next (always the same order: word → comparison → value)
+    setFocusAt({ ri, key: to === 'and' ? `m${ci}` : `g${to === 'or' ? (rules[ri]?.or || []).length : to}${path}`, part: 0 });
     const rows = nextRules.map((r, i) => {
       if (i !== ri) return r;
+      // a word that already has a condition here is never overwritten: it becomes its own "or" condition
+      if (to === 'and' && !isAny(r.inputs?.[ci])) return { ...r, or: [...(r.or || []), { when: { [path]: '= ' } }] };
       if (to === 'and') return { ...r, inputs: Object.assign([...r.inputs], { [ci]: '= ' }), seq: [...(r.seq || nextInputs.filter((_: any, k: number) => !isAny(r.inputs?.[k])).map((c: any) => c.name)).filter((n: string) => n !== path), path] };
       const or = [...(r.or || [])];
       if (to === 'or') or.push({ when: { [path]: '= ' } }); else or[to] = { ...or[to], when: { ...(or[to]?.when || {}), [path]: '= ' } };
@@ -166,6 +174,15 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
     const t = term(path);
     onChange({ ...def, outputs: [...outputs, { name: path, type: t?.type === 'money' ? 'number' : (t?.type || 'string'), label: t?.term }], rules: rules.map(r => ({ ...r, outputs: [...(r.outputs || []), null] })) });
   }
+  const [focusAt, setFocusAt] = useState<{ ri: number; key: string; part: number } | null>(null);
+  useEffect(() => {
+    if (!focusAt) return;
+    const h = setTimeout(() => {
+      const el = document.querySelectorAll<HTMLInputElement>(`[data-line="${focusAt.ri}"] [data-cond="${focusAt.key}"] input`)[focusAt.part];
+      if (el) el.focus(); setFocusAt(null);
+    }, 150);
+    return () => clearTimeout(h);
+  }, [focusAt]);
   const setOrCell = (ri: number, gi: number, name: string, v: any) => {
     const or = [...(rules[ri].or || [])]; const when = { ...(or[gi]?.when || {}) };
     if (v === '-') delete when[name]; else when[name] = v;
@@ -173,32 +190,35 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
     setRow(ri, { or: or.filter(g => Object.keys(g.when || {}).length) });
   };
 
-  const condEditor = (key: string, name: string, cell: any, set: (v: any) => void) => {
+  const condEditor = (key: string, name: string, cell: any, set: (v: any) => void, ri = -1) => {
     const { operator, args } = parseCellExpression(cell);
     const spec = OP_TH.find(o => o.value === operator) || OP_TH[0];
     const t = term(name);
     const put = (op: string, a: any[]) => set(formatCellExpression(op, a));
+    // a value the word does not allow (its allowed values or value set); formulas and dates like "180 days ago" are not checked
+    const notKnown = (v: any) => { const x = String(v ?? '').trim(); const vs = t?.values || []; return !!x && vs.length > 0 && !/^GROUP:/i.test(x) && !/[*/+×÷()]|\s-\s|\bago$|^today$|^in \d/i.test(x) && !vs.includes(x) && !vs.some(o => valueLabel(o).toLowerCase() === x.toLowerCase()); };
     return (
-      <span key={key} className="inline-flex flex-wrap items-center gap-x-1.5">
+      <span key={key} data-cond={key} className="inline-flex flex-wrap items-center gap-x-1.5">
         <Chip title={name}>{label(name)}</Chip>
         <span className="inline-block">
           {/* typed or picked with the arrow keys; no page jump */}
           <ValueCombo className={`${plain} w-[120px]`} value={spec.label} values={OP_TH.map(o => o.label)} ariaLabel={`${label(name)} comparison`}
-            onChange={l => { const o = OP_TH.find(x => x.label === l) || OP_TH.find(x => x.label.toLowerCase().startsWith(l.toLowerCase())); if (o) put(o.value, o.args === 2 ? [args[0] ?? '', args[1] ?? ''] : [args[0] ?? '']); }} />
+            onChange={l => { const o = OP_TH.find(x => x.label === l) || OP_TH.find(x => x.label.toLowerCase().startsWith(l.toLowerCase())); if (o) { put(o.value, o.args === 2 ? [args[0] ?? '', args[1] ?? ''] : [args[0] ?? '']); if (o.args > 0 && ri >= 0) setFocusAt({ ri, key, part: 1 }); } }} />
         </span>
         {(operator === 'IN' || operator === '!IN') ? (() => {
           // one of several values: each value a removable piece, Enter adds the next one
           const vals = String(args[0] ?? '').split(',').map(x => x.trim()).filter(Boolean);
           return <>
-            {vals.map((v, k) => <span key={v} className="inline-flex items-center"><Chip>{valueLabel(v)}</Chip><button type="button" aria-label={`Remove ${v}`} className="h-6 w-5 text-[#8d8d8d] hover:text-[#da1e28]" onClick={() => put(operator, [vals.filter((_, i) => i !== k).join(', ')])}>×</button></span>)}
+            {vals.map((v, k) => <span key={v} className="inline-flex items-center"><Chip className={notKnown(v) ? '!text-[#da1e28] !border-[#da1e28]' : ''} title={notKnown(v) ? `${v} is not one of the values of ${label(name)}` : undefined}>{valueLabel(v)}</Chip><button type="button" aria-label={`Remove ${v}`} className="h-6 w-5 text-[#8d8d8d] hover:text-[#da1e28]" onClick={() => put(operator, [vals.filter((_, i) => i !== k).join(', ')])}>×</button></span>)}
             <ValueCombo className={`${plain} min-w-[90px]`} value="" placeholder={vals.length ? 'another' : 'value'} values={(t?.values || []).filter(x => !vals.includes(x))} ariaLabel={`${label(name)} value`}
               onChange={v => { const add = v.split(',').map(x => x.trim()).filter(Boolean); if (add.length) put(operator, [Array.from(new Set([...vals, ...add])).join(', ')]); }} />
           </>;
         })()
         : spec.args >= 1 && ((t?.type === 'enum' || t?.type === 'text' || t?.type === 'string' || t?.values?.length) && spec.args === 1
-          ? <ValueCombo className={`${plain} min-w-[90px]`} value={toWords(args[0] ?? '')} values={t?.values || []} ariaLabel={`${label(name)} value`} onChange={v => put(operator, [toPaths(v)])} />
-          : spec.args >= 1 && <FmtInput className={`${plain} text-right`} value={toWords(args[0] ?? '')} aria-label={`${label(name)} value`} onChange={v => put(operator, spec.args === 2 ? [toPaths(v), args[1] ?? ''] : [toPaths(v)])} />)}
-        {spec.args === 2 && <><span>and</span><FmtInput className={`${plain} text-right`} value={args[1] ?? ''} aria-label={`${label(name)} to`} onChange={v => put(operator, [args[0] ?? '', v])} /></>}
+          ? <><ValueCombo className={`${plain} min-w-[90px] ${notKnown(args[0]) ? '!text-[#da1e28] !border-[#da1e28]' : ''}`} value={toWords(args[0] ?? '')} values={t?.values || []} ariaLabel={`${label(name)} value`} onChange={v => put(operator, [toPaths(v)])} />
+              {notKnown(args[0]) && <span role="status" className="text-[13px] text-[#da1e28]">not a value of {label(name)}</span>}</>
+          : spec.args >= 1 && <FmtInput className={`${plain} text-right`} value={toWords(args[0] ?? '')} aria-label={`${label(name)} value`} onKeyDown={leaveOnEnter} onChange={v => put(operator, spec.args === 2 ? [toPaths(v), args[1] ?? ''] : [toPaths(v)])} />)}
+        {spec.args === 2 && <><span>and</span><FmtInput className={`${plain} text-right`} value={args[1] ?? ''} aria-label={`${label(name)} to`} onKeyDown={leaveOnEnter} onChange={v => put(operator, [args[0] ?? '', v])} /></>}
         {spec.args >= 1 && t?.unit && <span className="text-[#525252]">{t.unit}</span>}
         <button type="button" aria-label="Remove condition" className="h-6 w-6 text-[#8d8d8d] hover:text-[#da1e28] opacity-0 group-hover:opacity-100" onClick={() => set('-')}>×</button>
       </span>
@@ -248,13 +268,13 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
           const open = adding?.ri === ri ? adding.to : null;
           const nothing = conds.length === 0 && !groups.length;
           return (
-            <div key={r.id || ri} className="group flex items-start gap-3 px-4 py-2 border-b border-[#e0e0e0] last:border-b-0 text-[15px] text-[#161616] leading-8">
+            <div key={r.id || ri} data-line={ri} className="group flex items-start gap-3 px-4 py-2 border-b border-[#e0e0e0] last:border-b-0 text-[15px] text-[#161616] leading-8">
               <span className="w-6 shrink-0 text-right text-[13px] text-[#6f6f6f] tabular-nums pt-px">{ri + 1}</span>
               <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-1.5">
                 {nothing && ri === rules.length - 1 ? <span>Otherwise</span> : <span>If</span>}
                 {conds.length > 1 && modeToggle(r.match, m => setRow(ri, { match: m === 'any' ? 'any' : undefined }))}
                 {conds.map(({ c, ci, cell }, k) => (
-                  <span key={ci} className="inline-flex flex-wrap items-center gap-x-1.5">{k > 0 && <span>{join}</span>}{condEditor(`m${ci}`, c.name, cell, v => setCell(ri, 'inputs', ci, v))}</span>
+                  <span key={ci} className="inline-flex flex-wrap items-center gap-x-1.5">{k > 0 && <span>{join}</span>}{condEditor(`m${ci}`, c.name, cell, v => setCell(ri, 'inputs', ci, v), ri)}</span>
                 ))}
                 {open === 'and' ? picker(ri, 'and', conds.map(x => x.c.name))
                   : <button type="button" className={word} onClick={() => setAdding({ ri, to: 'and' })}>{conds.length ? `+ ${join}` : '+ condition'}</button>}
@@ -265,12 +285,12 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
                     <span key={gi} className="inline-flex flex-wrap items-center gap-x-1.5 pl-2 border-l-2 border-[#8d8d8d]">
                       <span className="font-semibold">or</span>
                       {cells.length > 1 && modeToggle(g.match, m => { const or = [...groups]; or[gi] = { ...g, match: m === 'any' ? 'any' : undefined }; setRow(ri, { or }); })}
-                      {cells.map(([name, cell], k) => <span key={name} className="inline-flex flex-wrap items-center gap-x-1.5">{k > 0 && <span>{gj}</span>}{condEditor(`g${gi}${name}`, name, cell, v => setOrCell(ri, gi, name, v))}</span>)}
+                      {cells.map(([name, cell], k) => <span key={name} className="inline-flex flex-wrap items-center gap-x-1.5">{k > 0 && <span>{gj}</span>}{condEditor(`g${gi}${name}`, name, cell, v => setOrCell(ri, gi, name, v), ri)}</span>)}
                       {open === gi ? picker(ri, gi, cells.map(([n]) => n)) : <button type="button" className={word} onClick={() => setAdding({ ri, to: gi })}>+ {gj}</button>}
                     </span>
                   );
                 })}
-                {!nothing && (open === 'or' ? picker(ri, 'or', []) : <button type="button" className={word} onClick={() => setAdding({ ri, to: 'or' })}>+ or</button>)}
+                {!nothing && join === 'and' && (open === 'or' ? picker(ri, 'or', []) : <button type="button" className={word} onClick={() => setAdding({ ri, to: 'or' })}>+ or</button>)}
                 <span className="mx-1">then</span>
                 {outputs.map((o, oi) => {
                   const t = term(o.name);
@@ -278,7 +298,7 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
                     <span key={oi} className="inline-flex items-center gap-x-1.5">
                       {oi > 0 && <span>,</span>}
                       <Chip>{label(o.name)}</Chip><span>=</span>
-                      <FmtInput className={`${plain} text-right`} value={r.outputs?.[oi] ?? ''} aria-label={`${label(o.name)} result`}
+                      <FmtInput className={`${plain} text-right`} value={r.outputs?.[oi] ?? ''} aria-label={`${label(o.name)} result`} onKeyDown={leaveOnEnter}
                         onChange={v => { setCell(ri, 'outputs', oi, v === '' ? null : /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : v === 'true' ? true : v === 'false' ? false : v); }} />
                       {t?.unit && <span className="text-[#525252]">{t.unit}</span>}
                     </span>

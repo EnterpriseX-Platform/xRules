@@ -113,7 +113,7 @@ function DefinitionTab({ rule, projectId }: { rule: any; projectId: string }) {
   const [saves, setSaves] = useState(0);
   // beside a topic's decision or calculation: the topic's test cases, run again after each save
   const withTests = (el: React.ReactNode) => rule.topicId
-    ? <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px] items-start">{el}<div className="xl:sticky xl:top-4"><TopicTests projectId={projectId} topicId={rule.topicId} focusId={rule.id} runKey={saves} /></div></div>
+    ? <BesideTests editor={el} tests={<TopicTests projectId={projectId} topicId={rule.topicId} focusId={rule.id} runKey={saves} />} />
     : el;
   // every keystroke used to PUT straight away; replies could land out of order and leave an older definition saved
   const pending = useRef<any>({});
@@ -739,6 +739,29 @@ function UsedIn({ ruleId, home }: { ruleId: string; home?: string }) {
     <div className="mb-4 text-[14px] text-[#525252] flex flex-wrap gap-x-6 gap-y-1">
       {data.flows.length > 0 && <span>Used in {data.flows.map((f: any, i: number) => <span key={f.id}>{i ? ', ' : ''}<Link href={`/p/${f.project?.id || f.projectId}/flows/${f.id}`} className="text-[#0f62fe] hover:underline">{name(f)}</Link></span>)}</span>}
       {data.operations.length > 0 && <span>REST API {data.operations.map((o: any, i: number) => <span key={o.id}>{i ? ', ' : ''}<Link href={`/apis/${o.spec.id}`} className="text-[#0f62fe] hover:underline">{o.method} {o.spec.basePath}/v{o.spec.version}{o.path}</Link></span>)}</span>}
+    </div>
+  );
+}
+
+/** Editor with the test strip beside it (wide) or below it (narrow). The layout only switches while nothing in the
+ *  editor has the focus, so a pane resize never moves the boxes under the caret mid-typing. */
+function BesideTests({ editor, tests }: { editor: React.ReactNode; tests: React.ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [wide, setWide] = useState(true);
+  useEffect(() => {
+    const el = box.current; if (!el) return;
+    const decide = () => {
+      if (el.contains(document.activeElement) && document.activeElement !== document.body) return;
+      const w = el.clientWidth; setWide(x => (x ? w >= 1000 : w >= 1080));   // a little slack so it does not flip back and forth
+    };
+    decide();
+    const ro = new ResizeObserver(decide); ro.observe(el);
+    el.addEventListener('focusout', decide);
+    return () => { ro.disconnect(); el.removeEventListener('focusout', decide); };
+  }, []);
+  return (
+    <div ref={box} className={`grid gap-4 items-start ${wide ? 'grid-cols-[minmax(0,1fr)_340px]' : 'grid-cols-1'}`}>
+      <div className="min-w-0">{editor}</div><div className={wide ? 'sticky top-4' : ''}>{tests}</div>
     </div>
   );
 }

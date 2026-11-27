@@ -17,6 +17,9 @@ export function ValueCombo({ value, values, onChange, className = '', ariaLabel,
   const known = values.some(v => v === t || valueLabel(v) === t);
   const items = [...shown.map(v => ({ v, label: valueLabel(v) })), ...(t && !known ? [{ v: t, label: `Use "${t}"` }] : [])];
   const typed = useRef<string | null>(null);   // what is typed and not yet used, read on blur
+  // the blur commit runs a moment later: it must use the newest onChange, or it writes an older line back
+  const latest = useRef(onChange); latest.current = onChange;
+  const cur = useRef(value); cur.current = value;
   const pick = (v: string) => { typed.current = null; onChange(v); setQ(null); setOpen(false); };
   return (
     <span className={`relative ${block ? 'block' : 'inline-block'}`}>
@@ -24,7 +27,7 @@ export function ValueCombo({ value, values, onChange, className = '', ariaLabel,
         onMouseDown={e => { if (document.activeElement !== e.currentTarget) { e.preventDefault(); e.currentTarget.focus(); } }}
         onFocus={e => { e.currentTarget.select(); setOpen(true); setHi(0); }}
         onChange={e => { typed.current = e.target.value; setQ(e.target.value); setOpen(true); setHi(0); }}
-        onBlur={() => setTimeout(() => { setOpen(false); const v = typed.current; typed.current = null; if (v != null) { const c = valueCode(v, values); if (c !== String(value ?? '')) onChange(c); setQ(null); } }, 120)}
+        onBlur={() => setTimeout(() => { setOpen(false); const v = typed.current; typed.current = null; if (v != null) { const c = valueCode(v, values); if (c !== String(cur.current ?? '')) latest.current(c); setQ(null); } }, 120)}
         onKeyDown={e => {
           if (e.key === 'ArrowDown') { e.preventDefault(); setHi(h => Math.min(h + 1, items.length - 1)); }
           else if (e.key === 'ArrowUp') { e.preventDefault(); setHi(h => Math.max(h - 1, 0)); }
