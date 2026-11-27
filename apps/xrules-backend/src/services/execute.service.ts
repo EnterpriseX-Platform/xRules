@@ -7,17 +7,18 @@ import { runScripting, evalExpression, setSolveResolver } from './sandbox.servic
 import { runFlow } from './flow-runtime.service.js';
 import { dispatch as dispatchWebhook } from './webhooks.service.js';
 import type { AuthUser } from '../middleware/auth.js';
-import { evaluateTable, expandForEngine, usesGroupsOrReasons, DATE_FUNCS } from './table-eval.js';
+import { evaluateTable, expandForEngine, usesGroupsOrReasons, DATE_FUNCS, withTopicDate } from './table-eval.js';
+import { compileExpr, getter, pathsOf } from './expr.js';
 
 /** The project's reason codes, for tables whose lines add reasons. */
 export async function reasonCatalogue(projectId: string) {
   const [list, words, sets] = await Promise.all([
     prisma.reasonCode.findMany({ where: { projectId, deletedAt: null }, select: { code: true, text: true, outcome: true, result: true, priority: true } }),
-    prisma.vocabularyTerm.findMany({ where: { projectId, deletedAt: null }, select: { path: true, aggregate: true, valueSetId: true } }).catch(() => [] as any[]),
+    prisma.vocabularyTerm.findMany({ where: { projectId, deletedAt: null }, select: { term: true, path: true, aggregate: true, valueSetId: true } }).catch(() => [] as any[]),
     prisma.valueSet.findMany({ where: { projectId, deletedAt: null } }).catch(() => [] as any[]),
   ]);
   // aggregate words and value sets travel with the catalogue to the table evaluator
-  const project = { aggs: {} as Record<string, any>, sets: {} as Record<string, any> };
+  const project = { aggs: {} as Record<string, any>, sets: {} as Record<string, any>, words: (words as any[]).map(w => ({ term: String(w.term || ''), path: String(w.path || '') })) };
   for (const w of words as any[]) {
     if (w.aggregate) project.aggs[w.path] = w.aggregate;
     const vs = w.valueSetId && (sets as any[]).find(s => s.id === w.valueSetId);
@@ -60,7 +61,7 @@ export async function tryLocalExecutor(rule: any, input: any, context: any): Pro
     case 'SCORECARD': return runScorecard(rule.definition, input);
     case 'DECISION_TREE': return rule.definition?.root ? runDecisionTree(rule.definition.root, input) : null;
     case 'SCRIPT':    return runScripting(rule.definition, input, rule.ruleVariables);
-    case 'FORMULA':   return runFormula(rule.definition, input, rule.ruleVariables);
+    case 'FORMULA':   return runFormula(rule.definition, input, rule.ruleVariables, Array.isArray(rule.definition?.lines) && rule.projectId ? await wordPaths(rule.projectId) : []);
     case 'LOOKUP':    return runLookup(rule.definition, input);
     case 'MODEL_CALL': {
       // { model: "<slug>", version?: 3, forEach?: "items", fields?: [...] } — predictions from the pinned version, else the published one
@@ -132,19 +133,25 @@ export const CALC_FUNCS = {
   ...DATE_FUNCS,
 };
 export function calcExpr(e: string) { return String(e).replace(/×/g, '*').replace(/÷/g, '/').replace(/≥/g, '>=').replace(/≤/g, '<=').replace(/≠/g, '!=').replace(/(^|[^=!<>])=(?!=)/g, '$1=='); }
-function runCalc(def: any, input: any): any {
+export function runCalc(def: any, input: any, words: string[] = []): any {
   const ctx: Record<string, any> = { ...(input || {}) };
   const out: Record<string, any> = {};
+  const names = (def.lines || []).map((l: any) => String(l?.name || '')).filter(Boolean);
+  const paths = [...words, ...names, ...pathsOf(ctx)];
   for (const line of def.lines || []) {
     if (!line?.name || !String(line.expr || '').trim()) continue;
-    const v = evalExpression(calcExpr(line.expr), { ...ctx, input: ctx, ...CALC_FUNCS, Math });
+    const v = evalExpression(compileExpr(line.expr, paths, Object.keys(CALC_FUNCS)), { __get: getter(ctx), ...CALC_FUNCS, Math });
     ctx[line.name] = v; out[line.name] = v;
   }
   return out;
 }
+/** The project's word paths, so formulas can name words with dots and spaces. */
+export async function wordPaths(projectId: string): Promise<string[]> {
+  return (await prisma.vocabularyTerm.findMany({ where: { projectId, deletedAt: null }, select: { path: true } }).catch(() => [] as any[])).map((w: any) => w.path);
+}
 
-function runFormula(def: any, input: any, vars?: any): any {
-  if (Array.isArray(def?.lines)) return runCalc(def, input);
+function runFormula(def: any, input: any, vars?: any, words?: string[]): any {
+  if (Array.isArray(def?.lines)) return runCalc(def, input, words);
   const src = def?.source ?? def?.expression;
   if (!src) throw new Error('Formula rule has no source');
   // fields are reachable both as input.x and as bare x
@@ -201,7 +208,15 @@ function runLookup(def: any, input: any): any {
   return found || null;
 }
 
+/** Runs a rule with its topic's decision date (or the case's own) unless a topic run already set one. */
 export async function executeRule(ruleId: string, input: any, context: any, user: AuthUser) {
+  return withTopicDate(input, async () => {
+    const r = ruleId ? await prisma.rule.findFirst({ where: { OR: [{ id: ruleId }, { slug: ruleId }, { alias: ruleId }] }, select: { topicId: true } }).catch(() => null) : null;
+    const t = r?.topicId ? await prisma.topic.findFirst({ where: { id: r.topicId }, select: { settings: true } }).catch(() => null) : null;
+    return (t?.settings as any)?.decisionDate || null;
+  }, () => executeRuleIn(ruleId, input, context, user));
+}
+async function executeRuleIn(ruleId: string, input: any, context: any, user: AuthUser) {
   ensureSolveResolver();
   if (!ruleId || !input) {
     throw new ValidationError('Rule ID and input are required');

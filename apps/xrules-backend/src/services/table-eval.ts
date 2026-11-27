@@ -6,10 +6,17 @@
 
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { evalExpression } from './sandbox.service.js';
+import { compileExpr, getter, pathsOf } from './expr.js';
 
 // The decision date: "today", "days since", "N days ago" read it; a topic or a test case sets it, else the real date.
 const AS_OF = new AsyncLocalStorage<{ asOf: Date | null }>();
 export function withDecisionDate<T>(d: any, fn: () => T): T { return AS_OF.run({ asOf: d ? toDate(d) : null }, fn); }
+/** Inside a run that already has a decision date: keep it. Else the case's own date, else the topic's. */
+export async function withTopicDate<T>(input: any, topicDate: () => Promise<any>, fn: () => Promise<T>): Promise<T> {
+  if (AS_OF.getStore()) return fn();
+  const d = decisionDateIn(input) || (await topicDate());
+  return AS_OF.run({ asOf: d ? toDate(d) : null }, fn);
+}
 /** A decision date carried by the data (a "decision date" / "decisionDate" field), if any. */
 export function decisionDateIn(input: any): any {
   if (!input || typeof input !== 'object') return null;
@@ -28,7 +35,7 @@ const plainGet = (o: any, path: string) => (o && typeof o === 'object' && path i
 // "any:" / "all:" columns over a list, tables run per item of a list, and value sets (codes, groups, extra columns).
 type Entry = { v: any; at: string[] };
 type Frame = { list: string; item: any; at: string[] };
-type ProjectCtx = { aggs: Record<string, any>; sets: Record<string, { name: string; rows: any[]; groups: Record<string, string[]>; columns: string[] }> };
+type ProjectCtx = { words?: { term: string; path: string }[]; aggs: Record<string, any>; sets: Record<string, { name: string; rows: any[]; groups: Record<string, string[]>; columns: string[] }> };
 let CTX: ProjectCtx | null = null; let ROOT: any = null; let FRAMES: Frame[] = []; let FIRED: string[][] = [];
 const singular = (k: string) => k.replace(/([a-z\d])([A-Z])/g, '$1 $2').replace(/[_\-]+/g, ' ').toLowerCase().replace(/ies$/, 'y').replace(/(?<!s)s$/, '');
 /** Every value at a path, each with the list items it came through ("bureau account 3", "payment 5"). */
@@ -163,12 +170,43 @@ export const isFormulaArg = (arg: string, op = '>') => {
   const a = String(arg ?? '').trim(); if (!a || !isNaN(num(a)) || relDate(a)) return false;
   return /[*/+×÷()]|\s-\s/.test(a) || /^[A-Z_]+\(/.test(a) || (['>', '>=', '<', '<='].includes(op) && /[A-Za-z_]/.test(a));
 };
+/** Word names written as shown ("employee income") turned into their data paths, outside quoted text. */
+function labelsToPaths(text: string): string {
+  const ws = (CTX?.words || []).filter(w => w.term && w.path && w.term !== w.path).sort((a, b) => b.term.length - a.term.length);
+  if (!ws.length) return text;
+  return String(text).split(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/).map((part, i) => {
+    if (i % 2) return part;
+    let out = part;
+    for (const w of ws) out = out.replace(new RegExp(`(?<![\\w.])${w.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w])`, 'gi'), `\u0003${w.path}\u0003`);
+    return out.replace(/\u0003/g, '');
+  }).join('');
+}
 function formulaValue(arg: string, scope: any): any {
-  const e = String(arg).replace(/−/g, '-').replace(/×/g, '*').replace(/÷/g, '/')
+  const e = labelsToPaths(String(arg))
     // "margin of business_type" reads an extra column of the word's value set; @words are aggregates
     .replace(/\b([A-Za-z_]\w*) of ([A-Za-z_][\w.]*)/g, (_m, c, w) => `__of(${JSON.stringify(w)}, ${JSON.stringify(c)})`)
     .replace(/@([A-Za-z_]\w*)/g, (_m, n) => `__agg(${JSON.stringify('@' + n)})`);
-  try { return evalExpression(e, { ...(scope || {}), input: scope, ...DATE_FUNCS, Math, __of: (w: string, c: string) => setExtra(w, c, scope), __agg: (p: string) => aggValue(p) }); } catch { return undefined; }
+  const paths = [...(CTX?.words || []).map(w => w.path), ...pathsOf(scope)];
+  try { return evalExpression(compileExpr(e, paths, [...Object.keys(DATE_FUNCS), '__of', '__agg', 'IF', 'MIN', 'MAX', 'ROUND']), { __get: getter(scope), ...DATE_FUNCS, ...SMALL_FUNCS, Math, __of: (w: string, c: string) => setExtra(w, c, scope), __agg: (p: string) => aggValue(p) }); } catch { return undefined; }
+}
+const SMALL_FUNCS = {
+  IF: (c: any, a: any, b: any) => (c ? a : b),
+  MIN: (...a: any[]) => Math.min(...a.flat().map(Number)), MAX: (...a: any[]) => Math.max(...a.flat().map(Number)),
+  ROUND: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.round(Number(x) * f) / f; },
+};
+/** A result value: a number or quoted text stays; a word or a formula of words is worked out. */
+export function resultValue(cell: any, scope: any): any {
+  if (typeof cell !== 'string') return cell;
+  const s = cell.trim(); if (!s || !isNaN(num(s))) return cell;
+  if (/^"[^"]*"$|^'[^']*'$/.test(s)) return s.slice(1, -1);
+  const withPaths = labelsToPaths(s);
+  const paths = new Set([...(CTX?.words || []).map(w => w.path), ...pathsOf(scope)]);
+  const namesWord = Array.from(paths).some(p => p && new RegExp(`(?<![\\w.])${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w])`).test(withPaths));
+  const looksLikeFormula = /[*/+×÷()−]|\s-\s|^[A-Z_]+\(|^if\b/i.test(s);
+  if (!namesWord && !looksLikeFormula) return cell;
+  const v = formulaValue(s, scope);
+  if (v === undefined || (typeof v === 'number' && isNaN(v))) return namesWord ? null : cell;
+  return v;
 }
 
 export function matchCell(cell: any, actual: any, scope?: any): boolean {
@@ -237,7 +275,9 @@ const cellUsesFormula = (c: any) => { if (typeof c !== 'string') return false; c
 export const usesFormulas = (def: any) => (def?.rules || []).some((r: any) => (r?.inputs || []).some(cellUsesFormula) || (Array.isArray(r?.or) && r.or.some((g: any) => Object.values(g?.when || {}).some(cellUsesFormula))));
 /** Lists, aggregates, per-item tables and value-set groups run only in this evaluator. */
 export const usesLists = (def: any) => !!def?.perItem?.list || (def?.inputs || []).some((c: any) => /\[\]|^@|^(any|all):/.test(String(c?.name || ''))) || /GROUP:|@[A-Za-z_]| of [A-Za-z_]/.test(JSON.stringify(def?.rules || []));
-export const usesGroupsOrReasons = (def: any) => usesFormulas(def) || usesLists(def) || (def?.rules || []).some((r: any) => (Array.isArray(r?.or) && r.or.length) || r?.match === 'any' || (Array.isArray(r?.reasons) && r.reasons.length));
+/** A result cell that is a word or formula rather than a plain value (or quoted text). */
+export const usesResultFormulas = (def: any) => (def?.rules || []).some((r: any) => (r?.outputs || []).some((c: any) => typeof c === 'string' && isNaN(num(c)) && !/^"[^"]*"$/.test(c.trim()) && (/[*/+×÷()−]|\s-\s|^if\b/i.test(c) || /\s|[._]/.test(c.trim()))));
+export const usesGroupsOrReasons = (def: any) => usesFormulas(def) || usesResultFormulas(def) || usesLists(def) || (def?.rules || []).some((r: any) => (Array.isArray(r?.or) && r.or.length) || r?.match === 'any' || (Array.isArray(r?.reasons) && r.reasons.length));
 export const usesReasons = (def: any) => (def?.rules || []).some((r: any) => Array.isArray(r?.reasons) && r.reasons.length);
 
 /** Lines with "or" groups as plain rows for an engine that only knows AND rows (one row per alternative). */
@@ -267,7 +307,8 @@ function evaluateIn(def: any, input: any, catalogue: Reason[]): any {
   const first = policy === 'FIRST' || policy === 'FIRST_MATCH' || policy === 'UNIQUE' || policy === 'ANY';
   const rows: any[] = def?.rules || [];
   const elseRow = rows.find(r => Array.isArray(r?.inputs) && r.inputs.some(isElseCell));
-  const value = (r: any) => Object.fromEntries(outs.map((n, i) => [n, r?.outputs?.[i] ?? null]));
+  const value = (r: any) => { const o: Record<string, any> = {}; outs.forEach((n, i) => { o[n] = resultValue(r?.outputs?.[i] ?? null, { ...(input || {}), ...frameScope() }); }); return o; };
+  const frameScope = () => (FRAMES.length ? { [FRAMES[FRAMES.length - 1].list.replace(/\[\]$/, '')]: FRAMES[FRAMES.length - 1].item } : {});
   const hits: any[] = []; const all: any[] = []; const trace: string[] = [];
   const tag = (r: any) => (Array.isArray(r?.reasons) && r.reasons.length ? r.reasons.join(', ') : outs.length ? outs.map((n, i) => `${n} ${r?.outputs?.[i] ?? ''}`).join(', ') : `line ${rows.indexOf(r) + 1}`);
   const runLines = (where?: string[]) => {
