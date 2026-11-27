@@ -2,16 +2,15 @@
 // Bring in many test cases at once: a dropped .xlsx / .csv / .json, or rows pasted from Excel or a JSON array.
 // Each column is matched to a word by data path or name; a column is an input (what the applicant brings) or an
 // expected result (what the topic should answer). Unmatched columns can be pointed at a word or left out.
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { DropZone, Modal, TextArea } from '@/components/pipeline/ui';
-import { Dropdown } from '@/components/pipeline/Dropdown';
+import { DropZone, Modal } from '@/components/pipeline/ui';
 import { readTable } from '@/lib/termImport';
 import { useTerms } from '@/lib/terms';
 
-type Col = { head: string; role: 'input' | 'expected' | 'name' | 'skip'; path: string };
-const RESULTS = [{ path: 'outcome', name: 'Final decision' }, { path: 'reason', name: 'Final reason' }, { path: 'reasons', name: 'All reasons' }, { path: 'reasonText', name: 'Reason text' }];
+type Col = { head: string; role: 'input' | 'expected' | 'name' | 'skip'; path: string; create?: boolean };
+const RESULTS = [{ path: 'outcome', name: 'Final decision' }, { path: 'decisionResult', name: 'Decision result' }, { path: 'reason', name: 'Final reason' }, { path: 'reasons', name: 'All reasons' }, { path: 'reasonText', name: 'Reason text' }];
 const NON = new RegExp('[^\\p{L}\\p{N}]+', 'gu');
 const norm = (s: string) => String(s ?? '').toLowerCase().replace(NON, '');
 
@@ -21,6 +20,46 @@ function setPath(o: any, path: string, v: any) {
   cur[ks[ks.length - 1]] = v;
 }
 const flat = (o: any, p = ''): Record<string, any> => (o && typeof o === 'object' && !Array.isArray(o) ? Object.entries(o).reduce((a, [k, v]) => ({ ...a, ...flat(v, p ? `${p}.${k}` : k) }), {}) : { [p]: o });
+
+// the case's own decision date (Today, days since … read it)
+const DATE_IN = { path: 'decisionDate', name: 'Decision date' };
+/** A data path for a new word from a column header: "Final credit line" → FinalCreditLine */
+const pathFor = (h: string) => { const w = String(h).replace(/^(expected|exp)[\s_:.-]*/i, '').split(NON).filter(Boolean); return w.length === 1 ? w[0] : w.map(x => x[0].toUpperCase() + x.slice(1)).join(''); };
+const ROLES: { value: Col['role']; label: string }[] = [{ value: 'input', label: 'Input' }, { value: 'expected', label: 'Expected' }, { value: 'name', label: 'Name' }, { value: 'skip', label: 'Leave out' }];
+
+/** Type-ahead word picker; its list floats above the table (not clipped), Escape closes only the list. */
+function WordPick({ value, create, head, options, onChange }: { value: string; create?: boolean; head: string; options: [string, string][]; onChange: (p: { path: string; create?: boolean }) => void }) {
+  const [open, setOpen] = useState(false); const [q, setQ] = useState(''); const [hi, setHi] = useState(0);
+  const box = useRef<HTMLInputElement>(null); const [at, setAt] = useState<{ left: number; top: number; width: number } | null>(null);
+  const cur = create ? `${head} (new word)` : options.find(([p]) => p === value)?.[1] || '';
+  const n = norm(q);
+  const hits = options.filter(([p, name]) => !n || norm(name).includes(n) || norm(p).includes(n)).slice(0, 60);
+  const items: { path: string; label: string; create?: boolean }[] = [{ path: pathFor(q || head), label: `Create word "${(q || head).trim()}"`, create: true }, ...hits.map(([p, name]) => ({ path: p, label: name }))];
+  const place = () => { const r = box.current?.getBoundingClientRect(); if (r) setAt({ left: r.left, top: r.bottom, width: Math.max(r.width, 260) }); };
+  const pick = (it: typeof items[number]) => { onChange(it.create ? { path: it.path, create: true } : { path: it.path }); setOpen(false); setQ(''); };
+  return (
+    <div className="relative">
+      <input ref={box} className="w-full h-10 px-3 bg-[#f4f4f4] border-b border-[#8d8d8d] text-[14px] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2"
+        role="combobox" aria-expanded={open} aria-label={`Word for ${head}`} placeholder="Choose a word" value={open ? q : cur}
+        onFocus={() => { place(); setOpen(true); setHi(0); }} onBlur={() => setTimeout(() => setOpen(false), 120)}
+        onChange={e => { setQ(e.target.value); setHi(0); setOpen(true); place(); }}
+        onKeyDown={e => {
+          if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); setOpen(false); setQ(''); return; }
+          if (e.key === 'ArrowDown') { e.preventDefault(); setHi(h => Math.min(h + 1, items.length - 1)); }
+          if (e.key === 'ArrowUp') { e.preventDefault(); setHi(h => Math.max(h - 1, 0)); }
+          if (e.key === 'Enter' && open) { e.preventDefault(); e.stopPropagation(); pick(items[hi] || items[0]); }
+        }} />
+      {open && at && (
+        <div role="listbox" className="fixed z-[60] bg-white border border-[#e0e0e0] max-h-64 overflow-y-auto shadow-[0_2px_6px_rgba(0,0,0,.2)]" style={{ left: at.left, top: at.top, width: at.width }}>
+          {items.map((it, i) => (
+            <button key={(it.create ? '+' : '') + it.path} type="button" role="option" aria-selected={i === hi} onMouseDown={e => { e.preventDefault(); pick(it); }}
+              className={`w-full px-3 h-9 text-left text-[14px] truncate ${i === hi ? 'bg-[#e8e8e8]' : 'hover:bg-[#e8e8e8]'} ${it.create ? 'text-[#0f62fe]' : ''}`}>{it.label}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function CaseImport({ projectId, topicId, outputs = [], onClose }: { projectId: string; topicId?: string; outputs?: { path: string; name: string }[]; onClose: () => void }) {
   const qc = useQueryClient();
@@ -33,6 +72,7 @@ export function CaseImport({ projectId, topicId, outputs = [], onClose }: { proj
     const m = new Map<string, string>();
     [...RESULTS, ...outputs].forEach(o => m.set(o.path, terms.find(t => t.path === o.path)?.term || o.name));
     terms.forEach(t => { if (!m.has(t.path)) m.set(t.path, t.term); });
+    if (!m.has(DATE_IN.path)) m.set(DATE_IN.path, DATE_IN.name);
     return m;
   }, [terms, outputs]);
   const match = (h: string) => {
@@ -65,27 +105,45 @@ export function CaseImport({ projectId, topicId, outputs = [], onClose }: { proj
   const rows = (table || []).slice(1).filter(r => r.some(v => v !== null && v !== undefined && String(v).trim() !== ''));
   const nameCol = cols.findIndex(c => c.role === 'name');
   const used = cols.filter(c => (c.role === 'input' || c.role === 'expected') && c.path);
+  const fresh = cols.filter(c => c.create && c.path && (c.role === 'input' || c.role === 'expected'));
   const go = useMutation({ meta: { silent: true },
-    mutationFn: () => api.post<{ created: number; updated: number }>('/platform/tests/import', { projectId, topicId, rows: rows.map((r, i) => {
+    mutationFn: async () => {
+      // words for columns that had none are made first
+      if (fresh.length) {
+        const sample = (ci: number) => rows.map(r => r[ci]).filter(v => v !== null && v !== undefined && String(v).trim() !== '');
+        await api.post('/platform/vocabulary/bulk', { projectId, terms: fresh.map(c => { const vs = sample(cols.indexOf(c)); const numeric = vs.length > 0 && vs.every(v => !isNaN(Number(String(v).replace(/,/g, '')))); return { term: c.head.replace(/^(expected|exp)[\s_:.-]*/i, '').trim() || c.path, path: c.path, type: numeric ? 'number' : 'text' }; }) });
+        qc.invalidateQueries({ queryKey: ['vocab', projectId] });
+      }
+      return api.post<{ created: number; updated: number }>('/platform/tests/import', { projectId, topicId, rows: rows.map((r, i) => {
       const input: any = {}; const expected: any = {};
       cols.forEach((c, ci) => { if (!c.path) return; const v = r[ci]; if (c.role === 'input' && v !== null && v !== undefined && v !== '') setPath(input, c.path, v); if (c.role === 'expected') expected[c.path] = v ?? ''; });
       return { name: nameCol >= 0 && r[nameCol] ? String(r[nameCol]) : `Case ${i + 1}`, input, expected };
-    }) }),
+    }) });
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['topic-tests'] }); qc.invalidateQueries({ queryKey: ['topics', projectId] }); qc.invalidateQueries({ queryKey: ['tests', projectId] }); qc.invalidateQueries({ queryKey: ['project-cases', projectId] }); onClose(); } });
-  const opts = [{ value: '', label: 'Choose a word' }, ...Array.from(targets).map(([p, n]) => ({ value: p, label: n }))];
+  const opts = Array.from(targets) as [string, string][];
+  // closing after rows were read asks first; Escape inside a picker never gets here
+  const [asking, setAsking] = useState(false);
+  const close = () => { if (table && rows.length && !go.isPending) setAsking(true); else onClose(); };
+  const pasteIn = async () => { try { const t = await navigator.clipboard.readText(); if (t) setPaste(t); } catch { setErr('The browser did not allow reading the clipboard; use ⌘V / Ctrl+V in the box'); } };
   const set = (i: number, p: Partial<Col>) => setCols(cs => cs.map((c, k) => (k === i ? { ...c, ...p } : c)));
   const nExp = used.filter(c => c.role === 'expected').length;
   const th = 'h-10 px-3 text-left text-[12px] font-semibold bg-[#e0e0e0] whitespace-nowrap';
   const td = 'px-3 h-11 border-b border-[#e0e0e0] align-middle';
 
   return (
-    <Modal title="Import test cases" wide="xl" onClose={onClose} onSubmit={table ? () => go.mutate() : () => read(paste)}
+    <Modal title="Import test cases" wide="xl" onClose={close} onSubmit={table ? () => go.mutate() : () => read(paste)}
       submitLabel={go.isPending ? 'Importing…' : table ? `Add ${rows.length} case${rows.length === 1 ? '' : 's'}` : 'Read rows'}
       submitDisabled={go.isPending || (table ? !rows.length || !nExp : !paste.trim())} error={go.error ? String((go.error as any).message) : err}>
       {!table ? (
         <div className="grid gap-4">
           <DropZone accept=".xlsx,.csv,.tsv,.json" onFile={f => read(f)} label="Drop a sheet (.xlsx / .csv) whose first row names the columns, or a .json list of cases" />
-          <TextArea id="ci-paste" label="Or paste rows copied from Excel, or a JSON list" rows={8} value={paste} onChange={setPaste} />
+          <div className="grid gap-1">
+            <div className="flex items-end"><label htmlFor="ci-paste" className="flex-1 block text-[12px] text-[#525252]">Or paste rows copied from Excel, or a JSON list</label>
+              <button type="button" className="h-8 px-3 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={pasteIn}>Paste</button></div>
+            <textarea id="ci-paste" rows={8} className="w-full bg-[#f4f4f4] border-b border-[#8d8d8d] px-3 py-2 text-[13px] font-mono focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2"
+              value={paste} onChange={e => setPaste(e.target.value)} onPaste={e => { const t = e.clipboardData?.getData('text'); if (t) { e.preventDefault(); const el = e.currentTarget; const v = el.value; setPaste(v.slice(0, el.selectionStart) + t + v.slice(el.selectionEnd)); } }} />
+          </div>
         </div>
       ) : (
         <div className="grid gap-3">
@@ -97,13 +155,24 @@ export function CaseImport({ projectId, topicId, outputs = [], onClose }: { proj
                 <tr key={i} className={c.role === 'skip' ? 'text-[#8d8d8d]' : ''}>
                   <td className={td}>{c.head || `Column ${i + 1}`}</td>
                   <td className={`${td} text-[#525252] truncate max-w-[180px]`}>{String(rows[0]?.[i] ?? '')}</td>
-                  <td className={`${td} w-[170px]`}><Dropdown value={c.role} onChange={v => set(i, { role: v as Col['role'] })} options={[{ value: 'input', label: 'Input' }, { value: 'expected', label: 'Expected result' }, { value: 'name', label: 'Case name' }, { value: 'skip', label: 'Leave out' }]} /></td>
-                  <td className={`${td} w-[260px]`}>{c.role === 'input' || c.role === 'expected' ? <Dropdown value={c.path} onChange={v => set(i, { path: v })} options={opts} /> : null}</td>
+                  <td className={`${td} whitespace-nowrap`}><div role="radiogroup" aria-label={`${c.head} is`} className="inline-flex border border-[#8d8d8d]">{ROLES.map(o => (
+                    <button key={o.value} type="button" role="radio" aria-checked={c.role === o.value} onClick={() => set(i, { role: o.value, ...((o.value === 'input' || o.value === 'expected') && !c.path ? { path: pathFor(c.head), create: true } : {}) })}
+                      className={`h-8 px-2 text-[13px] ${c.role === o.value ? 'bg-[#393939] text-white' : 'text-[#161616] hover:bg-[#e8e8e8]'}`}>{o.label}</button>))}</div></td>
+                  <td className={`${td} w-[280px]`}>{c.role === 'input' || c.role === 'expected' ? <WordPick value={c.path} create={c.create} head={c.head} options={opts} onChange={p => set(i, { path: p.path, create: !!p.create })} /> : null}</td>
                 </tr>
               ))}</tbody>
             </table>
           </div>
+          {fresh.length > 0 && <div className="text-[14px] text-[#161616]">{fresh.length} new word{fresh.length === 1 ? '' : 's'} will be made: {fresh.map(c => c.head).join(', ')}</div>}
           <button type="button" className="justify-self-start h-8 px-3 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => { setTable(null); setCols([]); }}>Read other rows</button>
+        </div>
+      )}
+      {asking && (
+        <div role="alertdialog" aria-label="Discard the rows read" className="border-l-4 border-[#f1c21b] bg-[#fcf4d6] px-4 py-3 flex items-center gap-3"
+          onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setAsking(false); } }}>
+          <span className="flex-1">Discard the {rows.length} rows read and the column choices?</span>
+          <button type="button" autoFocus className="h-8 px-3 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => setAsking(false)}>Keep</button>
+          <button type="button" className="h-8 px-3 text-[14px] text-[#da1e28] hover:bg-[#fff1f1]" onClick={onClose}>Discard</button>
         </div>
       )}
     </Modal>
