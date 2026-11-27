@@ -44,6 +44,13 @@ export async function save(data: { projectId: string; rows: { id?: string; name:
   return list(p.id, user);
 }
 
+export async function remove(ids: string[], user: AuthUser) {
+  const rows = await prisma.productSetting.findMany({ where: { id: { in: ids || [] }, deletedAt: null } });
+  for (const pid of Array.from(new Set(rows.map(r => r.projectId)))) await assertProjectAccess(pid, user, 'write');
+  await prisma.productSetting.updateMany({ where: { id: { in: rows.map(r => r.id) } }, data: { deletedAt: new Date(), deletedBy: user.userId } });
+  return { count: rows.length };
+}
+
 export async function restore(ids: string[], user: AuthUser) {
   const rows = await prisma.productSetting.findMany({ where: { id: { in: ids || [] } } });
   for (const pid of Array.from(new Set(rows.map(r => r.projectId)))) await assertProjectAccess(pid, user, 'write');

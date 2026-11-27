@@ -8,7 +8,7 @@ import {
   Activity, KeyRound, Plug, Webhook, ScrollText, Settings,
   ChevronDown, Workflow, Briefcase, ListTree, Zap,
   Database, Layers, Network, BookA, Rows3, GitCompare, BadgeCheck, Timer, ListChecks, Gauge, PieChart, HeartPulse, Bell, History,
-  UserCog, Lock, Box, Building2, Shield, ChevronLeft,
+  UserCog, Lock, Box, Building2, Shield, ChevronLeft, Library, Table2,
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { useProject } from '@/lib/store';
@@ -83,6 +83,8 @@ export function Sidebar() {
     areas = [
       { id: 'engine', label: '', items: [
         { href: `${projBase}/topics`,              label: 'Topics',         icon: FolderKanban },
+        { href: `${projBase}/library`,             label: 'Library',        icon: Library },
+        { href: `${projBase}/product-settings`,    label: 'Product settings', icon: Table2 },
         { href: `${projBase}/vocabulary`,          label: 'Words',          icon: BookA },
         { href: `${projBase}/approvals`,           label: 'Approvals',      icon: ScrollText },
       ] },

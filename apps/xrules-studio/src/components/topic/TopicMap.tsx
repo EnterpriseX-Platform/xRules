@@ -14,6 +14,7 @@ import { Chip, type LinkItem } from '@/components/links/Links';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { StrategySteps } from './StrategySteps';
 import { AddStep, StagePanel, useStages } from './TopicStages';
+import { FromLibrary, LibrarySection, originOf } from './Library';
 
 export type AddKind = { type: 'DECISION_TABLE' | 'FORMULA' | 'STRATEGY'; question?: string; stageId?: string };
 
@@ -114,7 +115,10 @@ export function TopicMap({ projectId, topic, canWrite, onAdd, onSimulate }: { pr
 
   const addFor = (g: Group) => g.stageId ? [{ label: '+ Decision', k: { type: 'DECISION_TABLE', stageId: g.stageId } }, { label: '+ Calculation', k: { type: 'FORMULA', stageId: g.stageId } }]
     : g.q === 'qualify' ? [{ label: '+ Decision', k: { type: 'DECISION_TABLE', question: 'qualify' } }] : g.q === 'amount' ? [{ label: '+ Calculation', k: { type: 'FORMULA', question: 'amount' } }] : g.q === 'choose' ? [{ label: '+ Strategy', k: { type: 'STRATEGY', question: 'choose' } }] : [];
-  const adds = (g: Group) => canWrite && addFor(g).length > 0 && <div className="flex gap-3">{addFor(g).map(a => <button key={a.label} type="button" className="h-8 text-[14px] text-[#0f62fe] hover:underline" onClick={() => onAdd(a.k as AddKind)}>{a.label}</button>)}</div>;
+  const [fromLib, setFromLib] = useState<string | null | undefined>(undefined);
+  const adds = (g: Group) => canWrite && addFor(g).length > 0 && <div className="flex gap-3">{addFor(g).map(a => <button key={a.label} type="button" className="h-8 text-[14px] text-[#0f62fe] hover:underline" onClick={() => onAdd(a.k as AddKind)}>{a.label}</button>)}
+    {(g.stageId || g.q !== 'choose') && <button type="button" className="h-8 text-[14px] text-[#0f62fe] hover:underline" onClick={() => setFromLib(g.stageId || null)}>+ From library</button>}</div>;
+  const libModal = fromLib !== undefined && <FromLibrary projectId={projectId} topicId={topic.id} stageId={fromLib || undefined} onClose={() => setFromLib(undefined)} />;
   const groupTitle = (g: Group, cls: string) => g.stageId ? <button type="button" className={`${cls} text-left hover:text-[#0f62fe] hover:underline`} onClick={() => pickStage(g.stageId!)}>{g.title}</button> : <div className={cls}>{g.title}</div>;
 
   if (sel || openStage) return (
@@ -130,7 +134,7 @@ export function TopicMap({ projectId, topic, canWrite, onAdd, onSimulate }: { pr
         ))}
         <button className="w-full text-left px-4 py-3 text-[#525252] hover:bg-[#f4f4f4]" onClick={() => setOpen(null)}>Goes out · {outs.length}</button>
       </nav>
-      {sel ? <BoxPanel projectId={projectId} box={sel} links={links?.[sel.d.id]} label={label} numOf={numOf} onPick={setOpen} onClose={() => setOpen(null)} onSimulate={onSimulate} ds={ds}
+      {sel ? <BoxPanel canWriteBox={canWrite} projectId={projectId} box={sel} links={links?.[sel.d.id]} label={label} numOf={numOf} onPick={setOpen} onClose={() => setOpen(null)} onSimulate={onSimulate} ds={ds}
           stage={topic.shape === 'steps' ? { canWrite, stages: st.stages, place: st.place, takeOut: st.takeOut, open: pickStage } : undefined} />
         : <StagePanel projectId={projectId} topic={topic} stageId={openStage!} canWrite={canWrite} onPick={setOpen} onClose={() => setOpenStage(null)} onAdd={(type, stageId) => onAdd({ type, stageId })} />}
     </div>
@@ -162,7 +166,7 @@ export function TopicMap({ projectId, topic, canWrite, onAdd, onSimulate }: { pr
               <div className="space-y-2">
                 {g.boxes.map(b => {
                   const n = linesOf(b.d); const uses = inner.filter(([, to]) => to === b.d.id).map(([f]) => numOf(f)).filter(Boolean);
-                  const meta = [n != null ? `${n.toLocaleString()} line${n === 1 ? '' : 's'}` : kindName(b.d.type), uses.length ? `uses ${uses.join(' and ')}` : '', tests(b.d), state(b.d)].filter(Boolean).join(' · ');
+                  const meta = [originOf(b.d), n != null ? `${n.toLocaleString()} line${n === 1 ? '' : 's'}` : kindName(b.d.type), uses.length ? `uses ${uses.join(' and ')}` : '', tests(b.d), state(b.d)].filter(Boolean).join(' · ');
                   const bad = (b.d.tests?.fail || 0) > 0;
                   return (
                     <button key={b.d.id} data-node={`b:${b.d.id}`} onClick={() => setOpen(b.d.id)} onMouseEnter={() => setHover(b.d.id)} onMouseLeave={() => setHover(null)}
@@ -178,6 +182,7 @@ export function TopicMap({ projectId, topic, canWrite, onAdd, onSimulate }: { pr
             </div>
           ))}
           {topic.shape === 'steps' && canWrite && <AddStep topic={topic} />}
+          {libModal}
         </div>
       </section>
       <section>
@@ -197,7 +202,7 @@ export function TopicMap({ projectId, topic, canWrite, onAdd, onSimulate }: { pr
 }
 
 type StageOps = { canWrite: boolean; stages: { id: string; name: string; items: string[] }[]; place: (stageId: string, id: string) => void; takeOut: (id: string) => void; open: (id: string) => void };
-function BoxPanel({ projectId, box, links, label, numOf, onPick, onClose, onSimulate, ds, stage }: { projectId: string; box: Box; links: any; label: (p: string) => string; numOf: (id: string) => number | undefined; onPick: (id: string) => void; onClose: () => void; onSimulate: () => void; ds: any[]; stage?: StageOps }) {
+function BoxPanel({ projectId, box, links, label, numOf, onPick, onClose, onSimulate, ds, stage, canWriteBox }: { canWriteBox?: boolean; projectId: string; box: Box; links: any; label: (p: string) => string; numOf: (id: string) => number | undefined; onPick: (id: string) => void; onClose: () => void; onSimulate: () => void; ds: any[]; stage?: StageOps }) {
   const d = box.d; const [dev] = useDevMode();
   const lines = d.type === 'DECISION_TABLE' ? tableSentences(d.definition, label) : [];
   const ruleChip = (slug: string) => { const r = ds.find(x => x.kind === 'rule' && (x.slug === slug || x.id === slug)); return r ? { kind: r.question === 'amount' ? 'amount' : 'qualify', id: r.id, name: r.name, href: href(projectId, r) } as LinkItem : null; };
@@ -210,21 +215,22 @@ function BoxPanel({ projectId, box, links, label, numOf, onPick, onClose, onSimu
         <div className="flex-1 min-w-0">
           <div className="text-[13px] text-[#525252]">{box.n} · {box.group || kindName(d.type)}</div>
           <h2 className="m-0 text-[22px] leading-8 text-[#161616]">{d.name}</h2>
-          <div className="text-[13px] text-[#525252] mt-1">{[kindName(d.type), state(d)].join(' · ')}</div>
+          <div className="text-[13px] text-[#525252] mt-1">{[kindName(d.type), originOf(d), state(d)].filter(Boolean).join(' · ')}</div>
         </div>
         <button aria-label="Back to map" onClick={onClose} className="h-8 px-2 flex items-center gap-1 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8]"><X className="h-4 w-4" />Back to map</button>
       </div>
       <div className="grid gap-8 px-6 py-5 xl:grid-cols-[minmax(0,1fr)_280px]">
         <div className="min-w-0">
           <div className="flex items-baseline gap-4"><H>WHAT IT DOES</H><span className="flex-1" /><Link href={href(projectId, d)} className="text-[13px]">Edit</Link></div>
-          {d.type === 'DECISION_TABLE' && (<>
+          {d.libraryRef?.itemId ? null : d.type === 'DECISION_TABLE' && (<>
             <ol className="m-0 pl-0 list-none space-y-1.5 text-[15px] leading-[24px]">{lines.slice(0, 8).map((s, i) => <li key={i} className="flex gap-3"><span className="text-[#6f6f6f] tabular-nums w-6 shrink-0">{i + 1}</span><span>{s}</span></li>)}</ol>
             {lines.length > 8 && <Link href={href(projectId, d)} className="inline-block mt-2 text-[14px]">and {(lines.length - 8).toLocaleString()} more lines</Link>}
             {!lines.length && <div className="text-[14px] text-[#6f6f6f]">No lines yet</div>}
           </>)}
-          {d.type === 'FORMULA' && <div className="space-y-1 text-[15px] leading-[26px]">{(d.definition?.lines || []).map((l: any, i: number) => <div key={i}><b className="font-semibold">{label(l.name)}</b> = {String(l.expr || '').replace(/[A-Za-z_][\w]*/g, (w: string) => (/^(SUM|AVG|COUNT|MIN|MAX|ROUND|ROUNDDOWN|ROUNDUP|IF)$/.test(w) ? w : label(w))).replace(/\*/g, '×').replace(/\//g, '÷')}</div>)}</div>}
+          {!d.libraryRef?.itemId && d.type === 'FORMULA' && <div className="space-y-1 text-[15px] leading-[26px]">{(d.definition?.lines || []).map((l: any, i: number) => <div key={i}><b className="font-semibold">{label(l.name)}</b> = {String(l.expr || '').replace(/[A-Za-z_][\w]*/g, (w: string) => (/^(SUM|AVG|COUNT|MIN|MAX|ROUND|ROUNDDOWN|ROUNDUP|IF)$/.test(w) ? w : label(w))).replace(/\*/g, '×').replace(/\//g, '÷')}</div>)}</div>}
           {d.kind === 'flow' && <StrategySteps graph={d.graph} label={label} ruleChip={ruleChip} />}
           {d.type !== 'DECISION_TABLE' && d.type !== 'FORMULA' && d.kind !== 'flow' && <div className="text-[14px] text-[#6f6f6f]">{kindName(d.type)}; open it to read</div>}
+          <LibrarySection projectId={projectId} d={d} label={label} canWrite={!!stage?.canWrite || !!canWriteBox} />
         </div>
         <aside className="space-y-5 text-[14px] xl:border-l xl:border-[#e0e0e0] xl:pl-6">
           <div><H>USES</H>{links?.uses?.length ? <ul className="m-0 p-0 list-none space-y-1.5">{links.uses.map((u: LinkItem) => <li key={u.kind + u.id}>{item(u)} <span className="text-[#6f6f6f]">{u.kind === 'word' ? 'word' : u.kind === 'data' ? 'data set' : 'decision'}</span></li>)}</ul> : <div className="text-[#6f6f6f]">Nothing</div>}</div>

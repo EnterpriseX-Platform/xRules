@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { PageHead, fmtTime } from '@/components/pipeline/ui';
 import { usePerms } from '@/lib/perms';
 import { useAuth } from '@/lib/store';
+import { NewerVersion } from '@/components/topic/Library';
 
 function Section({ title, count, children, empty }: { title: string; count?: number; children: React.ReactNode; empty: string }) {
   const has = (count ?? 0) > 0;
@@ -72,7 +73,12 @@ export default function HomePage() {
                 <div className="flex-1 min-w-0"><div className={`text-[14px] ${n.bad ? 'text-[#da1e28]' : 'text-[#161616]'}`}>{n.title}</div>{n.sub && <div className="text-[12px] text-[#525252] truncate">{n.sub}</div>}</div>
                 <Link href={n.href} className="text-[14px] whitespace-nowrap">{n.act}</Link>
               </div>))}
-            {!needs.length && <div className="px-5 py-6 text-[14px] text-[#525252]">Nothing needs you</div>}
+            {perms.write && (h.libraryBehind || []).map((b: any) => (
+              <div key={`l${b.ruleId}`} className="flex flex-wrap items-start gap-x-4 gap-y-1 px-5 py-3 border-b border-[#e0e0e0] last:border-b-0">
+                <div className="flex-1 min-w-[180px]"><div className="text-[14px] text-[#161616]">{b.name} v{b.latest} is approved</div><div className="text-[12px] text-[#525252] truncate">{b.product || b.topic} stays on v{b.pin}</div></div>
+                <NewerVersion row={b} onDone={() => qc.invalidateQueries({ queryKey: ['home'] })} />
+              </div>))}
+            {!needs.length && !(perms.write && (h.libraryBehind || []).length) && <div className="px-5 py-6 text-[14px] text-[#525252]">Nothing needs you</div>}
           </div>
         </section>
       </div>

@@ -104,7 +104,7 @@ export function TopicTests({ projectId, topicId, runKey, focusId, canWrite = tru
               <button type="button" className="flex-1 min-w-0 flex items-center gap-3 px-4 h-10 text-left hover:bg-[#f4f4f4]" onClick={() => toggle(c.id)} aria-expanded={isOpen(c.id)}>
                 <span className={`w-12 text-[13px] ${c.lastStatus === 'PASS' ? 'text-[#198038]' : bad ? 'text-[#da1e28]' : 'text-[#6f6f6f]'}`}>{c.lastStatus === 'PASS' ? 'Pass' : c.lastStatus === 'ERROR' ? 'Error' : bad ? 'Fail' : 'Not run'}</span>
                 <span className="flex-1 truncate text-[14px] text-[#161616]">{c.name}</span>
-                {here?.lines?.length ? <span className="text-[12px] text-[#525252] tabular-nums">line {here.lines.join(', ')}</span> : null}
+                {here?.lines?.length ? <span className="text-[12px] text-[#525252] tabular-nums">{here.lines.map((n: number, k: number) => `line ${n}${here.from?.[k] ? ` · ${here.from[k]}` : ''}`).join(', ')}</span> : null}
               </button>
               </div>
               {isOpen(c.id) && (
@@ -118,7 +118,7 @@ export function TopicTests({ projectId, topicId, runKey, focusId, canWrite = tru
                       </div>
                     ) : <div key={i} className="text-[#da1e28]">{k.message}</div>;
                   })}
-                  {trace.length > 0 && <div className="pt-1 text-[#525252]">{trace.map(t => <div key={t.id} className={t.id === focusId ? 'text-[#161616]' : ''}>{t.name}: {t.error ? <span className="text-[#da1e28]">{t.error}</span> : t.lines ? (t.lines.length ? `line ${t.lines.join(', ')}` : 'no line') : workedOut(t.output, label)}</div>)}</div>}
+                  {trace.length > 0 && <div className="pt-1 text-[#525252]">{trace.map(t => <div key={t.id} className={t.id === focusId ? 'text-[#161616]' : ''}>{t.name}: {t.error ? <span className="text-[#da1e28]">{t.error}</span> : t.lines ? (t.lines.length ? t.lines.map((n: number, k: number) => `line ${n}${t.from?.[k] ? ` (${t.from[k]})` : ''}`).join(', ') : 'no line') : workedOut(t.output, label)}</div>)}</div>}
                 </div>
               )}
             </div>

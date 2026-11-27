@@ -52,6 +52,7 @@ r.post('/library/ref/:ruleId/take', authMiddleware, h(async req => (await LIB())
 r.post('/products/new', authMiddleware, h(async req => (await LIB()).newProduct(req.body, req.user), 201));
 r.get('/settings-table', authMiddleware, h(async req => (await SET()).list(String(req.query.project_id), req.user)));
 r.post('/settings-table', authMiddleware, h(async req => (await SET()).save(req.body, req.user)));
+r.post('/settings-table/remove', authMiddleware, h(async req => (await SET()).remove(req.body?.ids || [], req.user)));
 r.post('/settings-table/restore', authMiddleware, h(async req => (await SET()).restore(req.body?.ids || [], req.user)));
 r.post('/settings-table/make', authMiddleware, h(async req => (await SET()).makeSetting(req.body, req.user), 201));
 r.post('/settings-table/make-pair', authMiddleware, h(async req => (await SET()).makeSettingPair(req.body, req.user), 201));
