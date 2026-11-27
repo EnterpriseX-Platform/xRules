@@ -8,7 +8,7 @@ import { Btn, DropZone, Modal, Notice, TextArea } from '@/components/pipeline/ui
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { propose, readSample, type Proposed } from '@/lib/termImport';
 
-const TYPES = [{ value: 'text', label: 'Text' }, { value: 'number', label: 'Number' }, { value: 'money', label: 'Money' }, { value: 'date', label: 'Date' }, { value: 'boolean', label: 'Yes / no' }, { value: 'enum', label: 'List of values' }];
+const TYPES = [{ value: 'text', label: 'Text' }, { value: 'number', label: 'Number' }, { value: 'money', label: 'Money' }, { value: 'date', label: 'Date' }, { value: 'boolean', label: 'Yes / no' }, { value: 'enum', label: 'List of values' }, { value: 'list', label: 'List' }];
 
 export function ImportTerms({ projectId, known, onClose }: { projectId: string; known: { path: string; term: string }[]; onClose: () => void }) {
   const qc = useQueryClient();

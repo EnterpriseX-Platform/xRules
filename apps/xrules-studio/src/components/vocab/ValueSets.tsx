@@ -33,7 +33,7 @@ export function ValueSets({ projectId }: { projectId: string }) {
     <div className="space-y-4">
       <div className="flex gap-2"><Btn onClick={() => setOpen('new')}>Add value set</Btn></div>
       {open && <SetForm projectId={projectId} set={open === 'new' ? null : open} onClose={() => setOpen(null)} />}
-      <Table head={['Value set', 'Values', 'Extra columns', 'Groups', 'Words using it', 'Version', '']} empty={<span className="text-[#6f6f6f]">No value sets yet</span>}>
+      <Table head={['Value set', 'Values', 'Extra columns', 'Groups', 'Words using it', 'Version', '']} empty={(sets as VSet[]).length ? undefined : <span className="text-[#6f6f6f]">No value sets yet</span>}>
         {(sets as VSet[]).map(s => (
           <tr key={s.id} className={del.isRemoved(s) ? 'text-[#8d8d8d] [&>td:not(:last-child)]:line-through' : 'cursor-pointer hover:bg-[#f4f4f4]'} onClick={() => !del.isBusy(s) && !del.isRemoved(s) && setOpen(s)}>
             <Td>{s.name}</Td>

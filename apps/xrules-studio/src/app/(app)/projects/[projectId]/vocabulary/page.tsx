@@ -119,7 +119,7 @@ function Terms({ projectId }: { projectId: string }) {
   // a tree that follows the data: a list, then its fields and inner lists; totals over lists last
   const depth = (p: string) => (p.startsWith('@') ? 0 : (p.match(/\[\]\./g) || []).length);
   const sortKey = (p: string) => (p.startsWith('@') ? `~${p}` : p.replace(/\[\]/g, '\u0001'));
-  const shown = (terms as any[]).filter(t => !q || `${t.term} ${t.path} ${t.description || ''}`.toLowerCase().includes(q.toLowerCase())).sort((a, b) => sortKey(a.path).localeCompare(sortKey(b.path)));
+  const shown = (terms as any[]).filter(t => !q || `${t.term} ${t.path} ${t.description || ''}`.toLowerCase().includes(q.toLowerCase())).sort((a, b) => Number(a.path.startsWith('@')) - Number(b.path.startsWith('@')) || (sortKey(a.path) < sortKey(b.path) ? -1 : sortKey(a.path) > sortKey(b.path) ? 1 : 0));
   const del = useListRemove<any>({ queryKey: ['vocab', projectId], also: [['vocab-sug', projectId]], noun: 'word', name: t => `"${t.term}"`,
     remove: t => api.del(`/platform/vocabulary/${t.id}`),
     restore: t => api.post('/platform/vocabulary', { projectId, term: t.term, path: t.path, type: t.type, unit: t.unit, description: t.description, values: t.labels ? [] : t.values || [], valueSetId: t.valueSetId || null, aggregate: t.aggregate || null }) });
