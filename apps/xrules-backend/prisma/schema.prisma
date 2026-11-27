@@ -1220,6 +1220,8 @@ model Topic {
   shape       String    @default("questions")
   // [{ id, name, items: [decisionId] }] when shape = steps
   stages      Json?
+  // the product the topic belongs to (New Acquisition, CLIP, …); topics without one stand alone
+  product     String?
   deletedAt   DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

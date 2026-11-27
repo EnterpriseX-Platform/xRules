@@ -10,6 +10,7 @@ import { PageHead, Btn, Input, Modal, fmtTime } from '@/components/pipeline/ui';
 import { usePerms } from '@/lib/perms';
 import { useReasons } from '@/components/vocab/ReasonCodes';
 import { CaseImport } from '@/components/test/CaseImport';
+import { ValueCombo } from '@/components/rule/ValueCombo';
 
 export default function TopicsPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -19,10 +20,10 @@ export default function TopicsPage() {
   const [open, setOpen] = useState(false);
   const sp = useSearchParams();
   useEffect(() => { if (sp?.get('new') === '1') { setOpen(true); router.replace(`/p/${projectId}/topics`); } }, [sp]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [f, setF] = useState({ name: '', goal: '', from: 'blank', description: '' });
+  const [f, setF] = useState<any>({ name: '', goal: '', from: 'blank', description: '', product: '' });
   const { data: tpls = [] } = useQuery({ queryKey: ['topic-templates'], queryFn: () => api.get<any[]>('/platform/topics/templates'), enabled: open });
   const { data: topics = [], isFetched } = useQuery({ queryKey: ['topics', projectId], queryFn: () => api.get<any[]>(`/platform/topics?project_id=${projectId}`) });
-  const create = useMutation({ meta: { silent: true }, mutationFn: () => f.from === 'blank' || f.from === 'steps' ? api.post<any>('/platform/topics', { projectId, name: f.name, goal: f.goal, shape: f.from === 'steps' ? 'steps' : 'questions' })
+  const create = useMutation({ meta: { silent: true }, mutationFn: () => f.from === 'blank' || f.from === 'steps' ? api.post<any>('/platform/topics', { projectId, name: f.name, goal: f.goal, product: f.product || undefined, shape: f.from === 'steps' ? 'steps' : 'questions' })
       : api.post<any>('/platform/topics/start', { projectId, name: f.name, ...(f.from === 'describe' ? { description: f.description } : { template: f.from }) }),
     onSuccess: (t: any) => { qc.invalidateQueries({ queryKey: ['topics', projectId] }); setOpen(false); router.push(`/p/${projectId}/topics/${t.id}`); } });
 
@@ -35,13 +36,16 @@ export default function TopicsPage() {
     { done: (words as any[]).length > 0, name: 'Bring in sample data', go: () => router.push(`/p/${projectId}/vocabulary?import=1`), note: `${(words as any[]).length} words` },
     { done: (reasons as any[]).length > 0, name: 'Bring in reason codes', go: () => router.push(`/p/${projectId}/vocabulary/reasons?import=1`), note: `${(reasons as any[]).length} reason codes` },
     { done: (cases as any[]).length > 0, name: 'Bring in test cases with expected results', go: () => setCasesOpen(true), note: `${(cases as any[]).length} test cases` },
-    { done: (topics as any[]).length > 0, name: 'Make the first topic', go: () => { setF({ name: '', goal: '', from: 'steps', description: '' }); setOpen(true); }, note: `${(topics as any[]).length} topics` },
+    { done: (topics as any[]).length > 0, name: 'Make the first topic', go: () => { setF({ name: '', goal: '', from: 'steps', description: '', product: '' }); setOpen(true); }, note: `${(topics as any[]).length} topics` },
   ];
+  // products group topics (New Acquisition, CLIP, …); topics without one come last
+  const products = Array.from(new Set((topics as any[]).map(t => t.product).filter(Boolean))) as string[];
+  const groups = [...products.map(name => ({ name, list: (topics as any[]).filter(t => t.product === name) })), ...((topics as any[]).some(t => !t.product) ? [{ name: '', list: (topics as any[]).filter(t => !t.product) }] : [])];
   const showGuide = perms.write && isFetched && steps.some(x => !x.done);
 
   return (
     <div className="px-8 py-6">
-      <PageHead title="Topics" sub={`${topics.length} topic${topics.length === 1 ? '' : 's'}`} actions={perms.write ? <Btn onClick={() => { setF({ name: '', goal: '', from: 'blank', description: '' }); setOpen(true); }}>New topic</Btn> : undefined} />
+      <PageHead title="Topics" sub={`${topics.length} topic${topics.length === 1 ? '' : 's'}`} actions={perms.write ? <Btn onClick={() => { setF({ name: '', goal: '', from: 'blank', description: '', product: '' }); setOpen(true); }}>New topic</Btn> : undefined} />
       {showGuide && (
         <ol aria-label="Start" className="bg-white border border-[#e0e0e0] mb-6">
           {steps.map((x, i) => (
@@ -64,17 +68,22 @@ export default function TopicsPage() {
         </div>
       ) : (
         <div className="bg-white border border-[#e0e0e0]">
-          {(topics as any[]).map(t => (
-            <Link key={t.id} href={`/p/${projectId}/topics/${t.id}`} className="flex flex-wrap items-center gap-x-8 gap-y-1 px-5 py-4 border-b border-[#e0e0e0] last:border-b-0 hover:bg-[#f4f4f4]">
-              <div className="flex-1 min-w-[240px]">
-                <div className="text-[16px] text-[#161616]">{t.name}</div>
-                {t.goal && <div className="text-[13px] text-[#525252] truncate">{t.goal}</div>}
-              </div>
-              <span className="text-[13px] text-[#525252] w-[110px] tabular-nums">{t.shape === 'steps' ? `${t.stages} step${t.stages === 1 ? '' : 's'} · ` : ''}{t.decisions} decision{t.decisions === 1 ? '' : 's'}</span>
-              <span className={`text-[13px] w-[130px] tabular-nums ${!t.tests.total ? 'text-[#6f6f6f]' : t.tests.pass === t.tests.total ? 'text-[#198038]' : 'text-[#da1e28]'}`}>{t.tests.total ? `${t.tests.pass}/${t.tests.total} tests pass` : 'No tests'}</span>
-              <span className="text-[13px] w-[100px] text-[#0043ce]">{t.inReview ? `${t.inReview} in review` : ''}</span>
-              <span className="text-[12px] text-[#6f6f6f] w-[150px]">{fmtTime(t.updatedAt)}</span>
-            </Link>
+          {groups.map(g => (
+            <div key={g.name || '_'}>
+              {groups.length > 1 || g.name ? <div className="px-5 h-10 flex items-center bg-[#f4f4f4] border-b border-[#e0e0e0] text-[14px] font-semibold text-[#161616]">{g.name || 'No product'}<span className="ml-3 font-normal text-[13px] text-[#525252]">{g.list.length} topic{g.list.length === 1 ? '' : 's'}</span></div> : null}
+            {g.list.map((t: any) => (
+              <Link key={t.id} href={`/p/${projectId}/topics/${t.id}`} className="flex flex-wrap items-center gap-x-8 gap-y-1 px-5 py-4 border-b border-[#e0e0e0] last:border-b-0 hover:bg-[#f4f4f4]">
+                <div className="flex-1 min-w-[240px]">
+                  <div className="text-[16px] text-[#161616]">{t.name}</div>
+                  {t.goal && <div className="text-[13px] text-[#525252] truncate">{t.goal}</div>}
+                </div>
+                <span className="text-[13px] text-[#525252] w-[110px] tabular-nums">{t.shape === 'steps' ? `${t.stages} step${t.stages === 1 ? '' : 's'} · ` : ''}{t.decisions} decision{t.decisions === 1 ? '' : 's'}</span>
+                <span className={`text-[13px] w-[130px] tabular-nums ${!t.tests.total ? 'text-[#6f6f6f]' : t.tests.pass === t.tests.total ? 'text-[#198038]' : 'text-[#da1e28]'}`}>{t.tests.total ? `${t.tests.pass}/${t.tests.total} tests pass` : 'No tests'}</span>
+                <span className="text-[13px] w-[100px] text-[#0043ce]">{t.inReview ? `${t.inReview} in review` : ''}</span>
+                <span className="text-[12px] text-[#6f6f6f] w-[150px]">{fmtTime(t.updatedAt)}</span>
+              </Link>
+            ))}
+            </div>
           ))}
         </div>
       )}
@@ -89,6 +98,7 @@ export default function TopicsPage() {
               </button>
             ))}
           </div>
+          <div><div className="text-[12px] text-[#525252] mb-1.5">Product</div><ValueCombo block className="w-full h-10 px-4 bg-[#f4f4f4] border-b border-[#8d8d8d] text-[14px] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2" value={f.product} values={products} placeholder="New Acquisition" ariaLabel="Product" onChange={v => setF({ ...f, product: v })} /></div>
           <Input id="tp-name" label={f.from === 'blank' || f.from === 'steps' ? 'Name' : 'Name (optional)'} value={f.name} onChange={(v: string) => setF({ ...f, name: v })} placeholder="Budget screening 2027" />
           {(f.from === 'blank' || f.from === 'steps') && <Input id="tp-goal" label="Goal" value={f.goal} onChange={(v: string) => setF({ ...f, goal: v })} placeholder="Fund the projects that matter most within the ceiling" />}
           {f.from === 'describe' && <div><label htmlFor="tp-desc" className="block text-[12px] text-[#525252] mb-1.5">What does this topic decide?</label>

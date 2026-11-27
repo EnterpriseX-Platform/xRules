@@ -29,7 +29,7 @@ export async function list(projectIdOrSlug: string, user: AuthUser) {
     const rs = rules.filter(r => r.topicId === t.id), fs = flows.filter(f => f.topicId === t.id);
     const tests = [...rs.map(r => rt.get(r.id)), ...fs.map(f => ft.get(f.id)), tt.get(t.id)].filter(Boolean) as { total: number; pass: number }[];
     const items = [...rs, ...fs];
-    return { id: t.id, name: t.name, description: t.description, goal: t.goal, updatedAt: t.updatedAt, shape: t.shape, stages: t.shape === 'steps' ? stagesOf(t).length : 0,
+    return { id: t.id, name: t.name, description: t.description, goal: t.goal, product: t.product, updatedAt: t.updatedAt, shape: t.shape, stages: t.shape === 'steps' ? stagesOf(t).length : 0,
       decisions: items.length, live: items.filter(i => String(i.status).toUpperCase() === 'PUBLISHED').length,
       inReview: items.filter(i => i.reviewState === 'PENDING').length,
       tests: { total: tests.reduce((a, b) => a + b.total, 0), pass: tests.reduce((a, b) => a + b.pass, 0) } };
@@ -49,7 +49,7 @@ export async function get(id: string, user: AuthUser) {
   ];
   const ids = new Set(decisions.map(d => d.id));
   const stages = stagesOf(t).map(st => ({ ...st, items: st.items.filter(i => ids.has(i)) }));
-  return { id: t.id, projectId: t.projectId, name: t.name, description: t.description, goal: t.goal, shape: t.shape, stages, createdAt: t.createdAt, updatedAt: t.updatedAt, lastSimulation: t.lastSimulation, decisions };
+  return { id: t.id, projectId: t.projectId, name: t.name, description: t.description, goal: t.goal, product: t.product, shape: t.shape, stages, createdAt: t.createdAt, updatedAt: t.updatedAt, lastSimulation: t.lastSimulation, decisions };
 }
 
 // a "steps" topic: an ordered list of named stages, each holding decisions and calculations
@@ -70,12 +70,12 @@ function cleanStages(input: any[]): Stage[] {
   return out;
 }
 
-export async function create(data: { projectId: string; name: string; description?: string; goal?: string; shape?: string; stages?: string[] }, user: AuthUser) {
+export async function create(data: { projectId: string; name: string; description?: string; goal?: string; shape?: string; stages?: string[]; product?: string }, user: AuthUser) {
   const p = await assertProjectAccess(data.projectId, user, 'write');
   const name = String(data.name || '').trim(); if (!name) throw new ValidationError('A topic needs a name');
   const shape = data.shape === 'steps' ? 'steps' : 'questions';
   const stages = shape === 'steps' ? cleanStages((data.stages?.length ? data.stages : DEFAULT_STAGES).map(n => ({ name: n }))) : undefined;
-  const t = await prisma.topic.create({ data: { projectId: p.id, name, description: data.description?.trim() || null, goal: data.goal?.trim() || null, createdById: user.userId, shape, ...(stages && { stages: stages as any }) } });
+  const t = await prisma.topic.create({ data: { projectId: p.id, name, description: data.description?.trim() || null, goal: data.goal?.trim() || null, product: data.product?.trim() || null, createdById: user.userId, shape, ...(stages && { stages: stages as any }) } });
   await (await import('./topic-run.js')).adoptProjectCases(p.id, t.id);
   return t;
 }
@@ -89,10 +89,10 @@ export async function setStages(id: string, data: { stages: any[] }, user: AuthU
   return { stages };
 }
 
-export async function update(id: string, data: { name?: string; description?: string; goal?: string }, user: AuthUser) {
+export async function update(id: string, data: { name?: string; description?: string; goal?: string; product?: string | null }, user: AuthUser) {
   const t = await prisma.topic.findFirst({ where: { id, deletedAt: null } }); if (!t) throw new NotFoundError('Topic');
   await assertProjectAccess(t.projectId, user, 'write');
-  return prisma.topic.update({ where: { id }, data: { ...(data.name !== undefined && { name: String(data.name).trim() || t.name }), ...(data.description !== undefined && { description: data.description }), ...(data.goal !== undefined && { goal: data.goal }) } });
+  return prisma.topic.update({ where: { id }, data: { ...(data.name !== undefined && { name: String(data.name).trim() || t.name }), ...(data.description !== undefined && { description: data.description }), ...(data.goal !== undefined && { goal: data.goal }), ...(data.product !== undefined && { product: String(data.product || '').trim() || null }) } });
 }
 
 /** Removing a topic stamps it; its rules and flows stay, unassigned. */

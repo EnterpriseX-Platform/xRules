@@ -12,6 +12,7 @@ import { RequestData } from '@/components/topic/RequestData';
 import { TopicMap, type AddKind } from '@/components/topic/TopicMap';
 import { TopicRipple } from '@/components/topic/TopicRipple';
 import { TopicTests } from '@/components/topic/TopicTests';
+import { ValueCombo } from '@/components/rule/ValueCombo';
 
 // Old tab URLs (/qualify, /tests, /steps, …) land on the map; /simulate and /approval open that view.
 const OLD_VIEW: Record<string, string> = { simulate: 'simulate', approval: 'approval' };
@@ -32,6 +33,8 @@ export default function TopicPage() {
   const qc = useQueryClient(); const perms = usePerms();
   const { data: t } = useQuery({ queryKey: ['topic', topicId], queryFn: () => api.get<any>(`/platform/topics/${topicId}`) });
   const [creating, setCreating] = useState<AddKind | null>(null);
+  const { data: allTopics = [] } = useQuery({ queryKey: ['topics', projectId], queryFn: () => api.get<any[]>(`/platform/topics?project_id=${projectId}`) });
+  const setProduct = useMutation({ mutationFn: (product: string) => api.post(`/platform/topics/${topicId}/update`, { product }), onSuccess: () => { qc.invalidateQueries({ queryKey: ['topic', topicId] }); qc.invalidateQueries({ queryKey: ['topics', projectId] }); } });
   const [name, setName] = useState('');
   const create = useMutation({ meta: { silent: true },
     mutationFn: async (k: AddKind) => {
@@ -52,6 +55,10 @@ export default function TopicPage() {
       <div className="text-[13px] mb-1"><Link href={`/p/${projectId}/topics`} className="text-[#0f62fe] hover:underline">Topics</Link></div>
       <div className="flex items-start gap-4"><h1 className="flex-1 text-[28px] leading-9 text-[#161616]">{t.name}</h1><div className="flex gap-2 shrink-0 whitespace-nowrap">{perms.write && <RequestData projectId={projectId} topicId={topicId} />}<Btn kind="secondary" onClick={() => show('simulate')}>Try on real data</Btn>{perms.write && <Btn onClick={() => show('approval')}>Request approval</Btn>}</div></div>
       {t.goal && <div className="text-[15px] text-[#525252] mt-1">{t.goal}</div>}
+      <div className="flex items-center gap-2 mt-2 text-[14px]"><span className="text-[#525252]">Product</span>
+        {perms.write ? <ValueCombo className="h-8 min-w-[160px] bg-transparent border-b border-[#8d8d8d] px-1 text-[14px] text-[#161616] outline-none focus:border-[#0f62fe]" value={t.product || ''} placeholder="None" ariaLabel="Product"
+          values={Array.from(new Set(((allTopics as any[]) || []).map((x: any) => x.product).filter(Boolean)))} onChange={v => setProduct.mutate(v)} /> : <span>{t.product || 'None'}</span>}
+      </div>
       <div className="text-[13px] text-[#525252] mt-2 mb-6 border-b border-[#e0e0e0] pb-3">{ds.length} decision{ds.length === 1 ? '' : 's'}{t.shape === 'steps' ? ` in ${(t.stages || []).length} step${(t.stages || []).length === 1 ? '' : 's'}` : ''} · <span className={tests.fail ? 'text-[#da1e28]' : ''}>{tests.total ? `tests ${tests.pass}/${tests.total} pass${tests.fail ? ` · ${tests.fail} fail` : ''}` : 'no tests yet'}</span></div>
 
       {view === 'map' && <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_360px] items-start">
