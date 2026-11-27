@@ -5,7 +5,7 @@ import { TableDesigner } from './TableDesigner';
 import { RuleSentences } from './RuleSentences';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { useTerms } from '@/lib/terms';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useReasons } from '@/components/vocab/ReasonCodes';
 
@@ -26,6 +26,8 @@ export function DecisionTableView({ rule, projectId, onChange }: { rule: any; pr
   const change = (d: any) => { setDef(d); onChange(d); };
   const qc = useQueryClient();
   const { data: reasons = [] } = useReasons(projectId);
+  const { data: versions } = useQuery({ queryKey: ['rule-versions', rule.id], queryFn: () => api.get<any[]>(`/rules/${rule.id}/versions`), enabled: !!rule.id });
+  const live = (versions as any[] | undefined)?.[0]?.definition || null;
   // a new term typed in "Choose data": its path is the name in snake case
   const addTerm = async (name: string) => {
     const path = name.trim().toLowerCase().replace(new RegExp('[^\\p{L}\\p{N}]+', 'gu'), '_').replace(/^_|_$/g, '') || `field_${Date.now().toString(36)}`;
@@ -51,7 +53,7 @@ export function DecisionTableView({ rule, projectId, onChange }: { rule: any; pr
         </div>
       </div>
       {view === 'sentence'
-        ? <RuleSentences def={def} onChange={change} label={label} term={term} terms={terms} onAddTerm={addTerm} reasons={reasons} />
+        ? <RuleSentences def={def} onChange={change} label={label} term={term} terms={terms} onAddTerm={addTerm} reasons={reasons} live={live} />
         : <TableDesigner key={gen} definition={def} inputSchema={rule.inputSchema} outputSchema={rule.outputSchema} onChange={change} hidePolicy label={label} reasons={reasons} />}
     </div>
   );

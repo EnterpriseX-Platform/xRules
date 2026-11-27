@@ -9,6 +9,10 @@ import { parseCellExpression, formatCellExpression } from './operators';
 import { tableChecks } from './tableChecks';
 import { showValue, type Term } from '@/lib/terms';
 import { FmtInput } from '@/components/ui/FmtInput';
+import { DropZone } from '@/components/pipeline/ui';
+import { tableSentences } from '@/components/review/sentences';
+
+const PAGE = 100;
 
 export const OP_TH: { value: string; label: string; args: 0 | 1 | 2 }[] = [
   { value: '=', label: 'is', args: 1 },
@@ -61,9 +65,9 @@ function TermPicker({ options, onPick, onCreate, placeholder = 'Choose data', on
   );
 }
 
-export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, reasons = [] }: {
+export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, reasons = [], live }: {
   def: Def; onChange: (d: Def) => void; label: (path: string) => string; term: (path: string) => Term | undefined; terms: Term[];
-  onAddTerm?: (name: string) => Promise<string | null>; reasons?: Reason[];
+  onAddTerm?: (name: string) => Promise<string | null>; reasons?: Reason[]; live?: Def | null;
 }) {
   const inputs: any[] = def.inputs || []; const outputs: any[] = def.outputs || []; const rules: any[] = def.rules || [];
   // which picker is open: "and" on the main group, "or" for a new group, a group index, a result or a reason
@@ -73,6 +77,41 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
     emit({ rules: rules.map((r, i) => (i === ri ? { ...r, [side]: Object.assign([...(r[side] || [])], { [ci]: v }) } : r)) });
   const setRow = (ri: number, p: any) => emit({ rules: rules.map((r, i) => (i === ri ? { ...r, ...p } : r)) });
   const fmt = (name: string, n: number) => showValue(n, term(name));
+  // many lines: find, changed only, paging; change state against the live version
+  const [find, setFind] = useState(''); const [changedOnly, setChangedOnly] = useState(false); const [page, setPage] = useState(0);
+  const change = useMemo(() => {
+    const m = new Map<number, 'New' | 'Changed'>(); if (!live) return { m, removed: 0 };
+    const sig = (r: any) => JSON.stringify(live.inputs?.length === inputs.length ? [r.inputs, r.outputs, r.or, r.match, r.reasons] : [r.inputs, r.outputs]);
+    const byId = new Map((live.rules || []).map((r: any, i: number) => [r.id || `#${i}`, r]));
+    rules.forEach((r, i) => { const o: any = byId.get(r.id || `#${i}`); if (!o) m.set(i, 'New'); else if (sig(o) !== sig(r)) m.set(i, 'Changed'); });
+    const ids = new Set(rules.map((r, i) => r.id || `#${i}`));
+    return { m, removed: (live.rules || []).filter((r: any, i: number) => !ids.has(r.id || `#${i}`)).length };
+  }, [live, rules, inputs.length]);
+  const texts = useMemo(() => (find ? tableSentences(def, label).map(t => t.toLowerCase()) : []), [find, def, label]);
+  const matched = rules.map((_, i) => i).filter(i => (!changedOnly || change.m.has(i)) && (!find || (texts[i] || '').includes(find.toLowerCase())));
+  const pages = Math.max(1, Math.ceil(matched.length / PAGE)); const pg = Math.min(page, pages - 1);
+  const shown = matched.slice(pg * PAGE, pg * PAGE + PAGE);
+  const exportXlsx = async () => {
+    const ExcelJS = (await import('exceljs')).default; const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Lines');
+    ws.addRow(['No.', ...inputs.map(c => label(c.name)), ...outputs.map(o => label(o.name)), 'Reasons']);
+    rules.forEach((r, i) => ws.addRow([i + 1, ...inputs.map((_, ci) => String(r.inputs?.[ci] ?? '-')), ...outputs.map((_, oi) => r.outputs?.[oi] ?? ''), (r.reasons || []).join(' ')]));
+    const buf = await wb.xlsx.writeBuffer(); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([buf])); a.download = 'lines.xlsx'; a.click();
+  };
+  const [importing, setImporting] = useState(false); const [importErr, setImportErr] = useState('');
+  const importXlsx = async (f: File) => {
+    try {
+      const ExcelJS = (await import('exceljs')).default; const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await f.arrayBuffer());
+      const ws = wb.worksheets[0]; const head = (ws.getRow(1).values as any[]).slice(1).map(v => String(v ?? '').trim());
+      const col = (name: string) => head.findIndex(h => h === label(name) || h === name);
+      const ic = inputs.map(c => col(c.name)), oc = outputs.map(o => col(o.name)), rc = head.indexOf('Reasons');
+      if (ic.some(i => i < 0) || oc.some(i => i < 0)) throw new Error(`The first row must name these columns: ${[...inputs, ...outputs].map(c => label(c.name)).join(', ')}`);
+      const rows: any[] = []; const old = new Map(rules.map((r, i) => [i + 1, r]));
+      ws.eachRow((row, n) => { if (n === 1) return; const v = (row.values as any[]).slice(1); const no = Number(v[head.indexOf('No.')]);
+        const prev: any = old.get(no) || {};
+        rows.push({ ...prev, id: prev.id || nid(), inputs: ic.map(i => String(v[i] ?? '-') || '-'), outputs: oc.map(i => { const x = v[i]; return x === undefined || x === '' ? null : typeof x === 'object' && x?.result !== undefined ? x.result : x; }), ...(rc >= 0 && { reasons: String(v[rc] ?? '').split(/\s+/).filter(Boolean) }) }); });
+      emit({ rules: rows }); setImporting(false); setImportErr('');
+    } catch (e: any) { setImportErr(String(e?.message || e)); }
+  };
   const findings = useMemo(() => tableChecks(def, label, fmt), [def, label]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function addRow() {
@@ -145,8 +184,17 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <input value={find} onChange={e => { setFind(e.target.value); setPage(0); }} placeholder="Find lines" aria-label="Find lines" className="h-10 w-[280px] px-4 bg-white border-b border-[#8d8d8d] text-[14px] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe]" />
+        {live && <button type="button" aria-pressed={changedOnly} onClick={() => { setChangedOnly(!changedOnly); setPage(0); }} className={`h-10 px-4 text-[14px] border ${changedOnly ? 'bg-[#161616] text-white border-[#161616]' : 'border-[#8d8d8d] text-[#161616] hover:bg-[#e8e8e8]'}`}>Changed only · {change.m.size}</button>}
+        <span className="flex-1" />
+        <span className="text-[13px] text-[#525252] tabular-nums">{rules.length.toLocaleString()} line{rules.length === 1 ? '' : 's'}{change.removed ? ` · ${change.removed} removed` : ''}</span>
+        <button type="button" className="h-10 px-4 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => setImporting(!importing)}>Import Excel</button>
+        <button type="button" className="h-10 px-4 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={exportXlsx}>Export Excel</button>
+      </div>
+      {importing && <div className="space-y-2"><DropZone accept=".xlsx" label="Drop an Excel file with the same columns as Export Excel, or click to choose" onFile={importXlsx} />{importErr && <div className="text-[14px] text-[#da1e28]">{importErr}</div>}</div>}
       <div className="bg-white border border-[#e0e0e0]">
-        {rules.map((r, ri) => {
+        {shown.map(ri => { const r = rules[ri];
           const conds = inputs.map((c, ci) => ({ c, ci, cell: r.inputs?.[ci] })).filter(x => !isAny(x.cell));
           const groups: any[] = r.or || [];
           const join = r.match === 'any' ? 'or' : 'and';
@@ -211,12 +259,22 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
                       <button type="button" className={`${word} ${outputs.length || rowReasons.length ? 'opacity-0 group-hover:opacity-100' : ''}`} onClick={() => setAdding({ ri, to: 'reason' })}>+ add reason</button>
                     </>}
               </div>
+              {change.m.has(ri) && <span className={`shrink-0 text-[13px] pt-px ${change.m.get(ri) === 'New' ? 'text-[#198038]' : 'text-[#0043ce]'}`}>{change.m.get(ri)}</span>}
               <button type="button" aria-label={`Remove rule ${ri + 1}`} className="h-8 w-8 shrink-0 flex items-center justify-center text-[#525252] hover:bg-[#e8e8e8] opacity-0 group-hover:opacity-100"
                 onClick={() => emit({ rules: rules.filter((_, i) => i !== ri) })}><Trash2 className="h-4 w-4" /></button>
             </div>
           );
         })}
-        <button type="button" className="h-10 px-4 text-[14px] text-[#0f62fe] hover:bg-[#f4f4f4] w-full text-left flex items-center gap-1" onClick={addRow}>
+        {!shown.length && <div className="px-4 py-6 text-[14px] text-[#525252]">No lines match</div>}
+        {pages > 1 && (
+          <div className="flex items-center gap-3 px-4 h-10 border-t border-[#e0e0e0] text-[13px] text-[#525252] tabular-nums">
+            <span className="flex-1">Showing {(pg * PAGE + 1).toLocaleString()}–{Math.min(matched.length, pg * PAGE + PAGE).toLocaleString()} of {matched.length.toLocaleString()}</span>
+            <button type="button" disabled={pg === 0} className="h-8 px-3 text-[#0f62fe] disabled:text-[#c6c6c6] hover:bg-[#e8e8e8]" onClick={() => setPage(pg - 1)}>Previous</button>
+            <span>Page {pg + 1} of {pages}</span>
+            <button type="button" disabled={pg >= pages - 1} className="h-8 px-3 text-[#0f62fe] disabled:text-[#c6c6c6] hover:bg-[#e8e8e8]" onClick={() => setPage(pg + 1)}>Next</button>
+          </div>
+        )}
+        <button type="button" className="h-10 px-4 text-[14px] text-[#0f62fe] hover:bg-[#f4f4f4] w-full text-left flex items-center gap-1 border-t border-[#e0e0e0]" onClick={addRow}>
           <Plus className="h-4 w-4" /> Add line
         </button>
       </div>
