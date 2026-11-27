@@ -40,3 +40,9 @@ test('production is read-only for decisions, open for live parameters and runs',
   } finally { process.env.XRULES_ENV = was; }
   assert.equal(call('POST', '/platform/topics/abc/update'), 200);
 });
+
+test('topic keys: repeated names take the product, then a number', async () => {
+  const { topicKeys } = await import('../platform/ops.js');
+  const k = topicKeys([{ id: 'a', name: 'Card policy', product: 'GOLD' }, { id: 'b', name: 'Card policy', product: 'PLAT' }, { id: 'c', name: 'Card policy', product: 'PLAT' }, { id: 'd', name: 'Loan', product: null }]);
+  assert.deepEqual([...k.values()], ['Card policy · GOLD', 'Card policy · PLAT', 'Card policy · PLAT #2', 'Loan']);
+});

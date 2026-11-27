@@ -34,6 +34,18 @@ const kindsFor = (parts?: string | string[] | null): Kind[] => {
   return KINDS.filter(k => out.has(k));
 };
 const strip = (o: any) => JSON.parse(JSON.stringify(o ?? null));
+/** Topic names repeat across products: the key is the name, then "name · product", then a number. */
+export function topicKeys(topics: { id: string; name: string; product: string | null }[]) {
+  const out = new Map<string, string>(); const used = new Set<string>();
+  const count = (n: string) => topics.filter(t => t.name === n).length;
+  for (const t of topics) {
+    let k = count(t.name) > 1 && t.product ? `${t.name} · ${t.product}` : t.name;
+    for (let i = 2; used.has(k); i++) k = `${t.name}${t.product ? ` · ${t.product}` : ''} #${i}`;
+    used.add(k); out.set(t.id, k);
+  }
+  return out;
+}
+const uniqueKeys = (items: any[]) => { const seen = new Map<string, number>(); for (const it of items) { const n = (seen.get(it.key) || 0) + 1; seen.set(it.key, n); if (n > 1) it.key = `${it.key} #${n}`; } return items; };
 
 // ---------------------------------------------------------------------------------------------- build
 async function build(projectId: string, opts: { product?: string | null; kinds?: Kind[] } = {}) {
@@ -46,7 +58,7 @@ async function build(projectId: string, opts: { product?: string | null; kinds?:
 
   const topicsAll = await prisma.topic.findMany({ where: { projectId, deletedAt: null }, orderBy: { createdAt: 'asc' } });
   const topics = product ? topicsAll.filter(t => t.product === product) : topicsAll;
-  const topicName = new Map(topicsAll.map(t => [t.id, t.name]));
+  const topicName = topicKeys(topicsAll);
   const topicIds = new Set(topics.map(t => t.id));
   const rulesAll = await prisma.rule.findMany({ where: { projectId }, orderBy: { createdAt: 'asc' } });
   const rules = product ? rulesAll.filter(r => r.library || (r.topicId && topicIds.has(r.topicId))) : rulesAll;
@@ -63,7 +75,7 @@ async function build(projectId: string, opts: { product?: string | null; kinds?:
     .map(c => { stamp('reasonCodes', c.code, c.updatedAt); return { key: c.code, text: c.text, outcome: c.outcome, result: c.result, priority: c.priority }; });
   if (want('productSettings')) parts.productSettings = (await prisma.productSetting.findMany({ where: { projectId, deletedAt: null }, orderBy: [{ position: 'asc' }, { createdAt: 'asc' }] }))
     .map(s => { stamp('productSettings', s.name, s.updatedAt); const v: any = s.values || {}; return { key: s.name, tunable: !!(s as any).tunable, values: product ? (product in v ? { [product]: v[product] } : {}) : v }; });
-  if (want('topics')) parts.topics = topics.map(t => { stamp('topics', t.name, t.updatedAt); return { key: t.name, description: t.description, goal: t.goal, shape: t.shape, stages: t.stages, product: t.product, settings: t.settings }; });
+  if (want('topics')) parts.topics = topics.map(t => { const k = topicName.get(t.id)!; stamp('topics', k, t.updatedAt); return { key: k, name: t.name, description: t.description, goal: t.goal, shape: t.shape, stages: t.stages, product: t.product, settings: t.settings }; });
   if (want('rules')) parts.rules = rules.map(r => { stamp('rules', r.slug, r.updatedAt); return {
     key: r.slug, name: r.name, alias: r.alias, description: r.description, type: r.type, topic: r.topicId ? topicName.get(r.topicId) || null : null,
     library: r.library, libraryRef: r.libraryRef, definition: r.definition, inputSchema: r.inputSchema, outputSchema: r.outputSchema, tags: r.tags, status: r.status, version: r.version }; });
@@ -78,9 +90,10 @@ async function build(projectId: string, opts: { product?: string | null; kinds?:
     parts.testCases = cases.map(c => {
       const target = c.targetType === 'topic' ? topicName.get(c.targetId || '') : c.targetType === 'rule' ? ruleSlug.get(c.targetId || c.ruleId || '') : c.targetType === 'decision_flow' ? flowSlug.get(c.targetId || '') : c.targetId;
       return { c, target };
-    }).filter(({ c, target }) => target && (!product || (c.targetType === 'topic' ? topics.some(t => t.name === target) : c.targetType === 'rule' ? rules.some(r => r.slug === target) : flows.some(f => f.slug === target))))
-      .map(({ c, target }) => { const key = `${c.targetType}/${target}/${c.name}`; stamp('testCases', key, c.updatedAt); return { key, targetType: c.targetType, target, name: c.name, input: c.input, expectations: c.expectations ?? (c.expected ? [{ kind: 'equals', path: '$', value: c.expected }] : []) }; });
+    }).filter(({ c, target }) => target && (!product || (c.targetType === 'topic' ? topics.some(t => topicName.get(t.id) === target) : c.targetType === 'rule' ? rules.some(r => r.slug === target) : flows.some(f => f.slug === target))))
+      .map(({ c, target }) => { const key = `${c.targetType}/${target}/${c.name}`; return { _at: c.updatedAt, key, targetType: c.targetType, target, name: c.name, input: c.input, expectations: c.expectations ?? (c.expected ? [{ kind: 'equals', path: '$', value: c.expected }] : []) }; });
   }
+  if (parts.testCases) { uniqueKeys(parts.testCases); for (const c of parts.testCases as any[]) { stamp('testCases', c.key, c._at); delete c._at; } }
   // connections travel without secrets: each environment keeps its own host, user and password
   if (want('connections') && !product) parts.connections = (await prisma.connection.findMany({ where: { projectId }, orderBy: { slug: 'asc' } }))
     .map(c => { stamp('connections', c.slug, c.updatedAt); return { key: c.slug, name: c.name, type: c.type }; });
@@ -224,13 +237,15 @@ export async function applyBundle(projectId: string, bundle: Bundle, user: AuthU
     else await prisma.productSetting.create({ data: { projectId: p.id, name: s.key, values, tunable: !!s.tunable, position: await prisma.productSetting.count({ where: { projectId: p.id, deletedAt: null } }) } as any });
     done.push(`productSettings:${s.key}`);
   }
+  const topicsHere = await prisma.topic.findMany({ where: { projectId: p.id, deletedAt: null }, orderBy: { createdAt: 'asc' } });
+  const keyToTopic = new Map(Array.from(topicKeys(topicsHere)).map(([id, k]) => [k, id]));
   for (const t of P.topics || []) if (go('topics', t.key)) {
-    const hit = await prisma.topic.findFirst({ where: { projectId: p.id, name: t.key, deletedAt: null } });
-    const data = { description: t.description ?? null, goal: t.goal ?? null, shape: t.shape || 'questions', stages: t.stages ?? undefined, product: t.product ?? null, settings: t.settings ?? undefined };
-    if (hit) await prisma.topic.update({ where: { id: hit.id }, data }); else await prisma.topic.create({ data: { projectId: p.id, name: t.key, createdById: user.userId, ...data } });
+    const hitId = keyToTopic.get(t.key); const hit = hitId ? topicsHere.find(x => x.id === hitId) : null;
+    const data = { name: t.name || t.key, description: t.description ?? null, goal: t.goal ?? null, shape: t.shape || 'questions', stages: t.stages ?? undefined, product: t.product ?? null, settings: t.settings ?? undefined };
+    if (hit) await prisma.topic.update({ where: { id: hit.id }, data }); else await prisma.topic.create({ data: { projectId: p.id, createdById: user.userId, ...data } });
     done.push(`topics:${t.key}`);
   }
-  const topicId = new Map((await prisma.topic.findMany({ where: { projectId: p.id, deletedAt: null } })).map(t => [t.name, t.id]));
+  const topicId = new Map(Array.from(topicKeys(await prisma.topic.findMany({ where: { projectId: p.id, deletedAt: null }, orderBy: { createdAt: 'asc' } }))).map(([id, k]) => [k, id]));
   for (const r of P.rules || []) if (go('rules', r.key)) {
     const hit = await prisma.rule.findFirst({ where: { projectId: p.id, slug: r.key } });
     const data: any = { name: r.name || r.key, description: r.description ?? null, type: r.type, topicId: r.topic ? topicId.get(r.topic) || null : null, library: !!r.library, libraryRef: r.libraryRef ?? undefined,
