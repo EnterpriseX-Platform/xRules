@@ -126,7 +126,27 @@ export const DATE_FUNCS = {
   CONTAINS: (list: any, v: any) => (Array.isArray(list) ? list : String(list ?? '').split(/[:,]/)).map((s: any) => String(s).trim()).includes(String(v)),
   ITEM: (list: any, i: any) => (Array.isArray(list) ? list : String(list ?? '').split(':'))[Number(i) - 1] ?? null,
   TEXT: (v: any) => (v instanceof Date ? v.toISOString().slice(0, 10).replace(/-/g, '') : String(v ?? '')),
+  // two lists read side by side: codes "003:004" with dates "20251015:20251101" (code k goes with date k)
+  ZIP: (a: any, b: any, na = 'code', nb = 'date') => { const x = asList(a), y = asList(b); return x.map((v, i) => ({ [na]: v, [nb]: y[i] ?? null })); },
+  ANY_PAIR: (codes: any, dates: any, which: any, days?: any) => pairHits(codes, dates, which, days) > 0,
+  COUNT_PAIRS: (codes: any, dates: any, which: any, days?: any) => pairHits(codes, dates, which, days),
 };
+const asList = (v: any): any[] => (Array.isArray(v) ? v : String(v ?? '').split(':').map(s => s.trim()).filter(s => s !== ''));
+/** How many pairs have a code in `which` ("003,004", or per-code windows "003=180,004=90") and a date at most `days`
+ *  days before the decision date (no days: any date). */
+function pairHits(codes: any, dates: any, which: any, days?: any): number {
+  const cs = asList(codes), ds = asList(dates);
+  const win = new Map<string, number | null>();
+  (Array.isArray(which) ? which : String(which ?? '').split(/[,\s]+/)).map(String).filter(Boolean).forEach(w => { const [c, d] = w.split('='); win.set(c.trim(), d !== undefined ? Number(d) : days === undefined || days === null || days === '' ? null : Number(days)); });
+  let n = 0;
+  cs.forEach((c, i) => {
+    const key = String(c).trim(); if (win.size && !win.has(key)) return;
+    const lim = win.size ? win.get(key) : days === undefined ? null : Number(days);
+    if (lim === null || lim === undefined || isNaN(lim)) { n++; return; }
+    const ago = DATE_FUNCS.DAYS(ds[i]); if (ago !== null && ago >= 0 && ago <= lim) n++;
+  });
+  return n;
+}
 /** "today", "180 days ago", "in 2 months" → a date */
 export function relDate(s: string): Date | null {
   const t = s.trim().toLowerCase();

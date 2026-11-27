@@ -16,6 +16,7 @@ const FUNCS: { name: string; insert: string; label: string }[] = [
   { name: 'ROUND', insert: 'ROUND(', label: 'Round' }, { name: 'ROUNDDOWN', insert: 'ROUNDDOWN(', label: 'Round down' }, { name: 'IF', insert: 'IF(', label: 'If … then … else' },
   { name: 'TODAY', insert: 'TODAY()', label: 'Today' }, { name: 'DAYS', insert: 'DAYS(', label: 'Days since' }, { name: 'MONTHS', insert: 'MONTHS(', label: 'Months since' },
   { name: 'SPLIT', insert: 'SPLIT(', label: 'Split list' }, { name: 'CONTAINS', insert: 'CONTAINS(', label: 'List has' }, { name: 'ITEM', insert: 'ITEM(', label: 'Item no.' },
+  { name: 'ANY_PAIR', insert: 'ANY_PAIR(', label: 'Any pair' }, { name: 'COUNT_PAIRS', insert: 'COUNT_PAIRS(', label: 'Count pairs' }, { name: 'ZIP', insert: 'ZIP(', label: 'Pair lists' },
 ];
 const OPS = ['+', '−', '×', '÷', '(', ')', '≥', '≤', '='];
 
@@ -38,7 +39,19 @@ const F: Record<string, any> = {
   SPLIT: (v: any, sep = ':') => (Array.isArray(v) ? v : String(v ?? '').split(sep).map((x: string) => x.trim()).filter((x: string) => x !== '')),
   CONTAINS: (list: any, v: any) => (Array.isArray(list) ? list : String(list ?? '').split(/[:,]/)).map((x: any) => String(x).trim()).includes(String(v)),
   ITEM: (list: any, i: any) => (Array.isArray(list) ? list : String(list ?? '').split(':'))[Number(i) - 1] ?? null,
+  ZIP: (a: any, b: any, na = 'code', nb = 'date') => { const x = asList(a), y = asList(b); return x.map((v: any, i: number) => ({ [na]: v, [nb]: y[i] ?? null })); },
+  ANY_PAIR: (c: any, d: any, w: any, n?: any) => pairHits(c, d, w, n) > 0,
+  COUNT_PAIRS: (c: any, d: any, w: any, n?: any) => pairHits(c, d, w, n),
 };
+const asList = (v: any): any[] => (Array.isArray(v) ? v : String(v ?? '').split(':').map((s: string) => s.trim()).filter((s: string) => s !== ''));
+function pairHits(codes: any, dates: any, which: any, days?: any): number {
+  const cs = asList(codes), ds = asList(dates); const win = new Map<string, number | null>();
+  (Array.isArray(which) ? which : String(which ?? '').split(/[,\s]+/)).map(String).filter(Boolean).forEach((w: string) => { const [c, d] = w.split('='); win.set(c.trim(), d !== undefined ? Number(d) : days === undefined || days === '' ? null : Number(days)); });
+  let n = 0;
+  cs.forEach((c: any, i: number) => { const k = String(c).trim(); if (win.size && !win.has(k)) return; const lim = win.size ? win.get(k) : days === undefined ? null : Number(days);
+    if (lim === null || lim === undefined || isNaN(lim)) { n++; return; } const ago = F.DAYS(ds[i]); if (ago !== null && ago >= 0 && ago <= lim) n++; });
+  return n;
+}
 function toDate(v: any): Date | null {
   if (v instanceof Date) return v; if (v === null || v === undefined || v === '') return null;
   const m = String(v).trim().match(/^(\d{4})-?(\d{2})-?(\d{2})/); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null;
