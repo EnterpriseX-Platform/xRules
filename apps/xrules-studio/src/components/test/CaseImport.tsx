@@ -3,7 +3,7 @@
 // Each column is matched to a word by data path or name; a column is an input (what the applicant brings) or an
 // expected result (what the topic should answer). Unmatched columns can be pointed at a word or left out.
 import { useMemo, useRef, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { DropZone, Modal } from '@/components/pipeline/ui';
 import { readTable } from '@/lib/termImport';
@@ -80,12 +80,18 @@ export function CaseImport({ projectId, topicId, outputs = [], onClose }: { proj
     for (const [p, name] of Array.from(targets)) if (norm(p) === n || norm(name) === n || norm(p.split('.').pop() || '') === n) return p;
     return '';
   };
+  // words the topic's cases already expect, and the words the topic hands its answer to, come in as Expected again
+  const { data: had = [] } = useQuery({ queryKey: ['topic-tests', topicId], enabled: !!topicId, queryFn: () => api.get<any[]>(`/platform/tests/target/topic/${topicId}`) });
+  const { data: topic } = useQuery({ queryKey: ['topic-outputs', topicId], enabled: !!topicId, queryFn: () => api.get<any>(`/platform/topics/${topicId}`) });
   const outputSet = new Set([...RESULTS, ...outputs].map(o => o.path));
+  for (const c of had as any[]) for (const e of c?.expectations || []) if (e?.path) outputSet.add(String(e.path).replace(/^\$\.?/, ''));
+  for (const v of Object.values(topic?.settings?.outputs || {})) if (v) outputSet.add(String(v));
   const load = (t: any[][]) => {
     if (!t.length || !t[0]?.length) throw new Error('Nothing to read');
     setTable(t);
     setCols((t[0] || []).map((h: any) => {
-      const head = String(h ?? '').trim(); const path = match(head);
+      const head = String(h ?? '').trim(); const bare = norm(head.replace(/^(expected|exp)[\s_:.-]*/i, ''));
+      const path = match(head) || Array.from(outputSet).find(p => norm(p) === bare || norm(p.split('.').pop() || '') === bare) || '';
       const role: Col['role'] = /^(name|case|case ?(id|name|no\.?)|test ?case|scenario( ?(id|name))?|id|no\.?)$/i.test(head.trim()) ? 'name' : /^(expected|exp)\b/i.test(head) || outputSet.has(path) ? 'expected' : path ? 'input' : 'skip';
       return { head, role, path };
     }));
