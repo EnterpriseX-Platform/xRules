@@ -29,6 +29,30 @@ r.put('/operations/:opId', authMiddleware, h(req => specs.updateOperation(req.pa
 r.delete('/operations/:opId', authMiddleware, h(async req => { await specs.removeOperation(req.params.opId, req.user); invalidateRoutes(); return null; }));
 r.post('/operations/:opId/try', authMiddleware, h(req => specs.tryOperation(req.params.opId, req.body || {}, req.user)));
 
+// ---- Release & governance: bundles, release compare / rollback, live parameters, CI
+const OPS = () => import('../platform/ops.js');
+r.get('/ops/export', authMiddleware, async (req: any, res: any, next: any) => {
+  try {
+    const o = await OPS(); const q = { projectId: req.query.project_id, product: req.query.product, releaseId: req.query.release_id, parts: req.query.parts };
+    const b = await o.exportBundle(q as any, req.user);
+    const base = `${(b.source.project || 'project').replace(/[^A-Za-z0-9._-]+/g, '-')}${b.source.release ? '-' + String(b.source.release).replace(/[^A-Za-z0-9._-]+/g, '-') : ''}${b.source.product ? '-' + String(b.source.product).replace(/[^A-Za-z0-9._-]+/g, '-') : ''}`;
+    if (req.query.format === 'zip') { const buf = await o.toZip(b); res.setHeader('Content-Type', 'application/zip'); res.setHeader('Content-Disposition', `attachment; filename="${base}.zip"`); res.send(buf); return; }
+    if (req.query.format === 'json') { res.setHeader('Content-Disposition', `attachment; filename="${base}.json"`); res.json(b); return; }
+    ok(res, b);
+  } catch (e) { next(e); }
+});
+r.post('/ops/preview', authMiddleware, h(async req => { const o = await OPS(); return o.previewImport(String(req.body.projectId), await o.readBundle(req.body), req.user); }));
+r.post('/ops/import', authMiddleware, h(async req => { const o = await OPS(); return o.applyBundle(String(req.body.projectId), await o.readBundle(req.body), req.user, { skip: req.body.skip, publish: !!req.body.publish, message: req.body.message }); }));
+r.post('/ops/validate', authMiddleware, h(async req => { const o = await OPS(); return o.validate(req.body.projectId, await o.readBundle(req.body), req.user); }));
+r.post('/ops/test', authMiddleware, async (req: any, res: any, next: any) => { try { const out = await (await OPS()).runSuites(String(req.body.projectId), req.user, req.body.failOn === 'regressions' ? 'regressions' : 'any'); res.status(out.ok ? 200 : 422).json({ success: out.ok, data: out }); } catch (e) { next(e); } });
+r.post('/ops/promote', authMiddleware, h(async req => (await OPS()).promote(req.body, req.user)));
+r.get('/ops/compare', authMiddleware, h(async req => (await OPS()).compareReleases(String(req.query.from), String(req.query.to), req.user)));
+r.post('/ops/rollback', authMiddleware, h(async req => (await OPS()).requestRollback(String(req.body.releaseId), req.body.note, req.user), 201));
+r.get('/live-params', authMiddleware, h(async req => (await OPS()).liveParams(String(req.query.project_id), req.user)));
+r.post('/live-params/tunable', authMiddleware, h(async req => (await OPS()).markTunable(req.body, req.user)));
+r.post('/live-params/impact', authMiddleware, h(async req => (await OPS()).impact(req.body, req.user)));
+r.post('/live-params/request', authMiddleware, h(async req => (await OPS()).requestChange(req.body, req.user), 201));
+
 // ---- Reviews
 // ---- Topics (business units)
 r.get('/vocabulary-usage', authMiddleware, h(async req => (await import('../platform/links.js')).termUsage(String(req.query.project_id), req.user)));

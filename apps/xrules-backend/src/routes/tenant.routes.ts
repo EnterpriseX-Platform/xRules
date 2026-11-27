@@ -15,8 +15,8 @@ r.use(authMiddleware);
 r.get('/', h(async (req, res) => {
   const t = req.tenant!;
   const w = await prisma.workspace.findUnique({ where: { id: t.id }, include: { _count: { select: { projects: true, members: true, apiKeys: true } } } });
-  const perms = { admin: t.role === 'OWNER' || t.role === 'ADMIN', integrate: ['OWNER', 'ADMIN', 'INTEGRATOR'].includes(t.role), write: t.role !== 'VIEWER', approve: !!t.canApprove };
-  res.json({ success: true, data: { id: w!.id, slug: w!.slug, name: w!.name, description: w!.description, plan: w!.plan.toLowerCase(), role: t.role, perms,
+  const perms = { admin: t.role === 'OWNER' || t.role === 'ADMIN', integrate: ['OWNER', 'ADMIN', 'INTEGRATOR'].includes(t.role), write: t.role !== 'VIEWER', approve: !!t.canApprove, tune: !!t.canTune };
+  res.json({ success: true, data: { id: w!.id, slug: w!.slug, name: w!.name, description: w!.description, plan: w!.plan.toLowerCase(), role: t.role, perms, environment: (process.env.XRULES_ENV || 'UAT').toUpperCase(),
     requireApproval: (w!.settings as any)?.requireApproval !== false, projectCount: w!._count.projects, memberCount: w!._count.members, apiKeyCount: w!._count.apiKeys, createdAt: w!.createdAt.toISOString() } });
 }));
 
@@ -32,7 +32,7 @@ r.put('/', h(async (req, res) => {
 
 r.get('/members', h(async (req, res) => {
   const ms = await prisma.workspaceMember.findMany({ where: { workspaceId: req.tenant!.id }, include: { user: true }, orderBy: { createdAt: 'asc' } });
-  res.json({ success: true, data: ms.map(m => ({ userId: m.userId, name: m.user.name, email: m.user.email, role: m.role, canApprove: m.canApprove || m.role === 'OWNER' || m.role === 'ADMIN', joinedAt: m.createdAt.toISOString() })) });
+  res.json({ success: true, data: ms.map(m => ({ userId: m.userId, name: m.user.name, email: m.user.email, role: m.role, canApprove: m.canApprove || m.role === 'OWNER' || m.role === 'ADMIN', canTune: (m as any).canTune || m.role === 'OWNER' || m.role === 'ADMIN', joinedAt: m.createdAt.toISOString() })) });
 }));
 
 async function owners(workspaceId: string) { return prisma.workspaceMember.count({ where: { workspaceId, role: 'OWNER' } }); }
@@ -73,8 +73,9 @@ r.put('/members/:userId', h(async (req, res) => {
     data.role = role;
   }
   if (req.body?.canApprove !== undefined) data.canApprove = !!req.body.canApprove;
+  if (req.body?.canTune !== undefined) data.canTune = !!req.body.canTune;
   const u = await prisma.workspaceMember.update({ where: { id: m.id }, data });
-  res.json({ success: true, data: { userId: u.userId, role: u.role, canApprove: u.canApprove } });
+  res.json({ success: true, data: { userId: u.userId, role: u.role, canApprove: u.canApprove, canTune: (u as any).canTune } });
 }));
 
 r.delete('/members/:userId', h(async (req, res) => {

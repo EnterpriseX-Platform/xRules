@@ -13,6 +13,7 @@ import dashboardRoutes from './dashboard.routes.js';
 import apikeysRoutes from './apikeys.routes.js';
 import dataRoutes from './data.routes.js';
 import platformRoutes from './platform.routes.js';
+import { productionReadOnly } from '../modules/index.js';
 import gatewayRoutes from './gateway.routes.js';
 import publicExecuteRoutes from './publicExecute.routes.js';
 import publicReadRoutes from './publicRead.routes.js';
@@ -51,6 +52,7 @@ router.use('/api', gatewayRoutes);
 
 // Internal admin/UI — every request below is tenant-scoped (see middleware/tenant.ts)
 router.use(tenantGuard);
+router.use(productionReadOnly);
 router.use('/tenant', tenantRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/api-keys', apikeysRoutes);

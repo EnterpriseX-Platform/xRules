@@ -53,6 +53,7 @@ async function ensureAdmin() {
   console.log(`Admin account created: ${email}`);
 }
 ensureAdmin().catch(e => console.error('Admin bootstrap failed:', e.message));
+import('./platform/ops.js').then(m => m.startLiveParamScheduler()).catch(() => {});
 
 app.listen(env.port, () => {
   // XRULES_BACKGROUND=off: serve the API only (no schedules, no queue workers) — for debug copies and read replicas

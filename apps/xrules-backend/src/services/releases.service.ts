@@ -5,7 +5,10 @@ import type { AuthUser } from '../middleware/auth.js';
 
 const fmt = (r: any) => ({
   id: r.id, name: r.name, description: r.description,
-  manifest: r.manifest, status: r.status.toLowerCase(),
+  // the list carries counts, not the full snapshot (GET /releases/:id/bundle or the export for that)
+  manifest: { rules: r.manifest?.rules || [], flows: r.manifest?.flows || [], models: r.manifest?.models || [], full: !!r.manifest?.bundle, rolledBackFrom: r.manifest?.rolledBackFrom || null,
+    counts: r.manifest?.bundle ? Object.fromEntries(Object.entries(r.manifest.bundle.parts || {}).map(([k, v]: any) => [k, v.length])) : null },
+  status: r.status.toLowerCase(),
   projectId: r.projectId,
   createdById: r.createdById,
   createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(),
@@ -25,11 +28,12 @@ export async function get(id: string, user: AuthUser) {
 }
 
 export async function create(
-  data: { projectId: string; name: string; description?: string; ruleSlugs?: string[] },
+  data: { projectId: string; name: string; description?: string; ruleSlugs?: string[]; rolledBackFrom?: string },
   user: AuthUser,
+  opts: { skipAccess?: boolean } = {},
 ) {
   if (!data.projectId || !data.name) throw new ValidationError('projectId, name required');
-  await assertProjectAccess(data.projectId, user, 'admin');
+  if (!opts.skipAccess) await assertProjectAccess(data.projectId, user, 'admin');
 
   // Snapshot rules: pick named or all PUBLISHED
   const ruleWhere: any = { projectId: data.projectId };
@@ -42,11 +46,14 @@ export async function create(
     rules: rules.map(r => ({ ruleId: r.id, slug: r.slug, version: r.version })),
     flows: flows.map(f => ({ flowId: f.id, slug: f.slug, version: f.version })),
     models: models.map(m => ({ modelId: m.id, slug: m.slug, version: m.version })),
+    // the whole configuration as it is now: compare, export and roll back from this; a release is never edited
+    bundle: await (await import('../platform/ops.js')).snapshotFor(data.projectId, data.name),
+    rolledBackFrom: data.rolledBackFrom || null,
   };
 
   const r = await prisma.release.create({
     data: {
-      name: data.name, description: data.description, manifest,
+      name: data.name, description: data.description, manifest: manifest as any,
       status: 'PUBLISHED',
       projectId: data.projectId, createdById: user.userId,
     },

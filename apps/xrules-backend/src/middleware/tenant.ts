@@ -16,7 +16,7 @@ import type { AuthUser } from './auth.js';
 
 export type TenantRole = 'OWNER' | 'ADMIN' | 'INTEGRATOR' | 'MEMBER' | 'VIEWER';
 export type ProjectRole = 'ADMIN' | 'EDITOR' | 'VIEWER';
-export interface TenantCtx { id: string; slug: string; name: string; role: TenantRole; canApprove?: boolean }
+export interface TenantCtx { id: string; slug: string; name: string; role: TenantRole; canApprove?: boolean; canTune?: boolean }
 
 declare global {
   namespace Express {
@@ -131,7 +131,7 @@ export async function resolveTenant(user: AuthUser, wanted?: string): Promise<Te
   if (!ms.length) return null;
   const pick = wanted ? ms.find(m => m.workspace.slug === wanted || m.workspace.id === wanted) : (ms.find(m => m.workspace.slug === user.tenantId) ?? ms[0]);
   if (!pick) return null;
-  return { id: pick.workspace.id, slug: pick.workspace.slug, name: pick.workspace.name, role: pick.role as TenantRole, canApprove: pick.canApprove || pick.role === 'OWNER' || pick.role === 'ADMIN' };
+  return { id: pick.workspace.id, slug: pick.workspace.slug, name: pick.workspace.name, role: pick.role as TenantRole, canApprove: pick.canApprove || pick.role === 'OWNER' || pick.role === 'ADMIN', canTune: (pick as any).canTune || pick.role === 'OWNER' || pick.role === 'ADMIN' };
 }
 
 export async function tenantGuard(req: Request, res: Response, next: NextFunction) {

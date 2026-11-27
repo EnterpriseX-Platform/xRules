@@ -1,0 +1,2 @@
+ALTER TABLE "workspace_members" ADD COLUMN IF NOT EXISTS "canTune" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "product_settings" ADD COLUMN IF NOT EXISTS "tunable" BOOLEAN NOT NULL DEFAULT false;

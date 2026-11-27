@@ -1,12 +1,20 @@
 // Settings tables: rows are settings (max DSR (bureau hit), min RI, min credit line), columns are products.
 // A decision line or a calculation reads "<setting> of this product"; the run fills in the value for the product
 // it runs for (the topic's product, or `product` in the API input).
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { prisma } from '../config/database.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
 import { assertProjectAccess } from '../services/_access.js';
 import type { AuthUser } from '../middleware/auth.js';
 
 export const OF_THIS = ' of this product';
+
+/** Proposed values for a dry run (live parameter impact): setting name (lower case) → product → value. */
+export const settingOverrides = new AsyncLocalStorage<Record<string, Record<string, any>>>();
+function applyOverrides(rows: { name: string; values: any }[]) {
+  const o = settingOverrides.getStore(); if (!o) return rows;
+  return rows.map(r => { const x = o[r.name.toLowerCase()]; return x ? { ...r, values: { ...((r.values as any) || {}), ...x } } : r; });
+}
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 export async function productsOf(projectId: string) {
@@ -19,7 +27,7 @@ export async function list(projectIdOrSlug: string, user: AuthUser) {
   const rows = await prisma.productSetting.findMany({ where: { projectId: p.id, deletedAt: null }, orderBy: [{ position: 'asc' }, { createdAt: 'asc' }] });
   const products = await productsOf(p.id);
   for (const r of rows) for (const k of Object.keys((r.values as any) || {})) if (!products.includes(k)) products.push(k);
-  return { products, rows: rows.map(r => ({ id: r.id, name: r.name, values: r.values || {} })) };
+  return { products, rows: rows.map(r => ({ id: r.id, name: r.name, values: r.values || {}, tunable: !!(r as any).tunable })) };
 }
 
 const clean = (v: any) => { if (v === null || v === undefined) return null; const s = String(v).trim(); if (!s) return null; const n = Number(s.replace(/,/g, '')); return isNaN(n) ? s : n; };
@@ -87,7 +95,7 @@ export async function withSettings<T extends { definition: any; projectId: strin
   let prod = product ?? (typeof input?.product === 'string' && input.product.trim() ? input.product.trim() : null);
   if (!prod && rule.topicId) prod = (await prisma.topic.findFirst({ where: { id: rule.topicId }, select: { product: true } }))?.product || null;
   const rows = await prisma.productSetting.findMany({ where: { projectId: rule.projectId, deletedAt: null }, select: { name: true, values: true } });
-  return { ...rule, definition: fillSettings(rule.definition, rows, prod) };
+  return { ...rule, definition: fillSettings(rule.definition, applyOverrides(rows), prod) };
 }
 
 /** "Make it a setting": the number in a line becomes a setting row holding that value for every product. */

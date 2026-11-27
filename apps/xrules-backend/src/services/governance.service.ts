@@ -70,6 +70,8 @@ export async function decide(id: string, decision: 'APPROVED' | 'REJECTED', note
       if (r.targetType === 'rule') await (await import('./rules.service.js')).publishRule(r.targetId, user);
       if (r.targetType === 'decision_flow') await (await import('./flows.service.js')).publishFlow(r.targetId, `Approved by ${user.email || user.userId}`, user);
       if (r.targetType === 'api_spec') await (await import('./apispecs.service.js')).publish(r.targetId, user, `Approved by ${user.email || user.userId}`);
+      if (r.targetType === 'rollback') return { ...out, rollback: await (await import('../platform/ops.js')).performRollback(r.targetId, user) };
+      if (r.targetType === 'param_change') return { ...out, applied: await (await import('../platform/ops.js')).applyDueChanges(r.id) };
     } catch (e: any) { return { ...out, publishError: e?.message || String(e) }; }
   }
   return out;
