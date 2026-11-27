@@ -8,28 +8,35 @@ import { useTerms, showValue, type Term } from '@/lib/terms';
 import { InputFields } from '@/components/test/FieldsEditor';
 import { useQueryClient } from '@tanstack/react-query';
 import { RequestData } from '@/components/topic/RequestData';
-import { compileExpr, getter, pathsOf } from '@/lib/expr';
+import { compileExpr, getter, pathsOf, asWordValue } from '@/lib/expr';
 
 type Line = { name: string; expr: string };
 const FUNCS: { name: string; insert: string; label: string }[] = [
-  { name: 'SUM', insert: 'SUM(', label: 'Sum' }, { name: 'AVG', insert: 'AVG(', label: 'Average' }, { name: 'COUNT', insert: 'COUNT(', label: 'Count' },
-  { name: 'MIN', insert: 'MIN(', label: 'Lowest' }, { name: 'MAX', insert: 'MAX(', label: 'Highest' },
-  { name: 'ROUND', insert: 'ROUND(', label: 'Round' }, { name: 'ROUNDDOWN', insert: 'ROUNDDOWN(', label: 'Round down' }, { name: 'IF', insert: 'IF(', label: 'If … then … else' },
+  { name: 'SUM', insert: 'SUM(', label: 'Sum' }, { name: 'AVERAGE', insert: 'AVERAGE(', label: 'Average' }, { name: 'COUNT', insert: 'COUNT(', label: 'Count' },
+  { name: 'MIN', insert: 'MIN(', label: 'Lowest' }, { name: 'MAX', insert: 'MAX(', label: 'Highest' }, { name: 'OR', insert: 'OR(', label: 'Any of' }, { name: 'AND', insert: 'AND(', label: 'All of' },
+  { name: 'ROUND', insert: 'ROUND(', label: 'Round' }, { name: 'ROUNDDOWN', insert: 'ROUNDDOWN(', label: 'Round down' }, { name: 'IF', insert: 'IF(', label: 'If' },
   { name: 'TODAY', insert: 'TODAY()', label: 'Today' }, { name: 'DAYS', insert: 'DAYS(', label: 'Days since' }, { name: 'MONTHS', insert: 'MONTHS(', label: 'Months since' },
   { name: 'SPLIT', insert: 'SPLIT(', label: 'Split list' }, { name: 'CONTAINS', insert: 'CONTAINS(', label: 'List has' }, { name: 'ITEM', insert: 'ITEM(', label: 'Item no.' },
   { name: 'ANY_PAIR', insert: 'ANY_PAIR(', label: 'Any pair' }, { name: 'COUNT_PAIRS', insert: 'COUNT_PAIRS(', label: 'Count pairs' }, { name: 'ZIP', insert: 'ZIP(', label: 'Pair lists' },
 ];
 const OPS = ['+', '−', '×', '÷', '(', ')', '≥', '≤', '='];
 
+const toN = (x: any) => (typeof x === 'number' ? x : x === '' || x == null || typeof x === 'boolean' ? NaN : Number(String(x).replace(/,/g, '').trim()));
+const listOf = (a: any[]): any[] => (Array.isArray(a[0]) && a.length === 2 && typeof a[1] === 'string' && isNaN(toN(a[1])) ? a[0].map((x: any) => x?.[a[1]]) : a.flat(Infinity));
+const nums = (a: any[]) => listOf(a).map(toN).filter((n: number) => !isNaN(n));
+/** cmd+A / ctrl+A selects the whole box (the app's own shortcuts never take it from a text box). */
+const selectAllKey = (e: React.KeyboardEvent<HTMLInputElement>) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); e.stopPropagation(); e.currentTarget.select(); return true; } return false; };
 // same functions the engine uses
 const F: Record<string, any> = {
-  SUM: (a: any, k?: string) => (Array.isArray(a) ? a : [a]).reduce((s: number, x: any) => s + (Number(k ? x?.[k] : x) || 0), 0),
-  AVG: (a: any, k?: string) => { const xs = (Array.isArray(a) ? a : [a]).map((x: any) => Number(k ? x?.[k] : x)).filter((n: number) => !isNaN(n)); return xs.length ? xs.reduce((s: number, n: number) => s + n, 0) / xs.length : 0; },
-  COUNT: (a: any) => (Array.isArray(a) ? a.length : a == null ? 0 : 1),
-  MIN: (...a: any[]) => Math.min(...a.flat().map(Number)), MAX: (...a: any[]) => Math.max(...a.flat().map(Number)),
-  ROUND: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.round(Number(x) * f) / f; },
-  ROUNDDOWN: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.floor(Number(x) * f) / f; },
-  ROUNDUP: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.ceil(Number(x) * f) / f; },
+  SUM: (...a: any[]) => nums(a).reduce((t: number, n: number) => t + n, 0),
+  AVG: (...a: any[]) => { const xs = nums(a); return xs.length ? xs.reduce((t: number, n: number) => t + n, 0) / xs.length : 0; },
+  COUNT: (...a: any[]) => (a.length === 1 ? (Array.isArray(a[0]) ? a[0].length : a[0] == null || a[0] === '' ? 0 : 1) : listOf(a).filter((x: any) => x != null && x !== '').length),
+  MIN: (...a: any[]) => { const xs = nums(a); return xs.length ? Math.min(...xs) : 0; },
+  MAX: (...a: any[]) => { const xs = nums(a); return xs.length ? Math.max(...xs) : 0; },
+  ROUND: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.round((toN(x) || 0) * f) / f; },
+  ROUNDDOWN: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.floor((toN(x) || 0) * f) / f; },
+  ROUNDUP: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.ceil((toN(x) || 0) * f) / f; },
+  OR: (...a: any[]) => a.some(Boolean), AND: (...a: any[]) => a.every(Boolean), NOT: (x: any) => !x,
   IF: (c: any, a: any, b: any) => (c ? a : b),
   TODAY: () => { const n = new Date(); return new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate())); },
   DATE: (v: any) => toDate(v),
@@ -44,6 +51,7 @@ const F: Record<string, any> = {
   ANY_PAIR: (c: any, d: any, w: any, n?: any) => pairHits(c, d, w, n) > 0,
   COUNT_PAIRS: (c: any, d: any, w: any, n?: any) => pairHits(c, d, w, n),
 };
+Object.assign(F, { AVERAGE: F.AVG, LOWEST: F.MIN, HIGHEST: F.MAX, MINIMUM: F.MIN, MAXIMUM: F.MAX });
 const asList = (v: any): any[] => (Array.isArray(v) ? v : String(v ?? '').split(':').map((s: string) => s.trim()).filter((s: string) => s !== ''));
 function pairHits(codes: any, dates: any, which: any, days?: any): number {
   const cs = asList(codes), ds = asList(dates); const win = new Map<string, number | null>();
@@ -68,7 +76,8 @@ const js = (e: string) => e.replace(/−/g, '-').replace(/×/g, '*').replace(/÷
 function evaluate(expr: string, scope: Record<string, any>, words: string[] = []) {
   const code = compileExpr(expr, [...words, ...pathsOf(scope)], Object.keys(F));
   // eslint-disable-next-line no-new-func
-  return new Function('__get', 'Math', ...Object.keys(F), `"use strict"; return (${code});`)(getter(scope), Math, ...Object.values(F));
+  const get = getter(scope);
+  return new Function('__get', 'Math', ...Object.keys(F), `"use strict"; return (${code});`)((p: string) => asWordValue(get(p)), Math, ...Object.values(F));
 }
 /** Replace outside quoted text only. */
 const outsideQuotes = (s: string, fn: (x: string) => string) => s.split(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/).map((p, i) => (i % 2 ? p : fn(p))).join('');
@@ -97,7 +106,12 @@ export function CalcDesigner({ rule, projectId, onChange }: { rule: any; project
   const [focus, setFocus] = useState(0);
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   const [sample, setSample] = useState<Record<string, any>>({});
-  const emit = (ls: Line[]) => { setLines(ls); onChange({ ...(rule.definition || {}), lines: ls }); };
+  const latest = useRef(lines); latest.current = lines;
+  const emit = (ls: Line[] | ((cur: Line[]) => Line[])) => { const next = typeof ls === 'function' ? ls(latest.current) : ls; latest.current = next; setLines(next); onChange({ ...(rule.definition || {}), lines: next }); };
+  // what is typed in the focused formula box stays as typed; it is read into words when it is saved
+  const [draft, setDraft] = useState<{ i: number; text: string } | null>(null);
+  // a result name that is not a word yet waits for "Add word", so text glued by mistake never becomes a word
+  const [newName, setNewName] = useState<{ i: number; text: string } | null>(null);
   const produced = lines.map(l => l.name).filter(Boolean);
   const used = useMemo(() => {
     const set = new Set<string>();
@@ -105,25 +119,30 @@ export function CalcDesigner({ rule, projectId, onChange }: { rule: any; project
     return Array.from(set);
   }, [lines]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function nameLine(i: number, text: string) {
+  function nameLine(i: number, text: string) {
     const t = text.trim(); if (!t) return;
-    const existing = terms.find(x => x.term === t || x.path === t);
-    let path = existing?.path;
-    if (!existing) {
-      path = slug(t, i); let n = 2; while (terms.some(x => x.path === path)) path = `${slug(t, i)}_${n++}`;
-      await api.post('/platform/vocabulary', { projectId, term: t, path, type: 'number' }).catch(() => {});
-      qc.invalidateQueries({ queryKey: ['vocab', projectId] });
-    }
-    emit(lines.map((l, j) => (j === i ? { ...l, name: path! } : l)));
+    const cur = latest.current[i]?.name;
+    if (cur && (t === label(cur) || t === cur)) { setNewName(null); return; }
+    const existing = terms.find(x => x.term.toLowerCase() === t.toLowerCase() || x.path === t);
+    if (existing) { setNewName(null); emit(ls => ls.map((l, j) => (j === i ? { ...l, name: existing.path } : l))); return; }
+    setNewName({ i, text: t });
+  }
+  async function addWord(i: number, t: string) {
+    let path = slug(t, i); let n = 2; while (terms.some(x => x.path === path)) path = `${slug(t, i)}_${n++}`;
+    await api.post('/platform/vocabulary', { projectId, term: t, path, type: 'number' }).catch(() => {});
+    qc.invalidateQueries({ queryKey: ['vocab', projectId] });
+    setNewName(null);
+    emit(ls => ls.map((l, j) => (j === i ? { ...l, name: path } : l)));
   }
   const insert = (text: string) => {
-    const el = refs.current[focus]; const cur = toLabels(lines[focus]?.expr || '', terms);
+    const el = refs.current[focus]; const cur = draft?.i === focus ? draft.text : toLabels(lines[focus]?.expr || '', terms);
     const at = el && document.activeElement === el ? el.selectionStart ?? cur.length : cur.length;
     const before = cur.slice(0, at) + (at && !/\s$/.test(cur.slice(0, at)) && /^\w/.test(text) ? ' ' : '') + text;
     const next = before + cur.slice(at);
-    emit(lines.map((l, j) => (j === focus ? { ...l, expr: toPaths(next, terms) } : l)));
+    emit(ls => ls.map((l, j) => (j === focus ? { ...l, expr: toPaths(next, terms) } : l)));
+    if (draft?.i === focus) setDraft({ i: focus, text: next });
     // the caret goes right after what was put in, measured in the text as it will be shown
-    const pos = toLabels(toPaths(before, terms), terms).length;
+    const pos = draft?.i === focus ? before.length : toLabels(toPaths(before, terms), terms).length;
     setTimeout(() => { el?.focus(); el?.setSelectionRange(pos, pos); }, 0);
   };
 
@@ -144,32 +163,41 @@ export function CalcDesigner({ rule, projectId, onChange }: { rule: any; project
         <div className="bg-white border border-[#e0e0e0]">
           {lines.map((l, i) => (
             <div key={i} className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-[#e0e0e0] last:border-b-0">
-              <input key={`r${i}-${l.name ? label(l.name) : ""}`} aria-label={`Result ${i + 1}`} className="h-10 w-[220px] px-3 bg-[#f4f4f4] border-b border-[#8d8d8d] text-[15px] text-[#0f62fe] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2"
-                defaultValue={l.name ? label(l.name) : ''} placeholder="Result" onBlur={e => nameLine(i, e.target.value)} />
+              <ResultName key={i} index={i} name={l.name ? label(l.name) : ''} onDone={t => nameLine(i, t)} />
               <span className="text-[18px] text-[#525252]">=</span>
-              <input ref={el => { refs.current[i] = el; }} aria-label={`Formula ${i + 1}`} onFocus={() => setFocus(i)}
+              <input ref={el => { refs.current[i] = el; }} aria-label={`Formula ${i + 1}`}
+                onFocus={() => { setFocus(i); setDraft({ i, text: toLabels(latest.current[i]?.expr || '', terms) }); }}
+                onBlur={() => setDraft(d => (d?.i === i ? null : d))}
+                onKeyDown={e => { selectAllKey(e); }}
                 className="h-10 flex-1 basis-[420px] min-w-[260px] px-3 bg-[#f4f4f4] border-b border-[#8d8d8d] text-[15px] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2"
-                value={toLabels(l.expr, terms)} placeholder="monthly payment ÷ monthly income × 100"
-                onChange={e => emit(lines.map((x, j) => (j === i ? { ...x, expr: toPaths(e.target.value, terms) } : x)))} />
+                value={draft?.i === i ? draft.text : toLabels(l.expr, terms)} placeholder="monthly payment ÷ monthly income × 100"
+                onChange={e => { const v = e.target.value; setDraft({ i, text: v }); emit(ls => ls.map((x, j) => (j === i ? { ...x, expr: toPaths(v, terms) } : x))); }} />
               <span className={`w-[150px] text-right text-[14px] tabular-nums ${results[i] && !results[i].ok ? 'text-[#da1e28]' : 'text-[#161616]'}`} title={(results[i] as any)?.error}>
                 {results[i]?.ok ? (results[i].value === undefined ? '' : showValue(typeof results[i].value === 'number' ? Math.round(results[i].value * 1e6) / 1e6 : results[i].value, term(l.name))) : 'Check the formula'}
               </span>
-              <button type="button" aria-label={`Remove line ${i + 1}`} disabled={lines.length === 1} onClick={() => emit(lines.filter((_, j) => j !== i))}
+              <button type="button" aria-label={`Remove line ${i + 1}`} disabled={lines.length === 1} onClick={() => emit(ls => ls.filter((_, j) => j !== i))}
                 className="h-10 w-10 flex items-center justify-center text-[#525252] hover:bg-[#e8e8e8] disabled:opacity-30"><Trash2 className="h-4 w-4" /></button>
+              {newName?.i === i && (
+                <div role="alertdialog" aria-label="New word" className="basis-full flex items-center gap-3 text-[14px]">
+                  <span className="text-[#161616]">“{newName.text}” is not a word yet</span>
+                  <button type="button" className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => addWord(i, newName.text)}>Add word</button>
+                  <button type="button" className="h-8 px-3 text-[#161616] hover:bg-[#e8e8e8]" onClick={() => setNewName(null)}>Keep {l.name ? `“${label(l.name)}”` : 'empty'}</button>
+                </div>
+              )}
             </div>
           ))}
-          <button type="button" className="h-10 px-4 w-full text-left text-[14px] text-[#0f62fe] hover:bg-[#f4f4f4] flex items-center gap-1" onClick={() => emit([...lines, { name: '', expr: '' }])}><Plus className="h-4 w-4" /> Add line</button>
+          <button type="button" className="h-10 px-4 w-full text-left text-[14px] text-[#0f62fe] hover:bg-[#f4f4f4] flex items-center gap-1" onClick={() => emit(ls => [...ls, { name: '', expr: '' }])}><Plus className="h-4 w-4" /> Add line</button>
         </div>
         <div className="space-y-2">
           <div className="flex flex-wrap gap-1">
+            {OPS.map(o => <button key={o} type="button" onMouseDown={e => e.preventDefault()} onClick={() => insert(` ${o} `)} className="h-8 w-9 text-[14px] border border-[#c6c6c6] bg-white hover:bg-[#e8e8e8]">{o}</button>)}
+            {FUNCS.map(fn => <button key={fn.name} type="button" onMouseDown={e => e.preventDefault()} onClick={() => insert(fn.insert)} className="h-8 px-2 text-[13px] border border-[#c6c6c6] bg-white hover:bg-[#e8e8e8]" title={fn.name}>{fn.label}</button>)}
+          </div>
+          <div className="flex flex-wrap gap-1 max-h-[180px] overflow-y-auto">
             {terms.filter(t => !produced.includes(t.path) || lines.findIndex(l => l.name === t.path) < focus).map(t => (
               <button key={t.id} type="button" onMouseDown={e => e.preventDefault()} onClick={() => insert(t.term)} title={t.path} className="h-8 px-2 text-[13px] border border-[#c6c6c6] bg-white text-[#0f62fe] hover:bg-[#edf5ff]">{t.term}</button>
             ))}
             <RequestData projectId={projectId} ruleId={rule.id} />
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {OPS.map(o => <button key={o} type="button" onMouseDown={e => e.preventDefault()} onClick={() => insert(` ${o} `)} className="h-8 w-9 text-[14px] border border-[#c6c6c6] bg-white hover:bg-[#e8e8e8]">{o}</button>)}
-            {FUNCS.map(fn => <button key={fn.name} type="button" onMouseDown={e => e.preventDefault()} onClick={() => insert(fn.insert)} className="h-8 px-2 text-[13px] border border-[#c6c6c6] bg-white hover:bg-[#e8e8e8]" title={fn.name}>{fn.label}</button>)}
           </div>
         </div>
       </div>
@@ -183,5 +211,17 @@ export function CalcDesigner({ rule, projectId, onChange }: { rule: any; project
         </div>
       </div>
     </div>
+  );
+}
+
+/** The result's name: typed freely (cmd+A selects it), read on leaving the box or Enter; shows the saved name
+ *  again when the saved name changes and the box is not being typed in. */
+function ResultName({ index, name, onDone }: { index: number; name: string; onDone: (text: string) => void }) {
+  const [text, setText] = useState<string | null>(null);
+  return (
+    <input aria-label={`Result ${index + 1}`} className="h-10 w-[220px] px-3 bg-[#f4f4f4] border-b border-[#8d8d8d] text-[15px] text-[#0f62fe] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2"
+      value={text ?? name} placeholder="Result" onFocus={() => setText(name)} onChange={e => setText(e.target.value)}
+      onKeyDown={e => { if (selectAllKey(e)) return; if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } if (e.key === 'Escape') { setText(name); } }}
+      onBlur={() => { const t = text; setText(null); if (t !== null && t.trim() !== name) onDone(t); }} />
   );
 }

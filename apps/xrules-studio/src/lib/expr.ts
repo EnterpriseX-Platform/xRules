@@ -63,7 +63,9 @@ export function compileExpr(src: string, paths: string[] = [], funcs: string[] =
   }
   s = s.replace(/−/g, '-').replace(/×/g, '*').replace(/÷/g, '/').replace(/≥/g, '>=').replace(/≤/g, '<=').replace(/≠|<>/g, '!=');
   s = ifThenElse(s);
-  s = s.replace(/\band\b/gi, '&&').replace(/\bor\b/gi, '||').replace(/\bnot\b(?!\s*\()/gi, '!');
+  // OR( … ) / AND( … ) at the start of a value are functions; "a or (b)" between two values is the operator
+  const asCall = (m: string, off: number, all: string) => /^\s*\(/.test(all.slice(off + m.length)) && /(^|[(,?:!&|=<>+\-*/])\s*$/.test(all.slice(0, off));
+  s = s.replace(/\band\b/gi, (m, off, all) => (asCall(m, off, all) ? 'AND' : '&&')).replace(/\bor\b/gi, (m, off, all) => (asCall(m, off, all) ? 'OR' : '||')).replace(/\bnot\b(?!\s*\()/gi, '!');
   s = s.replace(/(^|[^=!<>])=(?!=)/g, '$1==');
   const fn = new Set(funcs.map(f => f.toUpperCase()));
   s = s.replace(/(?<![\w.$\u0001\u0002])([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)(?![\w$])(\s*\()?/g, (m, id: string, call?: string) => {
@@ -80,4 +82,16 @@ export function getter(scope: any) {
     if (scope && typeof scope === 'object' && p in scope) return scope[p];
     return String(p).split('.').reduce((a: any, k) => (a == null ? undefined : a[k]), scope);
   };
+}
+
+const toNum = (x: any) => (typeof x === 'number' ? x : x === '' || x == null || typeof x === 'boolean' ? NaN : Number(String(x).replace(/,/g, '').trim()));
+const NUMERIC = new Set(['number', 'money', 'integer', 'decimal', 'percent']);
+const PLAIN_NUMBER = /^-?(?:0|[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*)(?:\.\d+)?$|^-?0?\.\d+$/;
+/** A word's value as the formula should see it: numbers typed in test cases and imports come in as text.
+ *  Number words become numbers (blank = 0); words of unknown type become numbers only when they plainly are one
+ *  (no leading zero, so codes like "001" stay text); text words stay text. */
+export function asWordValue(v: any, type?: string): any {
+  if (type && NUMERIC.has(type)) { if (v == null || v === '') return 0; if (typeof v === 'string') { const n = toNum(v); return isNaN(n) ? v : n; } return v; }
+  if ((type && type !== 'text') || typeof v !== 'string') return v;
+  const t = v.trim(); return PLAIN_NUMBER.test(t) ? Number(t.replace(/,/g, '')) : v;
 }
