@@ -14,7 +14,7 @@ export default function SimulationsPage() {
   const qc = useQueryClient();
   const { data: flows = [] } = useQuery({ queryKey: ['flows-all', projectId], queryFn: () => api.get<any[]>(`/flows?project_id=${projectId}`) });
   const decision = (flows as any[]).filter(f => f.kind === 'decision');
-  const [flow, setFlow] = useState(''); const [limit, setLimit] = useState('1000'); const [rate, setRate] = useState('20'); const [until, setUntil] = useState('');
+  const [flow, setFlow] = useState(''); const [limit, setLimit] = useState(''); const [rate, setRate] = useState(''); const [until, setUntil] = useState('');
   const { data: runs = [] } = useQuery({ queryKey: ['bulk', projectId], queryFn: () => api.get<any[]>(`/platform/bulk?project_id=${projectId}`), refetchInterval: 3000 });
   const pairs = (runs as any[]).filter(r => r.compareToId);
   const { data: ch } = useQuery({ queryKey: ['challenger', flow], queryFn: () => api.get<any>(`/platform/flows/${flow}/challenger`), enabled: !!flow });
@@ -27,14 +27,14 @@ export default function SimulationsPage() {
       <div className="w-96 mb-4"><div className="text-[12px] text-[#525252] mb-1.5">Decision Flow</div><Dropdown value={flow} onChange={setFlow} options={decision.map(f => ({ value: f.id, label: f.name, hint: `v${f.version}` }))} /></div>
       <div className="grid gap-4 items-start lg:grid-cols-2">
         <Panel title="Backtest">
-          <Input id="bt-lim" label="Most recent requests" mono value={limit} onChange={setLimit} />
+          <Input id="bt-lim" label="Most recent requests" mono placeholder="1000" value={limit} onChange={setLimit} />
           <div className="mt-4">{perms.write && <Btn onClick={() => backtest.mutate()} disabled={!flow || backtest.isPending}>Start backtest</Btn>}</div>
           {backtest.error && <div className="mt-3"><Notice kind="error">{String((backtest.error as any).message)}</Notice></div>}
         </Panel>
         <Panel title="Champion / Challenger on live traffic">
           {ch?.challenger ? <Notice kind="info">Comparing {Math.round(ch.challenger.sampleRate * 100)}% of requests{ch.challenger.until ? ` until ${fmtTime(ch.challenger.until)}` : ''}</Notice> : null}
           <div className="grid grid-cols-2 gap-4 mt-3">
-            <Input id="ch-rate" label="Share of requests (%)" mono value={rate} onChange={setRate} />
+            <Input id="ch-rate" label="Share of requests (%)" mono placeholder="20" value={rate} onChange={setRate} />
             <div><div className="text-[12px] text-[#525252] mb-1.5">Runs for</div>
               <Dropdown value={until ? String(Math.round((new Date(until).getTime() - Date.now()) / 864e5)) : '0'} onChange={v => setUntil(v === '0' ? '' : new Date(Date.now() + Number(v) * 864e5).toISOString().slice(0, 10))}
                 options={[{ value: '1', label: '1 day' }, { value: '3', label: '3 days' }, { value: '7', label: '1 week' }, { value: '14', label: '2 weeks' }, { value: '30', label: '1 month' }, { value: '0', label: 'Until stopped' }]} /></div>

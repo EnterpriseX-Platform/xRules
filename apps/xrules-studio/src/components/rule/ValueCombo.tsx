@@ -19,7 +19,7 @@ export function ValueCombo({ value, values, onChange, className = '', ariaLabel,
   return (
     <span className={`relative ${block ? 'block' : 'inline-block'}`}>
       <input ref={ref} aria-label={ariaLabel} placeholder={placeholder} className={className} value={text} role="combobox" aria-expanded={open} autoComplete="off"
-        onFocus={() => { setOpen(true); setHi(0); }}
+        onFocus={e => { const el = e.currentTarget; requestAnimationFrame(() => { if (document.activeElement === el) el.select(); }); setOpen(true); setHi(0); }}
         onChange={e => { typed.current = e.target.value; setQ(e.target.value); setOpen(true); setHi(0); }}
         onBlur={() => setTimeout(() => { setOpen(false); const v = typed.current; typed.current = null; if (v != null) { if (v.trim() !== String(value ?? '')) onChange(v.trim()); setQ(null); } }, 120)}
         onKeyDown={e => {

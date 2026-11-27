@@ -56,10 +56,10 @@ export default function DataSetsPage() {
 function SqlSourcePanel({ projectId, onCancel, onCreated }: { projectId: string; onCancel: () => void; onCreated: (id: string) => void }) {
   const [name, setName] = useState(''); const [keys, setKeys] = useState(''); const [conn, setConn] = useState('');
   const [sql, setSql] = useState('SELECT *\nFROM ');
-  const [limit, setLimit] = useState('50000'); const [timeoutSec, setTimeoutSec] = useState('60');
+  const [limit, setLimit] = useState(''); const [timeoutSec, setTimeoutSec] = useState('');
   const { data: conns = [] } = useQuery({ queryKey: ['connections', projectId], queryFn: () => api.get<any[]>(`/connections?project_id=${projectId}`) });
   const sqlConns = (conns as any[]).filter(c => ['ORACLE', 'POSTGRES'].includes(String(c.type).toUpperCase()));
-  const body = () => ({ projectId, name, connectionId: conn, sql, limit: Number(limit) || undefined, timeoutSec: Number(timeoutSec) || undefined, keyFields: keys.split(',').map(k => k.trim()).filter(Boolean) });
+  const body = () => ({ projectId, name, connectionId: conn, sql, limit: Number(limit) || 50000, timeoutSec: Number(timeoutSec) || 60, keyFields: keys.split(',').map(k => k.trim()).filter(Boolean) });
   const preview = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>('/data/datasets/query', { ...body(), preview: true }) });
   const create = useMutation({ meta: { silent: true }, mutationFn: () => api.post<any>('/data/datasets/query', body()), onSuccess: (d: any) => onCreated(d.id) });
   const rows: any[] = preview.data?.rows || []; const cols: string[] = preview.data?.columns || [];
@@ -78,8 +78,8 @@ function SqlSourcePanel({ projectId, onCancel, onCreated }: { projectId: string;
       </div>
       <TextArea id="sq-sql" label="Query (one SELECT or WITH statement, read-only)" rows={8} value={sql} onChange={setSql} />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-        <Input id="sq-limit" label="Max rows" mono value={limit} onChange={setLimit} />
-        <Input id="sq-timeout" label="Time limit (seconds)" mono value={timeoutSec} onChange={setTimeoutSec} />
+        <Input id="sq-limit" label="Max rows" mono placeholder="50000" value={limit} onChange={setLimit} />
+        <Input id="sq-timeout" label="Time limit (seconds)" mono placeholder="60" value={timeoutSec} onChange={setTimeoutSec} />
         <Input id="sq-keys" label="Key columns (comma separated, optional)" mono value={keys} onChange={setKeys} />
       </div>
       {err && <div className="mt-3"><Notice kind="error">{err.message}</Notice></div>}
