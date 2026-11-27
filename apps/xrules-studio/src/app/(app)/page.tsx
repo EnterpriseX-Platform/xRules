@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { PageHead, Tag, fmtTime } from '@/components/pipeline/ui';
+import { PageHead, fmtTime } from '@/components/pipeline/ui';
 import { usePerms } from '@/lib/perms';
 import { useAuth } from '@/lib/store';
 
@@ -80,7 +80,7 @@ export default function HomePage() {
         <Section title="Your approval requests" count={h.myRequests.length} empty="You have not asked for any approval">
           {h.myRequests.map((r: any) => (
             <Row key={r.id} href={`/p/${r.projectId}/approvals`}>
-              <span className="flex-1 min-w-[200px] text-[15px]">{r.title}</span>{REVIEW[r.status] && <Tag tone={REVIEW[r.status][1]}>{REVIEW[r.status][0]}</Tag>}<span className="text-[12px] text-[#6f6f6f] w-[140px]">{fmtTime(r.createdAt)}</span>
+              <span className="flex-1 min-w-[200px] text-[15px]">{r.title}</span>{REVIEW[r.status] && <span className={`text-[13px] ${r.status === 'REJECTED' ? 'text-[#da1e28]' : r.status === 'APPROVED' ? 'text-[#198038]' : 'text-[#0043ce]'}`}>{REVIEW[r.status][0]}</span>}<span className="text-[12px] text-[#6f6f6f] w-[140px]">{fmtTime(r.createdAt)}</span>
             </Row>))}
         </Section>
         {(dev || myData.length > 0) && (
