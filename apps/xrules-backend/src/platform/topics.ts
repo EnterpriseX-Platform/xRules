@@ -11,7 +11,7 @@ export const QUESTION: Record<string, 'qualify' | 'amount' | 'choose'> = {
   FORMULA: 'amount', SCORECARD: 'amount', MODEL_CALL: 'amount', AI_AGENT: 'amount',
 };
 
-async function testsFor(targetType: string, ids: string[]) {
+export async function testsFor(targetType: string, ids: string[]) {
   if (!ids.length) return new Map<string, { total: number; pass: number }>();
   const cases = await prisma.testCase.findMany({ where: { deletedAt: null, targetType, targetId: { in: ids } }, select: { targetId: true, lastStatus: true } });
   const m = new Map<string, { total: number; pass: number; fail?: number }>();

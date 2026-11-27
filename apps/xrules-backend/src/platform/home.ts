@@ -4,6 +4,7 @@ import { prisma } from '../config/database.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
 import { assertProjectAccess } from '../services/_access.js';
 import type { AuthUser } from '../middleware/auth.js';
+import { testsFor } from './topics.js';
 
 async function projectIds(user: AuthUser) {
   const t: any = (user as any).tenant;
@@ -24,8 +25,23 @@ export async function home(user: AuthUser) {
   ]);
   const names = async (tt: string, xs: string[]) => tt === 'rule' ? prisma.rule.findMany({ where: { id: { in: xs } }, select: { id: true, name: true } }) : prisma.flow.findMany({ where: { id: { in: xs } }, select: { id: true, name: true } });
   const rn = new Map([...(await names('rule', failing.filter(f => f.targetType === 'rule').map(f => f.targetId!))), ...(await names('flow', failing.filter(f => f.targetType === 'decision_flow').map(f => f.targetId!)))].map(x => [x.id, x.name]));
+  // per topic: lines, state and tests, so the home table reads without opening each one
+  const tids = topics.map(t => t.id);
+  const trules = await prisma.rule.findMany({ where: { topicId: { in: tids } }, select: { id: true, topicId: true, type: true, status: true, reviewState: true, definition: true } });
+  const tflows = await prisma.flow.findMany({ where: { topicId: { in: tids }, status: { not: 'ARCHIVED' as any } }, select: { id: true, topicId: true, status: true, reviewState: true } });
+  const rt = await testsFor('rule', trules.map(r => r.id)); const ft = await testsFor('decision_flow', tflows.map(f => f.id));
+  const lineCount = (r: any) => { const d: any = r.definition || {}; return String(r.type).toUpperCase() === 'DECISION_TABLE' ? (d.rules || []).length : String(r.type).toUpperCase() === 'FORMULA' ? (d.lines || []).length : 0; };
+  const sum = (t: any) => {
+    const rs = trules.filter(r => r.topicId === t.id), fs = tflows.filter(f => f.topicId === t.id); const items: any[] = [...rs, ...fs];
+    const ts = [...rs.map(r => rt.get(r.id)), ...fs.map(f => ft.get(f.id))].filter(Boolean) as any[];
+    const state = !items.length ? 'empty' : items.some(i => i.reviewState === 'PENDING') ? 'review' : items.some(i => String(i.status).toUpperCase() !== 'PUBLISHED') ? 'draft' : 'live';
+    return { decisions: items.length, lines: rs.reduce((a, r) => a + lineCount(r), 0), state,
+      tests: { total: ts.reduce((a, b) => a + b.total, 0), pass: ts.reduce((a, b) => a + b.pass, 0), fail: ts.reduce((a, b) => a + (b.fail || 0), 0) } };
+  };
+  const ready = await prisma.dataRequest.findMany({ where: { projectId: { in: ids }, deletedAt: null, status: 'DONE', requestedBy: me, doneAt: { gte: new Date(Date.now() - 14 * 864e5) } }, orderBy: { doneAt: 'desc' }, take: 10 }).catch(() => []);
   return {
-    topics: topics.map(t => ({ id: t.id, name: t.name, goal: t.goal, projectId: t.projectId, project: pname.get(t.projectId), updatedAt: t.updatedAt })),
+    topics: topics.map(t => ({ id: t.id, name: t.name, goal: t.goal, projectId: t.projectId, project: pname.get(t.projectId), updatedAt: t.updatedAt, shape: t.shape, ...sum(t) })),
+    dataReady: (ready as any[]).map(d => ({ id: d.id, term: d.term, projectId: d.projectId, createdAt: d.createdAt, doneAt: d.doneAt, answer: d.answer })),
     failingTests: failing.map(f => ({ ...f, target: rn.get(f.targetId!) || '—', project: pname.get(f.projectId!) })),
     toApprove: reviews.map(r => ({ id: r.id, title: r.title, targetType: r.targetType, projectId: r.projectId, project: pname.get(r.projectId), submittedBy: r.submittedBy, createdAt: r.createdAt })),
     myRequests: mine.map(r => ({ id: r.id, title: r.title, status: r.status, projectId: r.projectId, createdAt: r.createdAt, decisionNote: r.decisionNote })),
