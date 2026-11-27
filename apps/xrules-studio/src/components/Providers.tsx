@@ -4,6 +4,7 @@ import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { useTheme } from '@/lib/store';
+import { RemoveToasts } from '@/lib/listRemove';
 
 type Failure = { id: number; message: string };
 
@@ -34,6 +35,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={client}>
       {children}
+      <RemoveToasts />
       {failures.length > 0 && (
         <div className="fixed right-4 bottom-20 z-[1100] w-[360px] space-y-2" role="status" aria-live="polite">
           {failures.map(f => (
