@@ -74,11 +74,18 @@ export function useTerms(projectId?: string, ensure?: { path: string; type?: str
   }, [raw]);
 }
 
+/** A name read as words: FinalCreditLine → final credit line, MCPDecisionResult → MCP decision result, loan_amount → loan amount. */
+export function nameToWords(name: string): string {
+  const w = String(name || '').replace(/\[\d*\]/g, '')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').replace(/([a-z\d])([A-Z])/g, '$1 $2').replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!w) return '';
+  if (w === w.toUpperCase() && !/\s/.test(w)) return w.length > 4 ? w.toLowerCase() : w;
+  return w.split(' ').map(x => (x.length > 1 && x === x.toUpperCase() && /[A-Z]/.test(x) ? x : x.toLowerCase())).join(' ');
+}
 /** A field path read as words, for fields no word names yet: applicant.monthlyIncome → monthly income */
 export function plainName(path: string): string {
   const last = String(path || '').split('.').filter(Boolean).pop() || String(path || '');
-  const w = last.replace(/\[\d*\]/g, '').replace(/([a-z\d])([A-Z])/g, '$1 $2').replace(/[_\-]+/g, ' ').trim();
-  return w ? (w === w.toUpperCase() && w.length > 4 ? w.toLowerCase() : w.charAt(0).toLowerCase() + w.slice(1)) : path;
+  return nameToWords(last) || path;
 }
 
 const nf = new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 });

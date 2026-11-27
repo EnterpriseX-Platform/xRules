@@ -1,3 +1,4 @@
+import { nameToWords } from './terms';
 // Read field paths from a sample (JSON / xlsx / csv) and propose terms: nested keys joined with dots, lists kept as [] (a[].b[].c),
 // type inferred from the sample values, name humanised from the last path segment.
 export type Proposed = { path: string; term: string; type: string; values: string[]; samples: string[]; keep: boolean };
@@ -6,7 +7,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}([T ][\d:.]+Z?)?$|^\d{1,2}\/\d{1,2}\/\d{2,4}$/;
 
 export function humanise(path: string): string {
   const last = path.split('.').filter(s => !/^\d+$/.test(s) && s !== '[]').pop()?.replace(/\[\]$/, '') || path;
-  return last.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+  return nameToWords(last) || last;
 }
 
 const YMD = (s: string) => { const m = /^(\d{4})(\d{2})(\d{2})$/.exec(s); if (!m) return false; const y = +m[1], mo = +m[2], d = +m[3]; return y >= 1900 && y <= 2200 && mo >= 1 && mo <= 12 && d >= 1 && d <= 31; };

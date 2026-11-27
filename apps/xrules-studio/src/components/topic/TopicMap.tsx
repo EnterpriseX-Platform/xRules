@@ -25,7 +25,7 @@ type Word = { id: string; name: string; note?: string; requested: boolean; href?
 type Out = { id: string; name: string; sub: string; item?: LinkItem; from: string[] };
 
 const linesOf = (d: any) => d.type === 'DECISION_TABLE' ? (d.definition?.rules || []).length : d.type === 'FORMULA' ? (d.definition?.lines || []).length : null;
-const state = (d: any) => d.reviewState === 'PENDING' ? 'waiting for approval' : d.status === 'published' ? `live v${d.version}` : 'draft';
+const state = (d: any) => String(d.status).toLowerCase() === 'archived' ? 'archived · does not run' : d.reviewState === 'PENDING' ? 'waiting for approval' : d.status === 'published' ? `live v${d.version}` : 'draft';
 const tests = (d: any) => d.tests?.total ? `tests ${d.tests.pass}/${d.tests.total}` : '';
 const href = (pid: string, d: any) => d.kind === 'flow' ? `/p/${pid}/flows/${d.id}` : `/p/${pid}/rules/${d.id}`;
 
@@ -86,7 +86,10 @@ export function TopicMap({ projectId, topic, canWrite, onAdd, onSimulate }: { pr
       const names: string[] = d.kind === 'rule' ? (d.definition?.outputs || []).map((x: any) => x?.name).filter(Boolean) : (d.graph?.nodes || []).filter((x: any) => x.type === 'output').map((x: any) => x.data?.label).filter(Boolean);
       const lines: string[] = d.type === 'FORMULA' ? (d.definition?.lines || []).map((x: any) => x?.name).filter(Boolean).slice(-1) : [];
       const res = [...names, ...lines].map(x => label(x));
-      if (res.length) o.set(`r:${d.id}`, { id: `r:${d.id}`, name: Array.from(new Set(res)).join(' · '), sub: 'result', from: [d.id] });
+      const name = Array.from(new Set(res)).join(' · ');
+      // two boxes handing back the same word show once, drawn from both
+      const same = name && Array.from(o.values()).find(x => x.sub === 'result' && x.name === name);
+      if (same) same.from.push(d.id); else if (res.length) o.set(`r:${d.id}`, { id: `r:${d.id}`, name, sub: 'result', from: [d.id] });
     }
     return { words: Array.from(w.values()), outs: Array.from(o.values()), inner };
   }, [ds, links, label]);
@@ -145,11 +148,11 @@ export function TopicMap({ projectId, topic, canWrite, onAdd, onSimulate }: { pr
       <svg className="absolute inset-0 w-full h-full pointer-events-none hidden lg:block" aria-hidden>
         {paths.map((p, i) => <path key={i} d={p.d} fill="none" stroke={lit(p.on) ? '#0f62fe' : '#c6c6c6'} strokeWidth={lit(p.on) ? 2 : 1} />)}
       </svg>
-      <section>
+      <section className="min-w-0">
         <h2 className="m-0 mb-3 text-[12px] font-semibold tracking-[.4px] text-[#525252]">COMES IN · words</h2>
         <div className="space-y-2">
           {words.map(w => (
-            <div key={w.id} data-node={`w:${w.id}`} className={`relative bg-white px-3 py-2 border ${w.requested ? 'border-dashed border-[#8d8d8d]' : 'border-[#e0e0e0]'}`}>
+            <div key={w.id} data-node={`w:${w.id}`} className={`relative min-w-0 overflow-hidden break-words text-left [&_button]:!whitespace-normal [&_button]:text-left bg-white px-3 py-2 border ${w.requested ? 'border-dashed border-[#8d8d8d]' : 'border-[#e0e0e0]'}`}>
               <Chip item={{ kind: w.note === 'data set' ? 'data' : 'word', id: w.id, name: w.name, note: w.requested ? 'requested' : undefined, href: w.href }} />
               {(w.requested || w.note) && <div className="text-[12px] text-[#6f6f6f] mt-0.5">{w.requested ? 'asked from IT' : w.note}</div>}
             </div>
@@ -157,7 +160,7 @@ export function TopicMap({ projectId, topic, canWrite, onAdd, onSimulate }: { pr
           {links && !words.length && <div className="text-[14px] text-[#6f6f6f]">No words used yet</div>}
         </div>
       </section>
-      <section>
+      <section className="min-w-0">
         <h2 className="m-0 mb-3 text-[12px] font-semibold tracking-[.4px] text-[#525252]">IS DECIDED · in this topic</h2>
         <div className="space-y-5">
           {groups.map(g => (
@@ -185,11 +188,11 @@ export function TopicMap({ projectId, topic, canWrite, onAdd, onSimulate }: { pr
           {libModal}
         </div>
       </section>
-      <section>
+      <section className="min-w-0">
         <h2 className="m-0 mb-3 text-[12px] font-semibold tracking-[.4px] text-[#525252]">GOES OUT</h2>
         <div className="space-y-2">
           {outs.map(o => (
-            <div key={o.id} data-node={`o:${o.id}`} className="relative bg-white border border-[#e0e0e0] px-3 py-2">
+            <div key={o.id} data-node={`o:${o.id}`} className="relative min-w-0 overflow-hidden break-words [&_button]:!whitespace-normal [&_button]:text-left bg-white border border-[#e0e0e0] px-3 py-2">
               {o.item ? <Chip item={o.item} /> : <span className="text-[14px] text-[#161616]">{o.name}</span>}
               <div className="text-[12px] text-[#6f6f6f] mt-0.5">{o.sub}</div>
             </div>
