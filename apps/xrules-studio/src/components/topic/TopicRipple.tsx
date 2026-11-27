@@ -37,14 +37,16 @@ export function TopicRipple({ projectId, topic }: { projectId: string; topic: an
   const mine = (reviews as any[]).filter(r => ds.some(d => d.id === r.targetId));
 
   const ids = new Set(changed.map(d => d.id));
-  const affected = ds.filter(d => !ids.has(d.id) && (info?.[d.id]?.links?.uses || []).some((u: any) => ids.has(u.id)));
+  // words the changed boxes work out (results, calculation lines): a box reading one of them changes too
+  const madeWords = new Set<string>(changed.flatMap(d => [...(d.definition?.outputs || []).map((x: any) => x?.name), ...(d.type === 'FORMULA' ? (d.definition?.lines || []).map((x: any) => x?.name) : [])]).filter(Boolean));
+  const affected = ds.filter(d => !ids.has(d.id) && (info?.[d.id]?.links?.uses || []).some((u: any) => ids.has(u.id) || (u.kind === 'word' && madeWords.has(u.id))));
   const reach = new Map<string, any>();
   [...changed, ...affected].forEach(d => (info?.[d.id]?.links?.usedBy || []).forEach((u: any) => { if (!ds.some(x => x.id === u.id)) reach.set(u.id, u); }));
-  const untouched = ds.filter(d => !ids.has(d.id) && !affected.includes(d) && !waiting.includes(d));
+  const untouched = ds.filter(d => !ids.has(d.id) && !affected.includes(d));
   const tests = changed.reduce((a, d) => ({ total: a.total + (d.tests?.total || 0), pass: a.pass + (d.tests?.pass || 0) }), { total: 0, pass: 0 });
   const sim = topic.lastSimulation;
   const item = (d: any) => ({ kind: d.kind === 'flow' ? 'strategy' : d.question === 'amount' ? 'amount' : 'qualify', id: d.id, name: d.name, href: d.kind === 'flow' ? `/p/${projectId}/flows/${d.id}` : `/p/${projectId}/rules/${d.id}` });
-  const what = (d: any) => { const x = info?.[d.id]?.diff; return x ? [x.added && `${x.added} new or changed line${x.added === 1 ? '' : 's'}`, x.removed && `${x.removed} removed`].filter(Boolean).join(' · ') || 'settings changed' : d.version > 1 || d.status === 'published' ? 'changed' : 'new, not live before'; };
+  const what = (d: any) => { const x = info?.[d.id]?.diff; return x ? [x.added && `${x.added} new or changed line${x.added === 1 ? '' : 's'}`, x.removed && `${x.removed} removed`].filter(Boolean).join(' · ') || 'same lines, other settings changed' : d.version > 1 || d.status === 'published' ? 'changed' : 'new, not live before'; };
 
   const [sent, setSent] = useState(false);
   const send = useMutation({ meta: { silent: true }, mutationFn: () => Promise.all(changed.map(d => api.post('/platform/reviews', { targetType: d.kind === 'flow' ? 'decision_flow' : 'rule', targetId: d.id }))),
@@ -58,7 +60,7 @@ export function TopicRipple({ projectId, topic }: { projectId: string; topic: an
             <div className="px-5 py-4 border-b md:border-b-0 md:border-r border-[#e0e0e0]"><H>YOU CHANGED</H>
               <ul className="m-0 p-0 list-none space-y-2 text-[14px]">{changed.map(d => <li key={d.id}><Chip item={item(d)} /><div className="text-[13px] text-[#525252]">{what(d)}</div></li>)}</ul></div>
             <div className="px-5 py-4 border-b md:border-b-0 md:border-r border-[#e0e0e0]"><H>WHICH CHANGES</H>
-              {affected.length ? <ul className="m-0 p-0 list-none space-y-2 text-[14px]">{affected.map(d => <li key={d.id}><Chip item={item(d)} /><div className="text-[13px] text-[#525252]">{kindName(d.type)} · uses what you changed</div></li>)}</ul> : <div className="text-[14px] text-[#6f6f6f]">Nothing else in this topic uses it</div>}
+              {affected.length ? <ul className="m-0 p-0 list-none space-y-2 text-[14px]">{affected.map(d => <li key={d.id}><Chip item={item(d)} /><div className="text-[13px] text-[#525252]">{kindName(d.type)} · uses what you changed{d.reviewState === 'PENDING' ? ' · already waiting for approval' : ''}</div></li>)}</ul> : <div className="text-[14px] text-[#6f6f6f]">Nothing else in this topic uses it</div>}
               {sim?.draft && <div className="mt-3 text-[13px] text-[#525252]">Last try{sim.dataset ? ` on ${sim.dataset}` : ''}: {sim.draft.picked != null ? `${sim.draft.picked} picked` : ''}{sim.draft.dropped != null ? ` · ${sim.draft.dropped} not` : ''}</div>}</div>
             <div className="px-5 py-4"><H>WHICH REACHES</H>
               {reach.size ? <ul className="m-0 p-0 list-none space-y-2 text-[14px]">{Array.from(reach.values()).map(u => <li key={u.id}><Chip item={u} /><div className="text-[13px] text-[#525252]">{u.kind === 'api' ? `API${u.note ? ` · ${u.note}` : ''}` : 'flow'}</div></li>)}</ul> : <div className="text-[14px] text-[#6f6f6f]">No system calls it yet</div>}</div>
