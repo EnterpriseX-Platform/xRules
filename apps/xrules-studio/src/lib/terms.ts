@@ -27,10 +27,17 @@ export function useTerms(projectId?: string, ensure?: { path: string; type?: str
       // a.b.c → label of the last known prefix + rest (flow outputs like loan.limit)
       const parts = path.split('.');
       for (let i = parts.length - 1; i > 0; i--) { const tail = parts.slice(i).join('.'); if (byPath.has(tail)) return byPath.get(tail)!.term; }
-      return path;
+      return plainName(path);
     };
     return { terms, byPath, label, term: (path: string) => byPath.get(path) || byPath.get(path.split('.').pop() || '') };
   }, [terms]);
+}
+
+/** A field path read as words, for fields no word names yet: applicant.monthlyIncome → monthly income */
+export function plainName(path: string): string {
+  const last = String(path || '').split('.').filter(Boolean).pop() || String(path || '');
+  const w = last.replace(/\[\d*\]/g, '').replace(/([a-z\d])([A-Z])/g, '$1 $2').replace(/[_\-]+/g, ' ').trim();
+  return w ? (w === w.toUpperCase() && w.length > 4 ? w.toLowerCase() : w.charAt(0).toLowerCase() + w.slice(1)) : path;
 }
 
 const nf = new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 });

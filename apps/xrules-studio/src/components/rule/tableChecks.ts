@@ -86,8 +86,8 @@ export function tableChecks(def: any, label: (name: string) => string, fmt: (nam
   // "every line that matches" collects: a case no line covers simply adds nothing, so gaps are not reported
   const collects = !first && !unique;
 
-  // overlaps: every column has a common value
-  for (let i = 0; i < rows.length; i++) for (let j = i + 1; j < rows.length; j++) {
+  // overlaps: every column has a common value (lines that collect are meant to overlap)
+  if (!collects) for (let i = 0; i < rows.length; i++) for (let j = i + 1; j < rows.length; j++) {
     if (allAny(i) || allAny(j) || grouped(i) || grouped(j)) continue;
     const common: (Cond | null | undefined)[] = cols.map((_, c) => meet(grid[i][c], grid[j][c]));
     if (common.some(c => c === null || c === undefined)) continue;

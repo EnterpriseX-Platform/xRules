@@ -1,7 +1,7 @@
 // Read a decision-table row back as an English sentence (for review diffs and explanations).
 import { parseCellExpression } from '../rule/operators';
 
-const OP: Record<string, string> = { '=': 'is', '!=': 'is not', '<': 'is less than', '<=': 'is at most', '>': 'is more than', '>=': 'is at least', 'IN': 'is one of', '!IN': 'is not one of', 'NULL': 'is empty', '!NULL': 'is not empty' };
+const OP: Record<string, string> = { '=': 'is', '!=': 'is not', '<': 'is less than', '<=': 'is at most', '>': 'is more than', '>=': 'is at least', 'IN': 'is one of', '!IN': 'is not one of', 'NULL': 'is empty', '!NULL': 'has a value' };
 const num = (v: any) => (v !== '' && v !== null && v !== undefined && /^-?\d+(\.\d+)?$/.test(String(v).trim()) ? Number(v).toLocaleString('en-US') : String(v ?? ''));
 
 export function rowSentence(def: any, row: any, label: (p: string) => string, last: boolean): string {

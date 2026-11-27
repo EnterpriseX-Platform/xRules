@@ -21,8 +21,8 @@ export const OPERATORS: OperatorSpec[] = [
   { code: 'BTW LO',  label: 'between (lo open)',  argCount: 2, description: '(lo, hi]' },
   { code: 'BTW RO',  label: 'between (hi open)',  argCount: 2, description: '[lo, hi)' },
   { code: '!BTW',    label: 'not between',    argCount: 2, description: 'outside [lo, hi]' },
-  { code: 'NULL',    label: 'is null',        argCount: 0, description: 'value is null/missing' },
-  { code: '!NULL',   label: 'not null',       argCount: 0, description: 'value present' },
+  { code: 'NULL',    label: 'is empty',        argCount: 0, description: 'value is null/missing' },
+  { code: '!NULL',   label: 'has a value',       argCount: 0, description: 'value present' },
   { code: 'C TXT',   label: 'contains text',  argCount: 1, description: 'string contains substring' },
   { code: 'C IN',    label: 'contains in',    argCount: 1, description: 'array contains value' },
   { code: '!C IN',   label: 'not contains in',argCount: 1, description: 'array does not contain' },
@@ -54,8 +54,8 @@ export function parseCellExpression(raw: any): { operator: string; args: any[] }
   const u = s.toUpperCase();
   if (s === '-' || s === '' || u === 'ANY') return { operator: 'ANY', args: [] };
   if (u === 'ELSE' || s === '_else_') return { operator: 'ELSE', args: [] };
-  if (s === 'NULL' || s === 'null') return { operator: 'NULL', args: [] };
-  if (s === '!NULL' || s === 'not null') return { operator: '!NULL', args: [] };
+  if (u === 'NULL' || u === 'IS EMPTY') return { operator: 'NULL', args: [] };
+  if (u === '!NULL' || u === 'NOT NULL' || u === 'HAS A VALUE') return { operator: '!NULL', args: [] };
 
   const btw = s.match(/^(\!?BTW(?:\s+LO|\s+RO)?)\s*(.*?)\s+AND\s*(.*)$/i) || s.match(/^(\!?BTW(?:\s+LO|\s+RO)?)$/i);
   if (btw) return { operator: btw[1].toUpperCase().replace(/\s+/g, ' '), args: [(btw[2] ?? '').trim(), (btw[3] ?? '').trim()] };
