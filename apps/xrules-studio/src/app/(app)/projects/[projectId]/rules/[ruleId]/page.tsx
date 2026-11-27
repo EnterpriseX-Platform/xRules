@@ -1,4 +1,5 @@
 'use client';
+import { DraftLine } from '@/components/DraftLine';
 import { kindName } from '@/lib/kinds';
 import { LinksBar } from '@/components/links/Links';
 import { fmtTime } from '@/components/pipeline/ui';
@@ -715,7 +716,7 @@ function RuleHead({ rule, projectId, onTests, publish, publishing }: { rule: any
           <h1 className="text-[28px] leading-9 font-normal text-[#161616] break-words">{rule.name}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#525252]">
             <span>{kindName(rule.type)}</span><span className="text-[#c6c6c6]">|</span>
-            <span>{st === 'published' ? `Live v${rule.version}` : 'Draft'}</span>
+            <DraftLine ruleId={rule.id} status={st} version={rule.version} />
             {rule.locked && <><span className="text-[#c6c6c6]">|</span><span className="text-[#8a3800]">Locked</span></>}
           </div>
         </div>

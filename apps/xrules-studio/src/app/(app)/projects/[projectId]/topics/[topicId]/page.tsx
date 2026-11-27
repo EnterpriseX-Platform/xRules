@@ -1,4 +1,5 @@
 'use client';
+import { EnvLine } from '@/components/DraftLine';
 // One topic: the map is the topic. Boxes and steps open beside it; Try on real data and Request approval come from the header.
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -68,6 +69,7 @@ export default function TopicPage() {
       {/* one plain line; everything the topic is set to lives in its Settings panel */}
       <div className="flex flex-wrap items-center gap-2 mt-2 text-[14px] text-[#161616]">
         <span>{settingsSummary(t)}</span>
+        <span className="text-[#c6c6c6]">|</span><span className="text-[#525252]"><EnvLine projectId={projectId} /></span>
         <button type="button" className="h-8 px-2 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8]" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(true)}>Settings</button>
       </div>
       {settingsOpen && <TopicSettingsPanel projectId={projectId} topic={t} canWrite={!!perms.write} products={Array.from(new Set(((allTopics as any[]) || []).map((x: any) => x.product).filter(Boolean)))}

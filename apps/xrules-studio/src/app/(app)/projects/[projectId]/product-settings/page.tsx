@@ -1,4 +1,5 @@
 'use client';
+import { EnvLine } from '@/components/DraftLine';
 // Product settings: rows are settings (max DSR (bureau hit), min RI, min credit line), columns are products.
 // Edited like a sheet; paste a block from Excel, drop an .xlsx or .csv, or export. A line reads "<setting> of this product".
 import { useState } from 'react';
@@ -78,7 +79,7 @@ export default function ProductSettingsPage() {
 
   return (
     <div className="px-8 py-6 max-w-[1300px]">
-      <PageHead title="Product settings" actions={<div className="flex gap-2"><Btn kind="tertiary" onClick={exportXlsx}>Export</Btn>{!ro && <Btn disabled={!dirty || busy} onClick={save}>{busy ? 'Saving' : 'Save'}</Btn>}</div>} />
+      <PageHead title="Product settings" sub={<EnvLine projectId={projectId} />} actions={<div className="flex gap-2"><Btn kind="tertiary" onClick={exportXlsx}>Export</Btn>{!ro && <Btn disabled={!dirty || busy} onClick={save}>{busy ? 'Saving' : 'Save'}</Btn>}</div>} />
       {err && <div className="mb-3 text-[14px] text-[#da1e28]">{err}</div>}
       <div className="bg-white border border-[#e0e0e0] overflow-x-auto">
         <table className="w-full border-collapse text-[14px]">

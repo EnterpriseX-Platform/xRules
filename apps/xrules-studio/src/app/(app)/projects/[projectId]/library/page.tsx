@@ -1,4 +1,5 @@
 'use client';
+import { EnvLine } from '@/components/DraftLine';
 // The project library: decisions and calculations products share. Each item lists who uses it and how;
 // opening one shows what its pending change does to each product (tests and cases per product) before approval.
 import { useState } from 'react';
@@ -29,7 +30,7 @@ export default function LibraryPage() {
 
   return (
     <div className="px-8 py-6 max-w-[1300px]">
-      <PageHead title="Library" />
+      <PageHead title="Library" sub={<EnvLine projectId={projectId} />} />
       {perms.write && sug && (sug.moves.length > 0 || sug.settings.length > 0) && (
         <section className="mb-8">
           <h2 className="text-[16px] text-[#161616] mb-2">Suggestions</h2>

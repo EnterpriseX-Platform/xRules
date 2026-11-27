@@ -8,8 +8,9 @@ import {
   Activity, KeyRound, Plug, Webhook, ScrollText, Settings,
   ChevronDown, Workflow, Briefcase, ListTree, Zap,
   Database, Layers, Network, BookA, Rows3, GitCompare, BadgeCheck, Timer, ListChecks, Gauge, PieChart, HeartPulse, Bell, History,
-  UserCog, Lock, Box, Building2, Shield, ChevronLeft, Library, Table2,
+  UserCog, Lock, Box, Building2, Shield, ChevronLeft, Library, Table2, GitBranch,
 } from 'lucide-react';
+import { MODULES } from '@/lib/modules';
 import { Logo } from '@/components/ui/Logo';
 import { useProject } from '@/lib/store';
 import { useQuery } from '@tanstack/react-query';
@@ -17,6 +18,8 @@ import { projectsApi, api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { usePerms } from '@/lib/perms';
 import { useDevMode } from '@/lib/devmode';
+
+const ICONS: Record<string, any> = { FolderKanban, FileText, Library, Table2, BookA, ListTree, ListChecks, Layers, Box, FlaskConical, Rows3, GitCompare, Zap, Workflow, Database, Timer, BadgeCheck, ScrollText, Gauge, GitBranch, Network, Activity, PieChart, HeartPulse, Bell, History };
 
 interface NavItem { href: string; label: string; icon: any }
 
@@ -80,22 +83,16 @@ export function Sidebar() {
     foot = { href: '/projects', label: 'Back to app', icon: ChevronLeft };
   } else if (level === 'project') {
     title = currentProject?.name || '';
+    // business users see Decisions, Data & vocabulary, Testing, Release & governance (and Monitor when permitted);
+    // developer items show in developer view or for integrators
+    const seeDev = dev || perms.integrate;
+    areas = MODULES.map(m => ({ id: m.id, label: m.label, items: m.items
+        .filter(it => seeDev || (it.audience || m.audience) === 'business')
+        .filter(() => m.id !== 'monitor' || seeDev || perms.admin)
+        .map(it => ({ href: `${projBase}/${it.path}`, label: it.label, icon: ICONS[it.icon] || FileText })) }))
+      .filter(a => a.items.length);
     areas = [
-      { id: 'engine', label: '', items: [
-        { href: `${projBase}/topics`,              label: 'Topics',         icon: FolderKanban },
-        { href: `${projBase}/library`,             label: 'Library',        icon: Library },
-        { href: `${projBase}/product-settings`,    label: 'Product settings', icon: Table2 },
-        { href: `${projBase}/vocabulary`,          label: 'Words',          icon: BookA },
-        { href: `${projBase}/approvals`,           label: 'Approvals',      icon: ScrollText },
-      ] },
-      ...(dev ? [{ id: 'dev', label: 'Developer', items: [
-        { href: `${projBase}/rules`,               label: 'Rules',          icon: FileText },
-        { href: `${projBase}/flows?kind=DECISION`, label: 'Decision Flows', icon: Workflow },
-        { href: `${projBase}/bulk`,                label: 'Bulk Runs',      icon: Rows3 },
-        { href: `${projBase}/simulations`,         label: 'Simulations',    icon: GitCompare },
-        { href: `${projBase}/models`,              label: 'Models',         icon: Box },
-        { href: `${projBase}/releases`,            label: 'Releases',       icon: ScrollText },
-      ] }] : []),
+      ...areas,
       ...(perms.admin ? [{ id: 'pset', label: '', items: [{ href: `${projBase}/access`, label: 'Project settings', icon: Lock }] }] : []),
     ];
     foot = { href: '/projects', label: 'Organization', icon: ChevronLeft };

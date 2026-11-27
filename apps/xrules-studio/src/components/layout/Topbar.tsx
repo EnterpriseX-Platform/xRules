@@ -10,7 +10,7 @@ import { api, projectsApi } from '@/lib/api';
 import { Logo } from '@/components/ui/Logo';
 import { ProjectPicker } from './Sidebar';
 import { TenantSwitcher } from './TenantSwitcher';
-import { usePerms } from '@/lib/perms';
+import { usePerms, useEnvironment } from '@/lib/perms';
 import { useDevMode } from '@/lib/devmode';
 
 export function Topbar() {
@@ -39,6 +39,7 @@ export function Topbar() {
   const initials = name.slice(0, 2).toUpperCase() || 'A';
   const role = perms.role ? perms.role[0] + perms.role.slice(1).toLowerCase() : '';
   const tenantWide = !pathname.startsWith('/p/');
+  const { name: envName, production: envProd } = useEnvironment();
 
   return (
     <header className="h-[48px] shrink-0 bg-[#161616] text-[#c6c6c6] flex items-center border-b border-[#262626]">
@@ -57,6 +58,7 @@ export function Topbar() {
           </div>
           {dev && <span className="pl-2 text-[12px] text-[#a8a8a8] whitespace-nowrap">Developer</span>}
         </>}
+        {envName && <span className={`ml-3 pl-3 border-l border-[#393939] text-[12px] font-semibold tracking-wide whitespace-nowrap ${envProd ? 'text-[#ff8389]' : 'text-[#c6c6c6]'}`} title={envProd ? 'Production: read-only except Live parameters and rollback' : undefined}>{envName}</span>}
       </nav>
 
       <div className="flex-1 min-w-0 flex justify-center px-4">
