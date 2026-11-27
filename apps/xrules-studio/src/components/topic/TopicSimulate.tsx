@@ -35,7 +35,8 @@ export function TopicSimulate({ projectId, topicId, decisions, last }: { project
         <div><div className="text-[12px] text-[#525252] mb-1">Decision</div>
           <Dropdown value={decisionId} onChange={v => { setDecisionId(v); setRes(null); }} options={decisions.map(x => ({ value: x.id, label: x.name, hint: kindName(x.type) }))} /></div>
         <div><div className="text-[12px] text-[#525252] mb-1">{isFlow ? 'Items from data set' : 'Data set'}</div>
-          <Dropdown value={dataset} placeholder="Choose a data set" onChange={setDataset} options={(sets as any[]).map(s => ({ value: s.slug, label: s.name || s.slug, hint: s.rowCount ? `${n(s.rowCount)} rows` : undefined }))} /></div>
+          <Dropdown value={dataset} placeholder="Choose a data set" onChange={setDataset} options={(sets as any[]).map(s => ({ value: s.slug, label: s.name || s.slug, hint: s.rowCount ? `${n(s.rowCount)} rows` : undefined }))} />
+          <a href={`/p/${projectId}/datasets`} className="inline-block mt-1 text-[14px] text-[#0f62fe] hover:underline">{(sets as any[]).length ? 'Add a data set' : 'No data sets yet · Add one'}</a></div>
         {isFlow && (
           <div className="grid gap-3 grid-cols-1">{asks.map(a => (
             <label key={a} className="block"><span className="block text-[12px] text-[#525252] mb-1">{label(a)}</span>
