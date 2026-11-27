@@ -4,6 +4,8 @@
 // The same cell language as the table: "-", "= x", "!= x", "< n", "<= n", "> n", ">= n", "BTW a AND b",
 // "BTW LO/RO", "!BTW", "IN a,b", "!IN a,b", "null", "!null"/"not null", or a bare value (equals).
 
+import { evalExpression } from './sandbox.service.js';
+
 type Group = { match?: string; cells: { name: string; cell: any }[] };
 type Reason = { code: string; text: string; outcome: string; priority: number };
 
@@ -15,7 +17,55 @@ const unq = (s: string) => s.trim().replace(/^["']|["']$/g, '');
 const list = (s: string) => String(s ?? '').replace(/^\[|\]$/g, '').split(',').map(unq).filter(x => x !== '');
 const same = (a: any, b: string) => { const n = num(b); return typeof a === 'number' || (!isNaN(n) && !isNaN(num(a)) && typeof a !== 'boolean') ? num(a) === n : String(a) === unq(b); };
 
-export function matchCell(cell: any, actual: any): boolean {
+// ---- dates and small formulas inside a line ("is at least monthly_income * 0.8", "is after 180 days ago")
+/** A date from 20250115 / "2025-01-15" / an ISO time / a Date; null when it is not one. */
+export function toDate(v: any): Date | null {
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  if (v === null || v === undefined || v === '') return null;
+  const s = String(v).trim();
+  let m = s.match(/^(\d{4})(\d{2})(\d{2})$/) || s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) { const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])); return isNaN(d.getTime()) ? null : d; }
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) return new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]));
+  return null;
+}
+const today = () => { const n = new Date(); return new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate())); };
+const DAY = 86400000;
+/** Functions a calculation or a line's value can use. */
+export const DATE_FUNCS = {
+  TODAY: () => today(),
+  DATE: (v: any) => toDate(v),
+  DAYS: (a: any, b?: any) => { const x = toDate(a), y = b === undefined ? today() : toDate(b); return x && y ? Math.round((y.getTime() - x.getTime()) / DAY) : null; },
+  MONTHS: (a: any, b?: any) => { const x = toDate(a), y = b === undefined ? today() : toDate(b); return x && y ? (y.getUTCFullYear() - x.getUTCFullYear()) * 12 + (y.getUTCMonth() - x.getUTCMonth()) - (y.getUTCDate() < x.getUTCDate() ? 1 : 0) : null; },
+  YEARS: (a: any, b?: any) => { const m = DATE_FUNCS.MONTHS(a, b); return m === null ? null : Math.floor(m / 12); },
+  ADD_DAYS: (a: any, n: any) => { const x = toDate(a); return x ? new Date(x.getTime() + Number(n) * DAY) : null; },
+  SPLIT: (v: any, sep = ':') => (Array.isArray(v) ? v : String(v ?? '').split(sep).map(s => s.trim()).filter(s => s !== '')),
+  CONTAINS: (list: any, v: any) => (Array.isArray(list) ? list : String(list ?? '').split(/[:,]/)).map((s: any) => String(s).trim()).includes(String(v)),
+  ITEM: (list: any, i: any) => (Array.isArray(list) ? list : String(list ?? '').split(':'))[Number(i) - 1] ?? null,
+  TEXT: (v: any) => (v instanceof Date ? v.toISOString().slice(0, 10).replace(/-/g, '') : String(v ?? '')),
+};
+/** "today", "180 days ago", "in 2 months" → a date */
+export function relDate(s: string): Date | null {
+  const t = s.trim().toLowerCase();
+  if (t === 'today') return today();
+  const m = t.match(/^(\d+)\s*(day|week|month|year)s?\s+ago$/) || t.match(/^in\s+(\d+)\s*(day|week|month|year)s?$/);
+  if (!m) return null;
+  const n = (t.startsWith('in') ? 1 : -1) * Number(m[1]); const d = today();
+  if (m[2] === 'day') d.setUTCDate(d.getUTCDate() + n); else if (m[2] === 'week') d.setUTCDate(d.getUTCDate() + 7 * n);
+  else if (m[2] === 'month') d.setUTCMonth(d.getUTCMonth() + n); else d.setUTCFullYear(d.getUTCFullYear() + n);
+  return d;
+}
+/** A value side that is a small formula of words and numbers rather than a plain value. */
+export const isFormulaArg = (arg: string, op = '>') => {
+  const a = String(arg ?? '').trim(); if (!a || !isNaN(num(a)) || relDate(a)) return false;
+  return /[*/+×÷()]|\s-\s/.test(a) || /^[A-Z_]+\(/.test(a) || (['>', '>=', '<', '<='].includes(op) && /[A-Za-z_]/.test(a));
+};
+function formulaValue(arg: string, scope: any): any {
+  const e = String(arg).replace(/−/g, '-').replace(/×/g, '*').replace(/÷/g, '/');
+  try { return evalExpression(e, { ...(scope || {}), input: scope, ...DATE_FUNCS, Math }); } catch { return undefined; }
+}
+
+export function matchCell(cell: any, actual: any, scope?: any): boolean {
   if (blank(cell) || isElseCell(cell)) return true;
   if (typeof cell !== 'string') return actual === cell || String(actual) === String(cell);
   const s = cell.trim(); const u = s.toUpperCase();
@@ -33,12 +83,21 @@ export function matchCell(cell: any, actual: any): boolean {
   if (!m) return same(actual, s);
   const op = m[1].toUpperCase(); const arg = m[2];
   switch (op) {
-    case '=': return same(actual, arg);
-    case '!=': return !same(actual, arg);
+    case '=': return isFormulaArg(arg, op) ? same(actual, String(formulaValue(arg, scope))) : same(actual, arg);
+    case '!=': return isFormulaArg(arg, op) ? !same(actual, String(formulaValue(arg, scope))) : !same(actual, arg);
     case 'IN': return list(arg).some(x => same(actual, x));
     case '!IN': return !list(arg).some(x => same(actual, x));
     default: {
-      const v = num(actual), a = num(arg); if (isNaN(v) || isNaN(a)) return false;
+      // dates: "is after 180 days ago", or a formula that works out a date
+      const rd = relDate(arg) || (isFormulaArg(arg, op) ? (() => { const x = formulaValue(arg, scope); return x instanceof Date ? x : null; })() : null);
+      const ad = toDate(actual);
+      if (rd || (ad && toDate(arg) && String(arg).replace(/\D/g, '').length === 8)) {
+        const x = ad?.getTime(), y = (rd || toDate(arg))!.getTime(); if (x === undefined) return false;
+        return op === '>' ? x > y : op === '>=' ? x >= y : op === '<' ? x < y : x <= y;
+      }
+      let a = num(arg);
+      if (isNaN(a) && isFormulaArg(arg, op)) a = num(formulaValue(arg, scope));
+      const v = num(actual); if (isNaN(v) || isNaN(a)) return false;
       return op === '>' ? v > a : op === '>=' ? v >= a : op === '<' ? v < a : v <= a;
     }
   }
@@ -54,10 +113,13 @@ export function groupsOf(def: any, row: any): Group[] {
 export function rowMatches(def: any, row: any, input: any): boolean {
   const gs = groupsOf(def, row);
   if (!gs.length) return true;
-  return gs.some(g => g.match === 'any' ? g.cells.some(c => matchCell(c.cell, get(input, c.name))) : g.cells.every(c => matchCell(c.cell, get(input, c.name))));
+  return gs.some(g => g.match === 'any' ? g.cells.some(c => matchCell(c.cell, get(input, c.name), input)) : g.cells.every(c => matchCell(c.cell, get(input, c.name), input)));
 }
 
-export const usesGroupsOrReasons = (def: any) => (def?.rules || []).some((r: any) => (Array.isArray(r?.or) && r.or.length) || r?.match === 'any' || (Array.isArray(r?.reasons) && r.reasons.length));
+const cellUsesFormula = (c: any) => { if (typeof c !== 'string') return false; const m = c.trim().match(/^(>=|<=|!=|>|<|=)\s*(.*)$/); return !!m && (isFormulaArg(m[2], m[1]) || !!relDate(m[2]) || (['>', '>=', '<', '<='].includes(m[1]) && /^\d{8}$/.test(m[2].trim()))); };
+/** A line value that is a formula or a date only this evaluator understands. */
+export const usesFormulas = (def: any) => (def?.rules || []).some((r: any) => (r?.inputs || []).some(cellUsesFormula) || (Array.isArray(r?.or) && r.or.some((g: any) => Object.values(g?.when || {}).some(cellUsesFormula))));
+export const usesGroupsOrReasons = (def: any) => usesFormulas(def) || (def?.rules || []).some((r: any) => (Array.isArray(r?.or) && r.or.length) || r?.match === 'any' || (Array.isArray(r?.reasons) && r.reasons.length));
 export const usesReasons = (def: any) => (def?.rules || []).some((r: any) => Array.isArray(r?.reasons) && r.reasons.length);
 
 /** Lines with "or" groups as plain rows for an engine that only knows AND rows (one row per alternative). */

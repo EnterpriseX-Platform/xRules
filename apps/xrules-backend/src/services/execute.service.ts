@@ -7,7 +7,7 @@ import { runScripting, evalExpression, setSolveResolver } from './sandbox.servic
 import { runFlow } from './flow-runtime.service.js';
 import { dispatch as dispatchWebhook } from './webhooks.service.js';
 import type { AuthUser } from '../middleware/auth.js';
-import { evaluateTable, expandForEngine, usesGroupsOrReasons } from './table-eval.js';
+import { evaluateTable, expandForEngine, usesGroupsOrReasons, DATE_FUNCS } from './table-eval.js';
 
 /** The project's reason codes, for tables whose lines add reasons. */
 export async function reasonCatalogue(projectId: string) {
@@ -117,6 +117,7 @@ export const CALC_FUNCS = {
   ROUNDDOWN: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.floor(Number(x) * f) / f; },
   ROUNDUP: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.ceil(Number(x) * f) / f; },
   IF: (c: any, a: any, b: any) => (c ? a : b),
+  ...DATE_FUNCS,
 };
 export function calcExpr(e: string) { return String(e).replace(/×/g, '*').replace(/÷/g, '/').replace(/≥/g, '>=').replace(/≤/g, '<=').replace(/≠/g, '!=').replace(/(^|[^=!<>])=(?!=)/g, '$1=='); }
 function runCalc(def: any, input: any): any {
