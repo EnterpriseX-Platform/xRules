@@ -36,6 +36,8 @@ export default function TopicPage() {
   const { data: allTopics = [] } = useQuery({ queryKey: ['topics', projectId], queryFn: () => api.get<any[]>(`/platform/topics?project_id=${projectId}`) });
   const setProduct = useMutation({ mutationFn: (product: string) => api.post(`/platform/topics/${topicId}/update`, { product }), onSuccess: () => { qc.invalidateQueries({ queryKey: ['topic', topicId] }); qc.invalidateQueries({ queryKey: ['topics', projectId] }); } });
   const [name, setName] = useState('');
+  // the name box takes the typing straight away
+  useEffect(() => { if (creating) { const h = setTimeout(() => document.getElementById('tp-new')?.focus(), 60); return () => clearTimeout(h); } }, [creating]);
   const create = useMutation({ meta: { silent: true },
     mutationFn: async (k: AddKind) => {
       if (k.type === 'STRATEGY') return { kind: 'flow', r: await flowsApi.create({ name, projectId, kind: 'DECISION', topicId, graph: strategyGraph() }) };

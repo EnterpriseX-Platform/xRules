@@ -32,6 +32,7 @@ export default function TopicsPage() {
   const { data: reasons = [] } = useReasons(projectId);
   const { data: cases = [] } = useQuery({ queryKey: ['project-cases', projectId], queryFn: () => api.get<any[]>(`/platform/tests?project_id=${projectId}`) });
   const [casesOpen, setCasesOpen] = useState(false);
+  useEffect(() => { if (open) { const h = setTimeout(() => document.getElementById('tp-name')?.focus(), 60); return () => clearTimeout(h); } }, [open]);
   const steps = [
     { done: (words as any[]).length > 0, name: 'Bring in sample data', go: () => router.push(`/p/${projectId}/vocabulary?import=1`), note: `${(words as any[]).length} words` },
     { done: (reasons as any[]).length > 0, name: 'Bring in reason codes', go: () => router.push(`/p/${projectId}/vocabulary/reasons?import=1`), note: `${(reasons as any[]).length} reason codes` },

@@ -120,7 +120,7 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
       const rows: any[] = []; const old = new Map(rules.map((r, i) => [i + 1, r]));
       table.slice(1).forEach((v: any[], k: number) => { const n = k + 2; void n; if (!v.some(x => x !== null && x !== undefined && String(x).trim() !== '')) return; const no = Number(v[head.indexOf('No.')]);
         const prev: any = old.get(no) || {};
-        rows.push({ ...prev, id: prev.id || nid(), inputs: ic.map(i => String(v[i] ?? '-') || '-'), outputs: oc.map(i => { const x = v[i]; return x === undefined || x === '' ? null : typeof x === 'object' && x?.result !== undefined ? x.result : x; }), ...(rc >= 0 && { reasons: String(v[rc] ?? '').split(/\s+/).filter(Boolean) }) }); });
+        rows.push({ ...prev, id: prev.id || nid(), inputs: ic.map(i => toPaths(String(v[i] ?? '-')) || '-'), outputs: oc.map(i => { const x = v[i]; return x === undefined || x === '' ? null : typeof x === 'object' && x?.result !== undefined ? x.result : x; }), ...(rc >= 0 && { reasons: String(v[rc] ?? '').split(/\s+/).filter(Boolean) }) }); });
       onChange({ ...def, inputs: allIn, rules: rows }); setImporting(false); setImportErr(''); setPasted('');
     } catch (e: any) { setImportErr(String(e?.message || e)); }
   };
