@@ -25,7 +25,7 @@ async function runSteps(t: any, input: any, set: ReturnType<typeof topicSettings
   const product = typeof input?.product === 'string' && input.product.trim() ? input.product.trim() : t.product || null;
   // a decision replaced for this run (approval ripple, a newer library version) and settings filled for the product
   const rules = await Promise.all((await prisma.rule.findMany({ where: { topicId }, orderBy: { createdAt: 'asc' } }))
-    .map(r => withSettings(overrides[r.id] ? { ...r, definition: overrides[r.id], libraryRef: null } : r, input, product)));
+    .map(r => { const x = overrides[r.id] ? { ...r, definition: overrides[r.id], libraryRef: null } : r; return withSettings(x, input, product).catch((e: any) => ({ ...x, settingError: String(e?.message || e) })); }));
   const flows = await prisma.flow.findMany({ where: { topicId, status: { not: 'ARCHIVED' as any } }, orderBy: { createdAt: 'asc' } });
   const stages: any[] = Array.isArray(t.stages) ? (t.stages as any[]) : [];
   const order: string[] = [];
@@ -54,6 +54,7 @@ async function runSteps(t: any, input: any, set: ReturnType<typeof topicSettings
     if (!r && !f) continue;
     try {
       let o: any; let lines: number[] | undefined;
+      if ((r as any)?.settingError) throw new Error((r as any).settingError);
       if (r) {
         const def: any = r.definition || {};
         if (r.type === 'DECISION_TABLE') lines = (def.rules || []).map((row: any, i: number) => (rowMatches(def, row, ctx) ? i + 1 : 0)).filter(Boolean);
