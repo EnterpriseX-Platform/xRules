@@ -22,6 +22,7 @@ import { GoLive } from '@/components/GoLive';
 import { TreeDesigner } from '@/components/rule/TreeDesigner';
 import { ScriptingDesigner } from '@/components/rule/ScriptingDesigner';
 import { CalcDesigner } from '@/components/rule/CalcDesigner';
+import { TopicTests } from '@/components/topic/TopicTests';
 import { LookupDesigner } from '@/components/rule/LookupDesigner';
 import { AIAgentDesigner } from '@/components/rule/AIAgentDesigner';
 import { ScorecardDesigner } from '@/components/rule/ScorecardDesigner';
@@ -107,8 +108,13 @@ function DefinitionTab({ rule, projectId }: { rule: any; projectId: string }) {
   const qc = useQueryClient();
   const save = useMutation({
     mutationFn: (patch: any) => rulesApi.update(rule.id, patch),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['rule', rule.id] }),
+    onSuccess: () => { setSaves(n => n + 1); qc.invalidateQueries({ queryKey: ['rule', rule.id] }); },
   });
+  const [saves, setSaves] = useState(0);
+  // beside a topic's decision or calculation: the topic's test cases, run again after each save
+  const withTests = (el: React.ReactNode) => rule.topicId
+    ? <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px] items-start">{el}<div className="xl:sticky xl:top-4"><TopicTests projectId={projectId} topicId={rule.topicId} focusId={rule.id} runKey={saves} /></div></div>
+    : el;
   // every keystroke used to PUT straight away; replies could land out of order and leave an older definition saved
   const pending = useRef<any>({});
   const timer = useRef<any>(null);
@@ -118,9 +124,7 @@ function DefinitionTab({ rule, projectId }: { rule: any; projectId: string }) {
   const t = String(rule.type || '').toUpperCase();
 
   if (t === 'DECISION_TABLE') {
-    return (
-      <DecisionTableView rule={rule} projectId={projectId} onChange={(def) => mut.mutate({ definition: def })} />
-    );
+    return withTests(<DecisionTableView rule={rule} projectId={projectId} onChange={(def) => mut.mutate({ definition: def })} />);
   }
   if (t === 'DECISION_TREE') {
     return (
@@ -133,7 +137,7 @@ function DefinitionTab({ rule, projectId }: { rule: any; projectId: string }) {
     );
   }
   if (t === 'FORMULA' && (Array.isArray(rule.definition?.lines) || !rule.definition?.code)) {
-    return <CalcDesigner rule={rule} projectId={projectId} onChange={(def) => mut.mutate({ definition: def })} />;
+    return withTests(<CalcDesigner rule={rule} projectId={projectId} onChange={(def) => mut.mutate({ definition: def })} />);
   }
   if (t === 'SCRIPT' || t === 'FORMULA') {
     return (

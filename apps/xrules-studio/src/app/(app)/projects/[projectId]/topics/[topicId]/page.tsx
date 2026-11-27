@@ -11,6 +11,7 @@ import { TopicSimulate } from '@/components/topic/TopicSimulate';
 import { RequestData } from '@/components/topic/RequestData';
 import { TopicMap, type AddKind } from '@/components/topic/TopicMap';
 import { TopicRipple } from '@/components/topic/TopicRipple';
+import { TopicTests } from '@/components/topic/TopicTests';
 
 // Old tab URLs (/qualify, /tests, /steps, …) land on the map; /simulate and /approval open that view.
 const OLD_VIEW: Record<string, string> = { simulate: 'simulate', approval: 'approval' };
@@ -53,12 +54,16 @@ export default function TopicPage() {
       {t.goal && <div className="text-[15px] text-[#525252] mt-1">{t.goal}</div>}
       <div className="text-[13px] text-[#525252] mt-2 mb-6 border-b border-[#e0e0e0] pb-3">{ds.length} decision{ds.length === 1 ? '' : 's'}{t.shape === 'steps' ? ` in ${(t.stages || []).length} step${(t.stages || []).length === 1 ? '' : 's'}` : ''} · <span className={tests.fail ? 'text-[#da1e28]' : ''}>{tests.total ? `tests ${tests.pass}/${tests.total} pass${tests.fail ? ` · ${tests.fail} fail` : ''}` : 'no tests yet'}</span></div>
 
-      {view === 'map' && <TopicMap projectId={projectId} topic={t} canWrite={!!perms.write} onAdd={k => { setName(''); setCreating(k); }} onSimulate={() => show('simulate')} />}
+      {view === 'map' && <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_360px] items-start">
+        <TopicMap projectId={projectId} topic={t} canWrite={!!perms.write} onAdd={k => { setName(''); setCreating(k); }} onSimulate={() => show('simulate')} />
+        <TopicTests projectId={projectId} topicId={topicId} canWrite={!!perms.write} runKey={t.updatedAt}
+          outputs={ds.flatMap((d: any) => [...(d.definition?.outputs || []), ...(d.type === 'FORMULA' ? d.definition?.lines || [] : [])]).map((o: any) => o?.name).filter(Boolean).map((n: string) => ({ path: n, name: n }))} />
+      </div>}
       {view === 'simulate' && <>{back}<TopicSimulate projectId={projectId} topicId={topicId} decisions={ds} last={t.lastSimulation} /></>}
       {view === 'approval' && <>{back}<TopicRipple projectId={projectId} topic={t} /></>}
 
       {creating && (
-        <Modal title={NEW_LABEL[creating.type]} onClose={() => setCreating(null)} onSubmit={() => create.mutate(creating)} submitLabel="Create" submitDisabled={!name.trim() || create.isPending} error={create.error ? String((create.error as any).message) : null}>
+        <Modal title={NEW_LABEL[creating.type]} onClose={() => setCreating(null)} onSubmit={() => create.mutate(creating)} submitLabel={create.isPending ? 'Creating…' : 'Create'} submitDisabled={!name.trim() || create.isPending} error={create.error ? String((create.error as any).message) : null}>
           <Input id="tp-new" label="Name" value={name} onChange={setName} />
         </Modal>
       )}

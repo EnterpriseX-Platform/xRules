@@ -1,0 +1,71 @@
+'use client';
+// The topic's test cases beside the editor: run the whole topic for each case after every save and show pass / fail,
+// what came out against what was expected, and which lines of which decision fired.
+import { useEffect, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/api';
+import { useTerms } from '@/lib/terms';
+import { CaseImport } from '@/components/test/CaseImport';
+
+const show = (v: any) => (v === null || v === undefined || v === '' ? '—' : Array.isArray(v) ? (v.length ? v.join(' ') : '—') : typeof v === 'object' ? JSON.stringify(v) : String(v));
+
+export function TopicTests({ projectId, topicId, runKey, focusId, canWrite = true, outputs }: {
+  projectId: string; topicId: string; runKey?: any; focusId?: string; canWrite?: boolean; outputs?: { path: string; name: string }[];
+}) {
+  const qc = useQueryClient();
+  const { label } = useTerms(projectId);
+  const [open, setOpen] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const { data: cases = [] } = useQuery({ queryKey: ['topic-tests', topicId], queryFn: () => api.get<any[]>(`/platform/tests/target/topic/${topicId}`) });
+  const run = useMutation({ meta: { failLabel: "Couldn't run" }, mutationFn: () => api.post<any>(`/platform/topics/${topicId}/tests/run`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['topic-tests', topicId] }); qc.invalidateQueries({ queryKey: ['topics', projectId] }); } });
+  // run again a moment after each save
+  const first = useRef(true);
+  useEffect(() => { if (first.current) { first.current = false; return; } if (!(cases as any[]).length) return; const t = setTimeout(() => run.mutate(), 900); return () => clearTimeout(t); }, [runKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const list = cases as any[];
+  const pass = list.filter(c => c.lastStatus === 'PASS').length; const fail = list.filter(c => c.lastStatus === 'FAIL' || c.lastStatus === 'ERROR').length;
+
+  return (
+    <section className="bg-white border border-[#e0e0e0]">
+      <div className="flex items-center gap-2 px-4 h-12 border-b border-[#e0e0e0]">
+        <h2 className="m-0 flex-1 text-[14px] font-semibold text-[#161616]">Test cases</h2>
+        {list.length > 0 && <span className="text-[13px] tabular-nums text-[#525252]">{run.isPending ? 'Running…' : <><span className="text-[#198038]">{pass} pass</span>{fail ? <> · <span className="text-[#da1e28]">{fail} fail</span></> : null}</>}</span>}
+        {list.length > 0 && <button type="button" className="h-8 px-3 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8] disabled:text-[#8d8d8d]" disabled={run.isPending} onClick={() => run.mutate()}>Run</button>}
+        {canWrite && <button type="button" className="h-8 px-3 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => setImporting(true)}>Import</button>}
+      </div>
+      {!list.length && <div className="px-4 py-4 text-[14px] text-[#6f6f6f]">No test cases yet</div>}
+      <div className="max-h-[70vh] overflow-auto">
+        {list.map(c => {
+          const r = c.lastResult || {}; const bad = c.lastStatus === 'FAIL' || c.lastStatus === 'ERROR';
+          const trace: any[] = r.output?._trace || [];
+          const here = focusId ? trace.find(t => t.id === focusId) : null;
+          return (
+            <div key={c.id} className="border-b border-[#e0e0e0] last:border-b-0">
+              <button type="button" className="w-full flex items-center gap-3 px-4 h-10 text-left hover:bg-[#f4f4f4]" onClick={() => setOpen(open === c.id ? null : c.id)} aria-expanded={open === c.id}>
+                <span className={`w-12 text-[13px] ${c.lastStatus === 'PASS' ? 'text-[#198038]' : bad ? 'text-[#da1e28]' : 'text-[#6f6f6f]'}`}>{c.lastStatus === 'PASS' ? 'Pass' : c.lastStatus === 'ERROR' ? 'Error' : bad ? 'Fail' : 'Not run'}</span>
+                <span className="flex-1 truncate text-[14px] text-[#161616]">{c.name}</span>
+                {here?.lines?.length ? <span className="text-[12px] text-[#525252] tabular-nums">line {here.lines.join(', ')}</span> : null}
+              </button>
+              {open === c.id && (
+                <div className="px-4 pb-3 text-[13px] space-y-2">
+                  {(r.checks || []).map((k: any, i: number) => {
+                    const e = (c.expectations || [])[i];
+                    return e?.path ? (
+                      <div key={i} className="grid grid-cols-[1fr_auto] gap-x-3">
+                        <span className="text-[#525252]">{label(String(e.path).replace(/^\$\.?/, ''))}</span>
+                        <span className={k.ok ? 'text-[#198038]' : 'text-[#da1e28]'}>{k.ok ? show(e.value) : `${show(readPath(r.output, e.path))} · expected ${show(e.value)}`}</span>
+                      </div>
+                    ) : <div key={i} className="text-[#da1e28]">{k.message}</div>;
+                  })}
+                  {trace.length > 0 && <div className="pt-1 text-[#525252]">{trace.map(t => <div key={t.id} className={t.id === focusId ? 'text-[#161616]' : ''}>{t.name}: {t.error ? <span className="text-[#da1e28]">{t.error}</span> : t.lines ? (t.lines.length ? `line ${t.lines.join(', ')}` : 'no line') : 'worked out'}</div>)}</div>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {importing && <CaseImport projectId={projectId} topicId={topicId} outputs={outputs} onClose={() => setImporting(false)} />}
+    </section>
+  );
+}
+const readPath = (o: any, p: string) => String(p).replace(/^\$\.?/, '').split('.').filter(Boolean).reduce((a, k) => a?.[k], o);
