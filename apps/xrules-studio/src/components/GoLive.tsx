@@ -20,9 +20,7 @@ export function GoLive({ targetType, targetId, reviewState, onPublish, publishin
 
   if (!required) return <button type="button" className={btn} disabled={disabled || publishing} onClick={onPublish}>{publishLabel}</button>;
   if (state === 'PENDING') return (
-    <span className="h-10 px-3 inline-flex items-center gap-2 text-[14px] text-[#0043ce] bg-[#edf5ff] whitespace-nowrap">
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />In review
-    </span>
+    <span className="h-10 inline-flex items-center text-[14px] text-[#525252] whitespace-nowrap">In review</span>
   );
   return (
     <span className="inline-flex items-center gap-2">

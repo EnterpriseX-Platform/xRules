@@ -19,7 +19,6 @@ import { TableDesigner } from '@/components/rule/TableDesigner';
 import { DecisionTableView } from '@/components/rule/DecisionTableView';
 import { useTerms } from '@/lib/terms';
 import { GoLive } from '@/components/GoLive';
-import { RuleRelations } from '@/components/pipeline/Relations';
 import { TreeDesigner } from '@/components/rule/TreeDesigner';
 import { ScriptingDesigner } from '@/components/rule/ScriptingDesigner';
 import { CalcDesigner } from '@/components/rule/CalcDesigner';
@@ -74,7 +73,7 @@ export default function RuleDetailPage() {
 
       <CompareModal ruleId={rule.id} currentVersion={rule.version} />
 
-      <RuleRelations ruleId={rule.id} home={projectId} />
+      <UsedIn ruleId={rule.id} home={projectId} />
 
       <div className="flex border-b border-[#e0e0e0] mb-6 overflow-x-auto" role="tablist">
         {TABS.filter(t => !(t.key === 'schemas' && ['DECISION_TABLE', 'FORMULA'].includes(String(rule.type || '').toUpperCase()))).map(({ key, label }) => (
@@ -723,6 +722,19 @@ function RuleHead({ rule, projectId, onTests, publish, publishing }: { rule: any
       </div>
       {rule.description && <p className="text-[14px] text-[#525252] mt-2">{rule.description}</p>}
       <div className="mt-3"><LinksBar kind="rule" id={rule.id} name={rule.name} href={`/p/${projectId}/rules/${rule.id}`} /></div>
+    </div>
+  );
+}
+
+/** Where this rule is used: flows and REST API operations, as plain links on one line. */
+function UsedIn({ ruleId, home }: { ruleId: string; home?: string }) {
+  const { data } = useQuery({ queryKey: ['used-by', 'rule', ruleId], queryFn: () => api.get<any>(`/rules/${ruleId}/used-by`), enabled: !!ruleId });
+  if (!data || (!data.flows?.length && !data.operations?.length)) return null;
+  const name = (x: any) => `${x.name || x.slug}${x.project?.slug && x.project.slug !== home ? ` · ${x.project.name}` : ''}`;
+  return (
+    <div className="mb-4 text-[14px] text-[#525252] flex flex-wrap gap-x-6 gap-y-1">
+      {data.flows.length > 0 && <span>Used in {data.flows.map((f: any, i: number) => <span key={f.id}>{i ? ', ' : ''}<Link href={`/p/${f.project?.id || f.projectId}/flows/${f.id}`} className="text-[#0f62fe] hover:underline">{name(f)}</Link></span>)}</span>}
+      {data.operations.length > 0 && <span>REST API {data.operations.map((o: any, i: number) => <span key={o.id}>{i ? ', ' : ''}<Link href={`/apis/${o.spec.id}`} className="text-[#0f62fe] hover:underline">{o.method} {o.spec.basePath}/v{o.spec.version}{o.path}</Link></span>)}</span>}
     </div>
   );
 }
