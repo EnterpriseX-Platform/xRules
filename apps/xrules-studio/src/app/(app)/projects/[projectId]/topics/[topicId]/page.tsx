@@ -99,8 +99,8 @@ function TopicSettings({ settings, canWrite, onSave, error }: { settings: any; c
       <label htmlFor="tp-asof" className="ml-6 text-[#525252]">Decision date</label>
       <input id="tp-asof" className={`${box} w-[120px] tabular-nums`} placeholder="Today" value={date} onChange={e => setD(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commit(); } if (e.key === 'Escape') setD(null); }} />
       <span className="ml-6 text-[#525252]">No reason</span>
-      <ValueCombo className={`${box} w-[110px]`} value={nr.outcome || ''} placeholder="Approve" ariaLabel="Final decision when no reason fires" values={OUTS} onChange={v => onSave({ noReason: { outcome: v, result: nr.result || '' } })} />
-      <ValueCombo className={`${box} w-[110px]`} value={nr.result || ''} placeholder={nr.outcome || 'Approve'} ariaLabel="Result when no reason fires" values={OUTS} onChange={v => onSave({ noReason: { outcome: nr.outcome || '', result: v } })} />
+      <ValueCombo className={`${box} w-[110px]`} value={nr.outcome || ''} placeholder="Approve" ariaLabel="Final decision when no reason fires" values={OUTS} onChange={v => onSave({ noReason: { outcome: v } })} />
+      <ValueCombo className={`${box} w-[110px]`} value={nr.result || ''} placeholder={nr.outcome || 'Approve'} ariaLabel="Result when no reason fires" values={OUTS} onChange={v => onSave({ noReason: { result: v } })} />
       {error && <span className="text-[#da1e28]">{error}</span>}
     </>
   );

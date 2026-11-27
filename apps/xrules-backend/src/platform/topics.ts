@@ -101,7 +101,7 @@ function settingsOf(v: any, prev: any) {
     if (d && !/^\d{4}-?\d{2}-?\d{2}$/.test(d)) throw new ValidationError('Decision date is a date like 2025-11-26');
     s.decisionDate = d ? d.replace(/^(\d{4})-?(\d{2})-?(\d{2})$/, '$1-$2-$3') : null;
   }
-  if (v && 'noReason' in v) s.noReason = { outcome: String(v.noReason?.outcome ?? '').trim().slice(0, 40) || null, result: String(v.noReason?.result ?? '').trim().slice(0, 40) || null };
+  if (v && v.noReason && typeof v.noReason === 'object') { const nr: any = { ...(s.noReason || {}) }; for (const k of ['outcome', 'result']) if (k in v.noReason) nr[k] = String(v.noReason[k] ?? '').trim().slice(0, 40) || null; s.noReason = nr; }
   return s;
 }
 
