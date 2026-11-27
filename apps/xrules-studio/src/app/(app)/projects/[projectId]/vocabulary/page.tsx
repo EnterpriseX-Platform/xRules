@@ -10,7 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { PageHead, Table, Td, Tag, Btn, Input, TextArea, Panel, Notice, Tabs, DropZone, Modal } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
-import { useListRemove } from '@/lib/listRemove';
+import { useListRemove, RemovedCell } from '@/lib/listRemove';
 
 const TABS = [{ key: '', label: 'Vocabulary' }, { key: 'reasons', label: 'Reason codes' }, { key: 'write', label: 'Write rules' }, { key: 'cowork', label: 'Rule Cowork' }];
 
@@ -135,13 +135,13 @@ function Terms({ projectId }: { projectId: string }) {
           const by = (usage as any)?.[t.path] || [];
           const requested = String(t.description || '').startsWith('Requested');
           return (
-            <tr key={t.id} className="cursor-pointer hover:bg-[#f4f4f4]" onClick={() => edit(t)}>
+            <tr key={t.id} className={del.isRemoved(t) ? 'text-[#8d8d8d] [&>td:not(:last-child)]:line-through' : 'cursor-pointer hover:bg-[#f4f4f4]'} onClick={() => !del.isBusy(t) && edit(t)}>
               <Td><span className="text-[#161616]">{t.term}</span>{t.values?.length > 0 && <div className="text-[12px] text-[#525252] whitespace-normal">{t.values.slice(0, 6).join(', ')}{t.values.length > 6 ? ` and ${t.values.length - 6} more` : ''}</div>}</Td>
               {dev && <Td mono>{t.path}</Td>}
               <Td>{TYPE_NAME[t.type] || t.type}{t.unit ? ` · ${t.unit}` : ''}</Td>
               <Td className="!whitespace-normal">{requested ? <span className="text-[#8a3800]">Asked from IT</span> : <span className="text-[#525252]">{t.description || ''}</span>}</Td>
               <Td className="!whitespace-normal">{by.length ? <span className="flex flex-wrap gap-x-3 gap-y-1" onClick={e => e.stopPropagation()}>{by.slice(0, 4).map((u: any) => <Chip key={u.id} item={{ kind: u.kind, id: u.id, name: u.name, href: u.href }} />)}{by.length > 4 && <span className="text-[#525252]">and {by.length - 4} more</span>}</span> : <span className="text-[#6f6f6f]">Not used yet</span>}</Td>
-              <Td className="whitespace-nowrap"><button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8] disabled:text-[#8d8d8d]" disabled={del.isBusy(t.id)} onClick={e => { e.stopPropagation(); edit(t); }}>Edit</button><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1] disabled:text-[#8d8d8d]" disabled={del.isBusy(t.id)} onClick={e => { e.stopPropagation(); del.request(t); }}>Remove</button></Td>
+              <Td className="whitespace-nowrap">{del.isRemoved(t) ? <RemovedCell onUndo={() => del.undo(t)} /> : <><button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8] disabled:text-[#8d8d8d]" disabled={del.isBusy(t)} onClick={e => { e.stopPropagation(); edit(t); }}>Edit</button><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1] disabled:text-[#8d8d8d]" disabled={del.isBusy(t)} onClick={e => { e.stopPropagation(); del.request(t); }}>Remove</button></>}</Td>
             </tr>
           );
         })}

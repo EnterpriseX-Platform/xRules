@@ -8,7 +8,7 @@ import { Btn, DropZone, Input, Modal, Table, Td, TextArea } from '@/components/p
 import { ValueCombo } from '@/components/rule/ValueCombo';
 import { readTable } from '@/lib/termImport';
 import { usePerms } from '@/lib/perms';
-import { useListRemove } from '@/lib/listRemove';
+import { useListRemove, RemovedCell } from '@/lib/listRemove';
 
 export type Reason = { id: string; code: string; text: string; outcome: string; priority: number };
 const SUGGESTED = ['Decline', 'Refer', 'Approve', 'Reject', 'Cancel', 'Pending'];
@@ -90,9 +90,9 @@ export function ReasonCodes({ projectId }: { projectId: string }) {
       {importing && <ImportReasons projectId={projectId} have={rows} onClose={() => setImporting(false)} />}
       <Table head={['Code', 'Text', 'Outcome', 'Priority', '']}>
         {rows.map(r => (
-          <tr key={r.id} className="cursor-pointer hover:bg-[#f4f4f4]" onClick={() => perms.write && edit(r)}>
+          <tr key={r.id} className={remove.isRemoved(r) ? 'text-[#8d8d8d] [&>td:not(:last-child)]:line-through' : 'cursor-pointer hover:bg-[#f4f4f4]'} onClick={() => perms.write && !remove.isBusy(r) && edit(r)}>
             <Td mono>{r.code}</Td><Td className="!whitespace-normal">{r.text}</Td><Td>{r.outcome}</Td><Td>{r.priority}</Td>
-            <Td className="whitespace-nowrap">{perms.write && <><button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8] disabled:text-[#8d8d8d]" disabled={remove.isBusy(r.id)} onClick={e => { e.stopPropagation(); edit(r); }}>Edit</button><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1] disabled:text-[#8d8d8d]" disabled={remove.isBusy(r.id)} onClick={e => { e.stopPropagation(); remove.request(r); }}>Remove</button></>}</Td>
+            <Td className="whitespace-nowrap">{perms.write && (remove.isRemoved(r) ? <RemovedCell onUndo={() => remove.undo(r)} /> : <><button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8] disabled:text-[#8d8d8d]" disabled={remove.isBusy(r)} onClick={e => { e.stopPropagation(); edit(r); }}>Edit</button><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1] disabled:text-[#8d8d8d]" disabled={remove.isBusy(r)} onClick={e => { e.stopPropagation(); remove.request(r); }}>Remove</button></>)}</Td>
           </tr>
         ))}
       </Table>
