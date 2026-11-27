@@ -11,10 +11,15 @@ import { kindName } from '@/lib/kinds';
 import { useDevMode } from '@/lib/devmode';
 import { tableSentences } from '@/components/review/sentences';
 import { Chip, type LinkItem } from '@/components/links/Links';
+import { Dropdown } from '@/components/pipeline/Dropdown';
 import { StrategySteps } from './StrategySteps';
+import { AddStep, StagePanel, useStages } from './TopicStages';
+
+export type AddKind = { type: 'DECISION_TABLE' | 'FORMULA' | 'STRATEGY'; question?: string; stageId?: string };
 
 const Q_LABEL: Record<string, string> = { qualify: 'Who qualifies', amount: 'How much', choose: 'Which one' };
 type Box = { n: number; d: any; group: string };
+type Group = { title: string; boxes: Box[]; q?: string; stageId?: string };
 type Word = { id: string; name: string; note?: string; requested: boolean; href?: string; by: string[] };
 type Out = { id: string; name: string; sub: string; item?: LinkItem; from: string[] };
 
@@ -23,10 +28,14 @@ const state = (d: any) => d.reviewState === 'PENDING' ? 'waiting for approval' :
 const tests = (d: any) => d.tests?.total ? `tests ${d.tests.pass}/${d.tests.total}` : '';
 const href = (pid: string, d: any) => d.kind === 'flow' ? `/p/${pid}/flows/${d.id}` : `/p/${pid}/rules/${d.id}`;
 
-export function TopicMap({ projectId, topic, onTab }: { projectId: string; topic: any; onTab: (k: any) => void }) {
+export function TopicMap({ projectId, topic, canWrite, onAdd, onSimulate }: { projectId: string; topic: any; canWrite: boolean; onAdd: (k: AddKind) => void; onSimulate: () => void }) {
   const { label } = useTerms(projectId);
   const ds: any[] = topic.decisions || [];
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpenBox] = useState<string | null>(null);
+  const [openStage, setOpenStage] = useState<string | null>(null);
+  const setOpen = (id: string | null) => { setOpenStage(null); setOpenBox(id); };
+  const pickStage = (id: string) => { setOpenBox(null); setOpenStage(id); };
+  const st = useStages(topic);
   const [hover, setHover] = useState<string | null>(null);
 
   // numbered boxes, grouped by question or by step
@@ -34,12 +43,12 @@ export function TopicMap({ projectId, topic, onTab }: { projectId: string; topic
     let n = 0;
     if (topic.shape === 'steps') {
       const placed = new Set<string>();
-      const gs = (topic.stages || []).map((st: any, i: number) => ({ title: `${i + 1} · ${st.name}`, boxes: st.items.map((id: string) => ds.find(d => d.id === id)).filter(Boolean).map((d: any) => { placed.add(d.id); return { n: ++n, d, group: st.name } as Box; }) }));
+      const gs: Group[] = (topic.stages || []).map((st: any, i: number) => ({ title: `${i + 1} · ${st.name}`, stageId: st.id, boxes: st.items.map((id: string) => ds.find(d => d.id === id)).filter(Boolean).map((d: any) => { placed.add(d.id); return { n: ++n, d, group: st.name } as Box; }) }));
       const loose = ds.filter(d => !placed.has(d.id));
       if (loose.length) gs.push({ title: 'Not in a step', boxes: loose.map(d => ({ n: ++n, d, group: '' })) });
-      return gs as { title: string; boxes: Box[] }[];
+      return gs;
     }
-    return ['qualify', 'amount', 'choose'].map((q, i) => ({ title: `${i + 1} · ${Q_LABEL[q]}`, boxes: ds.filter(d => d.question === q).map(d => ({ n: ++n, d, group: Q_LABEL[q] } as Box)) }));
+    return ['qualify', 'amount', 'choose'].map((q, i): Group => ({ title: `${i + 1} · ${Q_LABEL[q]}`, q, boxes: ds.filter(d => d.question === q).map(d => ({ n: ++n, d, group: Q_LABEL[q] } as Box)) }));
   }, [topic, ds]);
   const boxes = groups.flatMap(g => g.boxes);
   const numOf = (id: string) => boxes.find(b => b.d.id === id)?.n;
@@ -86,7 +95,7 @@ export function TopicMap({ projectId, topic, onTab }: { projectId: string; topic
   const [paths, setPaths] = useState<{ d: string; on: string[] }[]>([]);
   const last = useRef('');
   useLayoutEffect(() => {
-    const el = wrap.current; if (!el || open) return;
+    const el = wrap.current; if (!el || open || openStage) return;
     const draw = () => {
       const base = el.getBoundingClientRect();
       const at = (k: string) => { const n = el.querySelector(`[data-node="${CSS.escape(k)}"]`) as HTMLElement | null; if (!n) return null; const r = n.getBoundingClientRect(); return { l: r.left - base.left, r: r.right - base.left, y: r.top - base.top + Math.min(r.height / 2, 22) }; };
@@ -98,25 +107,32 @@ export function TopicMap({ projectId, topic, onTab }: { projectId: string; topic
       const sig = JSON.stringify(out); if (sig !== last.current) { last.current = sig; setPaths(out); }
     };
     draw(); const ro = new ResizeObserver(draw); ro.observe(el); return () => ro.disconnect();
-  }, [words, outs, inner, open]);
+  }, [words, outs, inner, open, openStage]);
 
   const sel = boxes.find(b => b.d.id === open);
   const lit = (ids: string[]) => !!hover && ids.includes(hover);
 
-  if (sel) return (
+  const addFor = (g: Group) => g.stageId ? [{ label: '+ Decision', k: { type: 'DECISION_TABLE', stageId: g.stageId } }, { label: '+ Calculation', k: { type: 'FORMULA', stageId: g.stageId } }]
+    : g.q === 'qualify' ? [{ label: '+ Decision', k: { type: 'DECISION_TABLE', question: 'qualify' } }] : g.q === 'amount' ? [{ label: '+ Calculation', k: { type: 'FORMULA', question: 'amount' } }] : g.q === 'choose' ? [{ label: '+ Strategy', k: { type: 'STRATEGY', question: 'choose' } }] : [];
+  const adds = (g: Group) => canWrite && addFor(g).length > 0 && <div className="flex gap-3">{addFor(g).map(a => <button key={a.label} type="button" className="h-8 text-[14px] text-[#0f62fe] hover:underline" onClick={() => onAdd(a.k as AddKind)}>{a.label}</button>)}</div>;
+  const groupTitle = (g: Group, cls: string) => g.stageId ? <button type="button" className={`${cls} text-left hover:text-[#0f62fe] hover:underline`} onClick={() => pickStage(g.stageId!)}>{g.title}</button> : <div className={cls}>{g.title}</div>;
+
+  if (sel || openStage) return (
     <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
       <nav aria-label="Map" className="bg-white border border-[#e0e0e0] text-[14px] self-start">
         <button className="w-full text-left px-4 py-3 border-b border-[#e0e0e0] text-[#525252] hover:bg-[#f4f4f4]" onClick={() => setOpen(null)}>Words in · {words.length}</button>
         {groups.map(g => (
           <div key={g.title} className="border-b border-[#e0e0e0]">
-            <div className="px-4 pt-3 pb-1 text-[12px] text-[#6f6f6f]">{g.title}</div>
+            {g.stageId ? <button className={`w-full text-left px-4 pt-3 pb-1 text-[12px] border-l-2 ${openStage === g.stageId ? 'border-[#0f62fe] text-[#161616]' : 'border-transparent text-[#6f6f6f] hover:text-[#0f62fe]'}`} onClick={() => pickStage(g.stageId!)}>{g.title}</button> : <div className="px-4 pt-3 pb-1 text-[12px] text-[#6f6f6f]">{g.title}</div>}
             {g.boxes.map(b => <button key={b.d.id} onClick={() => setOpen(b.d.id)} className={`w-full text-left px-4 py-2 border-l-2 ${b.d.id === open ? 'border-[#0f62fe] bg-[#edf5ff]' : 'border-transparent hover:bg-[#f4f4f4]'}`}>{b.n} · {b.d.name}</button>)}
             {!g.boxes.length && <div className="px-4 pb-2 text-[#6f6f6f]">Nothing yet</div>}
           </div>
         ))}
         <button className="w-full text-left px-4 py-3 text-[#525252] hover:bg-[#f4f4f4]" onClick={() => setOpen(null)}>Goes out · {outs.length}</button>
       </nav>
-      <BoxPanel projectId={projectId} box={sel} links={links?.[sel.d.id]} label={label} numOf={numOf} onPick={setOpen} onClose={() => setOpen(null)} onTab={onTab} ds={ds} />
+      {sel ? <BoxPanel projectId={projectId} box={sel} links={links?.[sel.d.id]} label={label} numOf={numOf} onPick={setOpen} onClose={() => setOpen(null)} onSimulate={onSimulate} ds={ds}
+          stage={topic.shape === 'steps' ? { canWrite, stages: st.stages, place: st.place, takeOut: st.takeOut, open: pickStage } : undefined} />
+        : <StagePanel projectId={projectId} topic={topic} stageId={openStage!} canWrite={canWrite} onPick={setOpen} onClose={() => setOpenStage(null)} onAdd={(type, stageId) => onAdd({ type, stageId })} />}
     </div>
   );
 
@@ -142,7 +158,7 @@ export function TopicMap({ projectId, topic, onTab }: { projectId: string; topic
         <div className="space-y-5">
           {groups.map(g => (
             <div key={g.title}>
-              <div className="text-[13px] text-[#525252] mb-1.5">{g.title}</div>
+              {groupTitle(g, 'block text-[13px] text-[#525252] mb-1.5')}
               <div className="space-y-2">
                 {g.boxes.map(b => {
                   const n = linesOf(b.d); const uses = inner.filter(([, to]) => to === b.d.id).map(([f]) => numOf(f)).filter(Boolean);
@@ -156,10 +172,12 @@ export function TopicMap({ projectId, topic, onTab }: { projectId: string; topic
                     </button>
                   );
                 })}
-                {!g.boxes.length && <button className="text-[14px] text-[#0f62fe] hover:underline" onClick={() => onTab(topic.shape === 'steps' ? 'steps' : (['qualify', 'amount', 'choose'][groups.indexOf(g)]))}>Add one</button>}
+                {!g.boxes.length && !canWrite && <div className="text-[14px] text-[#6f6f6f]">Nothing yet</div>}
+                {adds(g)}
               </div>
             </div>
           ))}
+          {topic.shape === 'steps' && canWrite && <AddStep topic={topic} />}
         </div>
       </section>
       <section>
@@ -178,7 +196,8 @@ export function TopicMap({ projectId, topic, onTab }: { projectId: string; topic
   );
 }
 
-function BoxPanel({ projectId, box, links, label, numOf, onPick, onClose, onTab, ds }: { projectId: string; box: Box; links: any; label: (p: string) => string; numOf: (id: string) => number | undefined; onPick: (id: string) => void; onClose: () => void; onTab: (k: any) => void; ds: any[] }) {
+type StageOps = { canWrite: boolean; stages: { id: string; name: string; items: string[] }[]; place: (stageId: string, id: string) => void; takeOut: (id: string) => void; open: (id: string) => void };
+function BoxPanel({ projectId, box, links, label, numOf, onPick, onClose, onSimulate, ds, stage }: { projectId: string; box: Box; links: any; label: (p: string) => string; numOf: (id: string) => number | undefined; onPick: (id: string) => void; onClose: () => void; onSimulate: () => void; ds: any[]; stage?: StageOps }) {
   const d = box.d; const [dev] = useDevMode();
   const lines = d.type === 'DECISION_TABLE' ? tableSentences(d.definition, label) : [];
   const ruleChip = (slug: string) => { const r = ds.find(x => x.kind === 'rule' && (x.slug === slug || x.id === slug)); return r ? { kind: r.question === 'amount' ? 'amount' : 'qualify', id: r.id, name: r.name, href: href(projectId, r) } as LinkItem : null; };
@@ -215,9 +234,15 @@ function BoxPanel({ projectId, box, links, label, numOf, onPick, onClose, onTab,
       </div>
       <div className="px-6 py-4 border-t border-[#e0e0e0] flex flex-wrap gap-2">
         <Link className={act} href={d.kind === 'flow' ? href(projectId, d) : `/p/${projectId}/rules/${d.id}/tests`}>Test cases</Link>
-        <button className={act} onClick={() => onTab('simulate')}>Try on real data</button>
+        <button className={act} onClick={onSimulate}>Try on real data</button>
         {d.kind === 'rule' && <Link className={act} href={`/p/${projectId}/rules/${d.id}/versions`}>History</Link>}
         {dev && <Link className={act} href={href(projectId, d)}>{d.kind === 'flow' ? 'Open as flow (developers)' : 'Open editor (developers)'}</Link>}
+        {stage && (() => { const cur = stage.stages.find(s => s.items.includes(d.id)); return (<>
+          <span className="flex-1" />
+          {cur && <button className={act} onClick={() => stage.open(cur.id)}>Step: {cur.name}</button>}
+          {stage.canWrite && <span className="w-[240px]"><Dropdown value="" placeholder={cur ? 'Move to step' : 'Put in a step'} options={stage.stages.filter(s => s.id !== cur?.id).map(s => ({ value: s.id, label: s.name }))} onChange={v => v && stage.place(v, d.id)} /></span>}
+          {stage.canWrite && cur && <button className={act} onClick={() => stage.takeOut(d.id)}>Take out of step</button>}
+        </>); })()}
       </div>
     </section>
   );
