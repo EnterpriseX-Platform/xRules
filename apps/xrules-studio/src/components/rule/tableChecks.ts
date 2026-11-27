@@ -81,10 +81,14 @@ export function tableChecks(def: any, label: (name: string) => string, fmt: (nam
   const out: Finding[] = [];
   const first = ['FIRST', 'FIRST_MATCH'].includes(String(def?.hitPolicy || '').toUpperCase());
   const unique = String(def?.hitPolicy || '').toUpperCase() === 'UNIQUE';
+  // lines with "or" groups are not plain intervals: leave them out of the checks
+  const grouped = (ri: number) => (Array.isArray(rows[ri]?.or) && rows[ri].or.length > 0) || rows[ri]?.match === 'any';
+  // "every line that matches" collects: a case no line covers simply adds nothing, so gaps are not reported
+  const collects = !first && !unique;
 
   // overlaps: every column has a common value
   for (let i = 0; i < rows.length; i++) for (let j = i + 1; j < rows.length; j++) {
-    if (allAny(i) || allAny(j)) continue;
+    if (allAny(i) || allAny(j) || grouped(i) || grouped(j)) continue;
     const common: (Cond | null | undefined)[] = cols.map((_, c) => meet(grid[i][c], grid[j][c]));
     if (common.some(c => c === null || c === undefined)) continue;
     const where = common.map((c, k) => (c as Cond).k === 'any' ? '' : `${label(cols[k].name)} ${rangeText(c as Cond, n => fmt(cols[k].name, n))}`).filter(Boolean).join(' and ');
@@ -95,7 +99,7 @@ export function tableChecks(def: any, label: (name: string) => string, fmt: (nam
   }
 
   // gaps: only when every row constrains the same one column (others any) — then the union on that column is exact
-  if (rows.some((_, r) => allAny(r))) return out;
+  if (collects || rows.some((_, r) => allAny(r) || grouped(r))) return out;
   const used = new Set<number>(); let readable = true;
   grid.forEach(r => r.forEach((c, k) => { if (c.k !== 'any') used.add(k); if (c.k === '?') readable = false; }));
   if (!readable || used.size !== 1) return out;

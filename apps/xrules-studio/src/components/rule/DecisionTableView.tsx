@@ -5,6 +5,9 @@ import { TableDesigner } from './TableDesigner';
 import { RuleSentences } from './RuleSentences';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { useTerms } from '@/lib/terms';
+import { useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/api';
+import { useReasons } from '@/components/vocab/ReasonCodes';
 
 const VIEW_KEY = 'xrules:table-view';
 const POLICY_TH = [
@@ -21,6 +24,15 @@ export function DecisionTableView({ rule, projectId, onChange }: { rule: any; pr
   const fields = [...(def.inputs || []), ...(def.outputs || [])].map((c: any) => ({ path: c.name, type: c.type }));
   const { label, term, terms } = useTerms(projectId, fields);
   const change = (d: any) => { setDef(d); onChange(d); };
+  const qc = useQueryClient();
+  const { data: reasons = [] } = useReasons(projectId);
+  // a new term typed in "Choose data": its path is the name in snake case
+  const addTerm = async (name: string) => {
+    const path = name.trim().toLowerCase().replace(new RegExp('[^\\p{L}\\p{N}]+', 'gu'), '_').replace(/^_|_$/g, '') || `field_${Date.now().toString(36)}`;
+    const t = await api.post<any>('/platform/vocabulary', { projectId, term: name.trim(), path, type: 'text' });
+    await qc.invalidateQueries({ queryKey: ['vocab', projectId] });
+    return t?.path || path;
+  };
   const pick = (v: 'sentence' | 'table') => { setView(v); setGen(g => g + 1); try { localStorage.setItem(VIEW_KEY, v); } catch { /* per-viewer only */ } };
 
   return (
@@ -39,8 +51,8 @@ export function DecisionTableView({ rule, projectId, onChange }: { rule: any; pr
         </div>
       </div>
       {view === 'sentence'
-        ? <RuleSentences def={def} onChange={change} label={label} term={term} terms={terms} />
-        : <TableDesigner key={gen} definition={def} inputSchema={rule.inputSchema} outputSchema={rule.outputSchema} onChange={change} hidePolicy label={label} />}
+        ? <RuleSentences def={def} onChange={change} label={label} term={term} terms={terms} onAddTerm={addTerm} reasons={reasons} />
+        : <TableDesigner key={gen} definition={def} inputSchema={rule.inputSchema} outputSchema={rule.outputSchema} onChange={change} hidePolicy label={label} reasons={reasons} />}
     </div>
   );
 }

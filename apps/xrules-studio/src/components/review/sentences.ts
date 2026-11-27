@@ -13,8 +13,16 @@ export function rowSentence(def: any, row: any, label: (p: string) => string, la
     const o = OP[operator] || operator;
     return `${label(c.name)} ${o}${args.length && args[0] !== '' ? ' ' + num(args[0]) : ''}`;
   }).filter(Boolean);
-  const res = outs.map((o, i) => `${label(o.name)} = ${num(row?.outputs?.[i])}`).join(', ');
-  return conds.length ? `If ${conds.join(' and ')} then ${res}` : `${last ? 'Otherwise' : 'Always'} ${res}`;
+  const one = (name: string, cell: any) => {
+    const { operator, args } = parseCellExpression(cell);
+    if (operator.startsWith('BTW')) return `${label(name)} is between ${num(args[0])} and ${num(args[1])}`;
+    return `${label(name)} ${OP[operator] || operator}${args.length && args[0] !== '' ? ' ' + num(args[0]) : ''}`;
+  };
+  const groups = (row?.or || []).map((g: any) => Object.entries(g?.when || {}).map(([n, c]) => one(n, c)).join(g?.match === 'any' ? ' or ' : ' and ')).filter(Boolean);
+  const res = [...outs.map((o, i) => `${label(o.name)} = ${num(row?.outputs?.[i])}`), ...(row?.reasons || []).map((c: string) => `add reason ${c}`)].join(', ');
+  const main = conds.join(row?.match === 'any' ? ' or ' : ' and ');
+  const all = [main, ...groups].filter(Boolean);
+  return all.length ? `If ${all.length > 1 ? all.map(x => `(${x})`).join(' or ') : all[0]} then ${res}` : `${last ? 'Otherwise' : 'Always'} ${res}`;
 }
 
 export function tableSentences(def: any, label: (p: string) => string): string[] {

@@ -16,7 +16,7 @@ import { Select } from '@/components/ui/Select';
 
 type ColumnSide = 'condition' | 'result';
 interface Column { name: string; type: string; label?: string; side: ColumnSide }
-interface Row { id: string; inputs: any[]; outputs: any[]; annotation?: string }
+interface Row { id: string; inputs: any[]; outputs: any[]; annotation?: string; match?: string; or?: { match?: string; when: Record<string, any> }[]; reasons?: string[] }
 
 interface DefShape {
   hitPolicy?: string;
@@ -26,9 +26,9 @@ interface DefShape {
 }
 
 export function TableDesigner({
-  definition, inputSchema, outputSchema, onChange, hidePolicy, label = (k: string) => k,
+  definition, inputSchema, outputSchema, onChange, hidePolicy, label = (k: string) => k, reasons = [],
 }: {
-  hidePolicy?: boolean; label?: (k: string) => string;
+  hidePolicy?: boolean; label?: (k: string) => string; reasons?: { code: string; text: string }[];
   definition: any;
   inputSchema?: any;
   outputSchema?: any;
@@ -39,9 +39,17 @@ export function TableDesigner({
   const [inputs, setInputs] = useState<Column[]>(() => normalizeColumns(definition?.inputs, inputSchema, 'condition'));
   const [outputs, setOutputs] = useState<Column[]>(() => normalizeColumns(definition?.outputs, outputSchema, 'result'));
   const [rows, setRows] = useState<Row[]>(() => (definition?.rules || []).map((r: any, i: number) => ({
-    id: r.id || `r${i}`, inputs: r.inputs || [], outputs: r.outputs || [], annotation: r.annotation,
+    ...r, id: r.id || `r${i}`, inputs: r.inputs || [], outputs: r.outputs || [], annotation: r.annotation,
   })));
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // lines written with "or" groups or reasons in the Sentences view, shown read-only here
+  const hasOr = rows.some(r => (r.or || []).length || r.match === 'any');
+  const hasReasons = rows.some(r => (r.reasons || []).length);
+  const cellText = (name: string, cell: any) => `${label(name)} ${String(cell).trim()}`;
+  const orText = (r: Row) => [
+    ...(r.match === 'any' ? ['any one of the conditions on the left'] : []),
+    ...(r.or || []).map(g => Object.entries(g.when || {}).map(([n, c]) => cellText(n, c)).join(g.match === 'any' ? ' or ' : ' and ')),
+  ].join(' · or ');
   const [search, setSearch] = useState('');
 
   // Trace overlay — when the Test tab runs the rule, highlight rows whose
@@ -94,7 +102,7 @@ export function TableDesigner({
       hitPolicy: next.hitPolicy ?? hitPolicy,
       inputs: (next.inputs ?? inputs).map(({ side, ...c }) => c),
       outputs: (next.outputs ?? outputs).map(({ side, ...c }) => c),
-      rules: (next.rows ?? rows).map(r => ({ id: r.id, inputs: r.inputs, outputs: r.outputs, annotation: r.annotation })),
+      rules: (next.rows ?? rows).map(r => ({ ...r, id: r.id, inputs: r.inputs, outputs: r.outputs, annotation: r.annotation })),
     };
     onChange(merged);
   }
@@ -254,12 +262,14 @@ export function TableDesigner({
                   onUpdate={(next) => { const nx = outputs.map((x, idx) => idx === i ? { ...next, side: 'result' as const } : x); setOutputs(nx); emit({ outputs: nx }); }}
                   onRemove={() => removeColumn('result', i)} />
               ))}
+              {hasOr && <th className="px-2 py-2 text-left whitespace-nowrap">Or when</th>}
+              {hasReasons && <th className="px-2 py-2 text-left whitespace-nowrap">Reasons</th>}
               <th className="px-2 py-2">Note</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={3 + inputs.length + outputs.length + 1} className="text-center py-12 text-subtle">No rows. Click "+ Row".</td></tr>
+              <tr><td colSpan={3 + inputs.length + outputs.length + 1 + (hasOr ? 1 : 0) + (hasReasons ? 1 : 0)} className="text-center py-12 text-subtle">No rows. Click "+ Row".</td></tr>
             )}
             {rows.map((r, ri) => {
               const isElse = r.inputs.every((v: any) => v === '_else_' || v === 'ELSE');
@@ -298,6 +308,8 @@ export function TableDesigner({
                       <ResultCell value={r.outputs[ci]} onChange={(v) => setCell(r.id, 'outputs', ci, v)} />
                     </td>
                   ))}
+                  {hasOr && <td className="px-2 py-1.5 text-[13px] min-w-[200px] align-middle">{orText(r)}</td>}
+                  {hasReasons && <td className="px-2 py-1.5 text-[13px] align-middle whitespace-nowrap">{(r.reasons || []).map(c => <div key={c}><span className="font-mono">{c}</span> {reasons.find(x => x.code === c)?.text || ''}</div>)}</td>}
                   <td className="px-2 py-1.5">
                     <input
                       className="bg-transparent w-full text-subtle text-[11px] outline-none"
