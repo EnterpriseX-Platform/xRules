@@ -12,12 +12,18 @@ export interface Expectation { kind: 'status' | 'equals' | 'has_finding' | 'no_f
 
 const read = (o: any, path = '') => path.replace(/^\$\.?/, '').split('.').filter(Boolean).reduce((a, k) => a?.[k], o);
 
+const CODE = /^[A-Za-z]{1,4}\d{2,}$/;
+const tokens = (x: any): string[] => (Array.isArray(x) ? x.flatMap(tokens) : String(x ?? '').split(/[\s,:;|]+/).filter(Boolean)) as string[];
+/** The codes in a list or a text: "E002:M005", "M005 E002", "M009: Score Reject" → {E002, M005} / {M009}. */
+function codeSet(x: any): Set<string> { const t = tokens(x); const codes = t.filter(w => CODE.test(w)); return new Set((codes.length ? codes : t).map(w => w.toUpperCase())); }
+const isCodes = (x: any) => typeof x === 'string' && tokens(x).some(w => CODE.test(w)) && /[\s,:;|]/.test(x.trim());
 // 1000 = "1000", "Y" = "Y", ["M004"] = "M004" (a list matches a single expected code it holds alone, or "M004 M010")
 function sameValue(v: any, e: any): boolean {
   if (JSON.stringify(v) === JSON.stringify(e)) return true;
   const n = (x: any) => (x === '' || x === null || x === undefined || typeof x === 'boolean' ? NaN : Number(String(x).replace(/,/g, '')));
   if (!isNaN(n(v)) && !isNaN(n(e))) return Math.abs(n(v) - n(e)) < 1e-9;
-  if (Array.isArray(v) && !Array.isArray(e)) { const want = String(e ?? '').split(/[\s,]+/).filter(Boolean); return want.length === v.length && want.every(w => v.map(String).includes(w)); }
+  // lists of reason codes: same codes in any order, written with ":" "," ";" or spaces, text after a code ignored
+  if (Array.isArray(v) || Array.isArray(e) || (isCodes(v) && isCodes(e))) { const a = codeSet(v), b = codeSet(e); return a.size === b.size && Array.from(a).every(x => b.has(x)); }
   const blank = (x: any) => x === null || x === undefined || x === '';
   if (blank(v) && blank(e)) return true;
   return String(v ?? '').trim() === String(e ?? '').trim();
@@ -35,7 +41,15 @@ function check(exp: Expectation, r: { status: number; body: any; ms: number }): 
   return { ok: false, message: `unknown expectation ${(exp as any).kind}` };
 }
 
-async function execute(c: any): Promise<{ status: number; body: any; ms: number; error?: string }> {
+/** Steps of a topic run that failed: each fails on its own, the other steps and fields are still judged. */
+const stepErrors = (trace: any[]) => (trace || []).filter((x: any) => x.error).map((x: any) => ({ ok: false, step: x.id, message: `${x.name}: ${x.error}` }));
+/** Checks for a run: a run that did not happen is one error; a failed step adds its own failed check after the fields. */
+function judge(exps: Expectation[], r: { status: number; body: any; ms: number; error?: string; steps?: any[] }) {
+  const checks: any[] = r.error ? [{ ok: false, message: r.error }] : [...exps.map(e => check(e, r)), ...(r.steps || [])];
+  return { checks, pass: !r.error && checks.every(x => x.ok) };
+}
+
+async function execute(c: any): Promise<{ status: number; body: any; ms: number; error?: string; steps?: any[] }> {
   const t0 = Date.now();
   if (c.targetType === 'rule' || (!c.targetType && c.ruleId)) {
     const { executeRule } = await import('../services/execute.service.js');
@@ -44,7 +58,7 @@ async function execute(c: any): Promise<{ status: number; body: any; ms: number;
   }
   if (c.targetType === 'topic') {
     const { runTopic } = await import('./topic-run.js');
-    try { const r = await runTopic(c.targetId, c.input); const failed = r.trace.find((x: any) => x.error); return { status: 200, body: { ...r.output, _trace: r.trace }, ms: Date.now() - t0, ...(failed && { error: `${failed.name}: ${failed.error}` }) }; }
+    try { const r = await runTopic(c.targetId, c.input); return { status: 200, body: { ...r.output, _trace: r.trace }, ms: Date.now() - t0, steps: stepErrors(r.trace) }; }
     catch (e: any) { return { status: 500, body: null, ms: Date.now() - t0, error: e.message }; }
   }
   let projectId = c.projectId; let flowId = c.targetId; let input = c.input;
@@ -67,12 +81,12 @@ export async function dryRunTopic(topicId: string, overrides: Record<string, any
   const out: { id: string; name: string; pass: boolean; checks: { ok: boolean; message: string }[]; result: any }[] = [];
   for (const c of cases) {
     const exps: Expectation[] = (c.expectations as any) || (c.expected ? [{ kind: 'equals', path: '$', value: c.expected }] : []);
-    const t0 = Date.now(); let r: { status: number; body: any; ms: number; error?: string };
-    try { const x = await runTopic(topicId, c.input, { overrides }); const failed = x.trace.find((y: any) => y.error); r = { status: 200, body: x.output, ms: Date.now() - t0, ...(failed && { error: `${failed.name}: ${failed.error}` }) }; }
+    const t0 = Date.now(); let r: { status: number; body: any; ms: number; error?: string; steps?: any[] };
+    try { const x = await runTopic(topicId, c.input, { overrides }); r = { status: 200, body: x.output, ms: Date.now() - t0, steps: stepErrors(x.trace) }; }
     catch (e: any) { r = { status: 500, body: null, ms: Date.now() - t0, error: e.message }; }
-    const checks = r.error ? [{ ok: false, message: r.error }] : exps.map(e => check(e, r));
+    const { checks, pass } = judge(exps, r);
     const result = Object.fromEntries(exps.filter(e => e.kind === 'equals' && e.path).map(e => [e.path!, read(r.body, e.path)]));
-    out.push({ id: c.id, name: c.name, pass: !r.error && checks.every(x => x.ok), checks, result });
+    out.push({ id: c.id, name: c.name, pass, checks, result });
   }
   return out;
 }
@@ -82,8 +96,7 @@ export async function runCase(caseId: string) {
   if (!c) throw new NotFoundError('Test case');
   const exps: Expectation[] = (c.expectations as any) || (c.expected ? [{ kind: 'equals', path: '$', value: c.expected }] : []);
   const r = await execute(c);
-  const checks = r.error ? [{ ok: false, message: r.error }] : exps.map(e => check(e, r));
-  const pass = !r.error && checks.every(x => x.ok);
+  const { checks, pass } = judge(exps, r);
   const lastResult = { at: new Date().toISOString(), status: r.status, ms: r.ms, checks, output: r.body };
   await prisma.testCase.update({ where: { id: caseId }, data: { lastStatus: r.error ? 'ERROR' : pass ? 'PASS' : 'FAIL', lastResult: lastResult as any } });
   return { id: c.id, name: c.name, pass, ...lastResult };
