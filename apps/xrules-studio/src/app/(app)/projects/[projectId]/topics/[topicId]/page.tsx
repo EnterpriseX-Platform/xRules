@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, rulesApi, flowsApi } from '@/lib/api';
-import { Btn, Input, Modal, Tag, fmtTime } from '@/components/pipeline/ui';
+import { Btn, Input, Modal, fmtTime } from '@/components/pipeline/ui';
 import { usePerms } from '@/lib/perms';
 import { TopicSimulate } from '@/components/topic/TopicSimulate';
 import { RequestData } from '@/components/topic/RequestData';
@@ -36,7 +36,7 @@ function strategyGraph() {
   return { nodes: steps.map(([id, type, data], i) => ({ id, type, position: { x: 60 + (i % 4) * 300, y: 80 + Math.floor(i / 4) * 180 }, data: { kind: type, ...data } })),
     edges: steps.slice(1).map(([id], i) => ({ id: `e${i}`, source: steps[i][0], target: id })) };
 }
-const STATUS = (d: any) => d.reviewState === 'PENDING' ? <Tag tone="blue">In review</Tag> : d.status === 'published' ? <Tag tone="green">Live v{d.version}</Tag> : <Tag tone="orange">Draft</Tag>;
+const STATUS = (d: any) => <span className={`text-[13px] ${d.reviewState === 'PENDING' ? 'text-[#0043ce]' : d.status === 'published' ? 'text-[#198038]' : 'text-[#525252]'}`}>{d.reviewState === 'PENDING' ? 'In review' : d.status === 'published' ? `Live v${d.version}` : 'Draft'}</span>;
 
 export default function TopicPage() {
   const { projectId, topicId } = useParams<{ projectId: string; topicId: string }>();
