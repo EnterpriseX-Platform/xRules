@@ -8,6 +8,7 @@ import { useTerms, showValue, type Term } from '@/lib/terms';
 import { InputFields } from '@/components/test/FieldsEditor';
 import { useQueryClient } from '@tanstack/react-query';
 import { RequestData } from '@/components/topic/RequestData';
+import { compileExpr, getter, pathsOf } from '@/lib/expr';
 
 type Line = { name: string; expr: string };
 const FUNCS: { name: string; insert: string; label: string }[] = [
@@ -63,22 +64,29 @@ function nest(flat: Record<string, any>) {
   return o;
 }
 const js = (e: string) => e.replace(/−/g, '-').replace(/×/g, '*').replace(/÷/g, '/').replace(/≥/g, '>=').replace(/≤/g, '<=').replace(/≠/g, '!=').replace(/(^|[^=!<>])=(?!=)/g, '$1==');
-function evaluate(expr: string, scope: Record<string, any>) {
-  const names = Object.keys(scope).filter(k => /^[A-Za-z_$][\w$]*$/.test(k));
+// the same formula language as the API: if … then … else, quoted text, words with dots and spaces
+function evaluate(expr: string, scope: Record<string, any>, words: string[] = []) {
+  const code = compileExpr(expr, [...words, ...pathsOf(scope)], Object.keys(F));
   // eslint-disable-next-line no-new-func
-  return new Function(...names, ...Object.keys(F), `"use strict"; return (${js(expr)});`)(...names.map(n => scope[n]), ...Object.values(F));
+  return new Function('__get', 'Math', ...Object.keys(F), `"use strict"; return (${code});`)(getter(scope), Math, ...Object.values(F));
 }
+/** Replace outside quoted text only. */
+const outsideQuotes = (s: string, fn: (x: string) => string) => s.split(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/).map((p, i) => (i % 2 ? p : fn(p))).join('');
 
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function toLabels(expr: string, terms: Term[]) {
-  let out = expr;
-  [...terms].sort((a, b) => b.path.length - a.path.length).forEach(t => { if (t.term !== t.path) out = out.replace(new RegExp(`(?<![\\w.])${esc(t.path)}(?![\\w])`, 'g'), `⟦${t.term}⟧`); });
-  return out.replace(/⟦|⟧/g, '').replace(/\s*\*\s*/g, ' × ').replace(/\s*\/\s*/g, ' ÷ ').replace(/\s*>=\s*/g, ' ≥ ').replace(/\s*<=\s*/g, ' ≤ ');
+  return outsideQuotes(expr, part => {
+    let out = part;
+    [...terms].filter(t => t.path && t.term).sort((a, b) => b.path.length - a.path.length).forEach(t => { if (t.term !== t.path) out = out.replace(new RegExp(`(?<![\\w.])${esc(t.path)}(?![\\w])`, 'g'), `⟦${t.term}⟧`); });
+    return out.replace(/⟦|⟧/g, '').replace(/\s*\*\s*/g, ' × ').replace(/\s*\/\s*/g, ' ÷ ').replace(/\s*>=\s*/g, ' ≥ ').replace(/\s*<=\s*/g, ' ≤ ');
+  });
 }
 function toPaths(text: string, terms: Term[]) {
-  let out = text;
-  [...terms].sort((a, b) => b.term.length - a.term.length).forEach(t => { if (t.term !== t.path) out = out.split(t.term).join(t.path); });
-  return out.replace(/−/g, '-');
+  return outsideQuotes(text, part => {
+    let out = part;
+    [...terms].filter(t => t.path && t.term).sort((a, b) => b.term.length - a.term.length).forEach(t => { if (t.term !== t.path) out = out.replace(new RegExp(`(?<![\\w.])${esc(t.term)}(?![\\w])`, 'g'), `⟦${t.path}⟧`); });
+    return out.replace(/⟦|⟧/g, '').replace(/−/g, '-');
+  });
 }
 const slug = (s: string, i: number) => { const a = s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''); return /^[a-z]/.test(a) ? a : `result_${i + 1}`; };
 
@@ -126,7 +134,7 @@ export function CalcDesigner({ rule, projectId, onChange }: { rule: any; project
     // nothing to show until every value the line uses has been given
     const needs = (l.expr.match(/[A-Za-z_][\w.]*/g) || []).filter(w => !F[w.split('.')[0]] && w !== 'true' && w !== 'false');
     if (needs.some(w => getPath(scope, w) === undefined || getPath(scope, w) === '')) return { ok: true, value: undefined as any };
-    try { const v = evaluate(l.expr, scope); scope[l.name] = v; return { ok: true, value: v }; }
+    try { const v = evaluate(l.expr, scope, terms.map(t => t.path)); scope[l.name] = v; return { ok: true, value: v }; }
     catch (e: any) { return { ok: false, error: String(e?.message || e) }; }
   });
 

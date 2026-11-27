@@ -36,7 +36,7 @@ function ifThenElse(text: string): string {
       if (t === '(') { pos++; out += '(' + parse(new Set()); if (toks[pos] === ')') { out += ')'; pos++; } continue; }
       if (lt === 'if' && thenAhead(pos)) {
         pos++; const c = parse(new Set(['then'])); pos++;
-        const a = parse(new Set(['else', ...stops]));
+        const a = parse(new Set(['else', ...Array.from(stops)]));
         let b = 'null'; if (low(pos) === 'else') { pos++; b = parse(stops); }
         out += `((${c.trim()}) ? (${a.trim()}) : (${b.trim()}))`; continue;
       }
