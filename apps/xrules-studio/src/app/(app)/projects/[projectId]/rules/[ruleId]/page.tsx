@@ -118,7 +118,9 @@ function DefinitionTab({ rule, projectId }: { rule: any; projectId: string }) {
   // every keystroke used to PUT straight away; replies could land out of order and leave an older definition saved
   const pending = useRef<any>({});
   const timer = useRef<any>(null);
-  const flush = () => { clearTimeout(timer.current); const p = pending.current; pending.current = {}; if (Object.keys(p).length) save.mutate(p); };
+  // one save at a time, in the order made: a later edit never lands before (and under) an earlier one
+  const chain = useRef<Promise<any>>(Promise.resolve());
+  const flush = () => { clearTimeout(timer.current); const p = pending.current; pending.current = {}; if (Object.keys(p).length) chain.current = chain.current.catch(() => {}).then(() => save.mutateAsync(p)).catch(() => {}); };
   useEffect(() => () => flush(), []);   // leaving the tab saves what is pending
   const mut = { mutate: (patch: any) => { Object.assign(pending.current, patch); clearTimeout(timer.current); timer.current = setTimeout(flush, 500); } };
   const t = String(rule.type || '').toUpperCase();
