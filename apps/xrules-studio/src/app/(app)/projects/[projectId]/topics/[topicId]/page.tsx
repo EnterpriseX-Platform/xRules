@@ -33,6 +33,7 @@ export default function TopicPage() {
   const qc = useQueryClient(); const perms = usePerms();
   const { data: t } = useQuery({ queryKey: ['topic', topicId], queryFn: () => api.get<any>(`/platform/topics/${topicId}`) });
   const [creating, setCreating] = useState<AddKind | null>(null);
+  const { data: topicCases = [] } = useQuery({ queryKey: ['topic-tests', topicId], queryFn: () => api.get<any[]>(`/platform/tests/target/topic/${topicId}`) });
   const { data: allTopics = [] } = useQuery({ queryKey: ['topics', projectId], queryFn: () => api.get<any[]>(`/platform/topics?project_id=${projectId}`) });
   const setProduct = useMutation({ mutationFn: (product: string) => api.post(`/platform/topics/${topicId}/update`, { product }), onSuccess: () => { qc.invalidateQueries({ queryKey: ['topic', topicId] }); qc.invalidateQueries({ queryKey: ['topics', projectId] }); } });
   const [name, setName] = useState('');
@@ -48,7 +49,9 @@ export default function TopicPage() {
     onSuccess: ({ kind, r }: any) => { qc.invalidateQueries({ queryKey: ['topic', topicId] }); setCreating(null); router.push(kind === 'flow' ? `/p/${projectId}/flows/${r.id}` : `/p/${projectId}/rules/${r.id}`); } });
   if (!t) return null;
   const ds: any[] = t.decisions || [];
-  const tests = ds.reduce((a, d) => ({ total: a.total + (d.tests?.total || 0), pass: a.pass + (d.tests?.pass || 0), fail: a.fail + (d.tests?.fail || 0) }), { total: 0, pass: 0, fail: 0 });
+  const tests0 = ds.reduce((a, d) => ({ total: a.total + (d.tests?.total || 0), pass: a.pass + (d.tests?.pass || 0), fail: a.fail + (d.tests?.fail || 0) }), { total: 0, pass: 0, fail: 0 });
+  const tc = (topicCases as any[]);
+  const tests = { total: tests0.total + tc.length, pass: tests0.pass + tc.filter(c => c.lastStatus === 'PASS').length, fail: tests0.fail + tc.filter(c => c.lastStatus === 'FAIL' || c.lastStatus === 'ERROR').length };
   const NEW_LABEL = { DECISION_TABLE: 'New decision', FORMULA: 'New calculation', STRATEGY: 'New strategy' };
   const back = <button className="text-[14px] text-[#0f62fe] hover:underline mb-4" onClick={() => show('map')}>Back to map</button>;
 
