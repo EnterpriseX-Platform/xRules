@@ -46,3 +46,25 @@ test('a calculation used by a decision in the same step runs first', () => {
   const rules = [{ id: 'd', definition: { inputs: [{ name: 'income' }], outputs: [{ name: 'decision' }], rules: [] } }, { id: 'c', definition: { lines: [{ name: 'income', expr: 'a + b' }] } }, { id: 'x', definition: { lines: [{ name: 'y', expr: '1' }] } }];
   assert.deepEqual(byDependency(['d', 'x', 'c'], rules), ['c', 'd', 'x']);
 });
+
+test('numbers typed in test cases are numbers (86)', () => {
+  const words = Object.assign(['basic salary', 'fixed income', 'other income', 'code'], { types: { 'basic salary': 'number', 'fixed income': 'number', 'other income': 'number', code: 'text' } });
+  const input = { 'basic salary': '30000', 'fixed income': '5000', 'other income': '', code: '001', plain: '1600' };
+  const c = (e: string) => runCalc({ lines: [{ name: 'r', expr: e }] }, input, words as any).r;
+  assert.equal(c('basic salary + fixed income + 0.8 × other income'), 35000);
+  assert.equal(c('SUM(basic salary, fixed income)'), 35000);
+  assert.equal(c('AVG(basic salary, fixed income)'), 17500);
+  assert.equal(c('AVERAGE(basic salary, fixed income)'), 17500);
+  assert.equal(c('Average(basic salary, fixed income)'), 17500);
+  assert.equal(c('plain + 1'), 1601);
+  assert.equal(c('code = "001"'), true);
+  assert.equal(c('SUM(list, "v")'), 0);
+  assert.equal(runCalc({ lines: [{ name: 'r', expr: 'SUM(items, "v")' }] }, { items: [{ v: '2' }, { v: 3 }] }).r, 5);
+});
+test('OR( ) and AND( ) functions; or / and between values (87)', () => {
+  const c = (e: string) => runCalc({ lines: [{ name: 'r', expr: e }] }, { b: 'B003', n: 5 }).r;
+  assert.equal(c('IF(OR(b = "A002", b = "B003"), 0.3, 0.1)'), 0.3);
+  assert.equal(c('IF(AND(n > 1, n < 3), 1, 0)'), 0);
+  assert.equal(c('n > 1 or (n < 0)'), true);
+  assert.equal(c('n > 1 and (n < 3)'), false);
+});

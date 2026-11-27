@@ -8,7 +8,8 @@ import { runFlow } from './flow-runtime.service.js';
 import { dispatch as dispatchWebhook } from './webhooks.service.js';
 import type { AuthUser } from '../middleware/auth.js';
 import { evaluateTable, expandForEngine, usesGroupsOrReasons, DATE_FUNCS, withTopicDate } from './table-eval.js';
-import { compileExpr, getter, pathsOf } from './expr.js';
+import { compileExpr, getter, pathsOf, asWordValue } from './expr.js';
+export { asWordValue };
 
 /** The project's reason codes, for tables whose lines add reasons. */
 export async function reasonCatalogue(projectId: string) {
@@ -120,34 +121,49 @@ function matchBand(value: any, m: any): boolean {
 // Distinguished from SCRIPT in that the source is an EXPRESSION (no braces, no return).
 // Business calculations: lines "result term = expression over terms", worked out in order; each result can be
 // used by the lines after it. Functions business users pick: SUM AVG MIN MAX COUNT ROUND ROUNDDOWN ROUNDUP IF.
+const num = (x: any) => (typeof x === 'number' ? x : x === '' || x == null || typeof x === 'boolean' ? NaN : Number(String(x).replace(/,/g, '').trim()));
+/** SUM(a, b, c) adds the values; SUM(list, "field") adds a field of each item in a list. */
+const values = (args: any[]): any[] => (Array.isArray(args[0]) && args.length === 2 && typeof args[1] === 'string' && isNaN(num(args[1])) ? args[0].map((x: any) => x?.[args[1]]) : args.flat(Infinity));
+const nums = (args: any[]) => values(args).map(num).filter((n: number) => !isNaN(n));
 export const CALC_FUNCS = {
-  SUM: (a: any, k?: string) => (Array.isArray(a) ? a : [a]).reduce((s: number, x: any) => s + (Number(k ? x?.[k] : x) || 0), 0),
-  AVG: (a: any, k?: string) => { const xs = (Array.isArray(a) ? a : [a]).map((x: any) => Number(k ? x?.[k] : x)).filter((n: number) => !isNaN(n)); return xs.length ? xs.reduce((s: number, n: number) => s + n, 0) / xs.length : 0; },
-  COUNT: (a: any) => (Array.isArray(a) ? a.length : a == null ? 0 : 1),
-  MIN: (...a: any[]) => Math.min(...a.flat().map(Number)),
-  MAX: (...a: any[]) => Math.max(...a.flat().map(Number)),
-  ROUND: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.round(Number(x) * f) / f; },
-  ROUNDDOWN: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.floor(Number(x) * f) / f; },
-  ROUNDUP: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.ceil(Number(x) * f) / f; },
+  SUM: (...a: any[]) => nums(a).reduce((s: number, n: number) => s + n, 0),
+  AVG: (...a: any[]) => { const xs = nums(a); return xs.length ? xs.reduce((s: number, n: number) => s + n, 0) / xs.length : 0; },
+  COUNT: (...a: any[]) => (a.length === 1 ? (Array.isArray(a[0]) ? a[0].length : a[0] == null || a[0] === '' ? 0 : 1) : values(a).filter((x: any) => x != null && x !== '').length),
+  MIN: (...a: any[]) => { const xs = nums(a); return xs.length ? Math.min(...xs) : 0; },
+  MAX: (...a: any[]) => { const xs = nums(a); return xs.length ? Math.max(...xs) : 0; },
+  ROUND: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.round((num(x) || 0) * f) / f; },
+  ROUNDDOWN: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.floor((num(x) || 0) * f) / f; },
+  ROUNDUP: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.ceil((num(x) || 0) * f) / f; },
+  OR: (...a: any[]) => a.some(Boolean),
+  AND: (...a: any[]) => a.every(Boolean),
+  NOT: (x: any) => !x,
   IF: (c: any, a: any, b: any) => (c ? a : b),
   ...DATE_FUNCS,
 };
+// names the function bar and spreadsheets use for the same functions
+Object.assign(CALC_FUNCS, { AVERAGE: CALC_FUNCS.AVG, MINIMUM: CALC_FUNCS.MIN, LOWEST: CALC_FUNCS.MIN, MAXIMUM: CALC_FUNCS.MAX, HIGHEST: CALC_FUNCS.MAX, ROUND_DOWN: CALC_FUNCS.ROUNDDOWN, ROUND_UP: CALC_FUNCS.ROUNDUP });
+
 export function calcExpr(e: string) { return String(e).replace(/×/g, '*').replace(/÷/g, '/').replace(/≥/g, '>=').replace(/≤/g, '<=').replace(/≠/g, '!=').replace(/(^|[^=!<>])=(?!=)/g, '$1=='); }
 export function runCalc(def: any, input: any, words: string[] = []): any {
   const ctx: Record<string, any> = { ...(input || {}) };
   const out: Record<string, any> = {};
   const names = (def.lines || []).map((l: any) => String(l?.name || '')).filter(Boolean);
   const paths = [...words, ...names, ...pathsOf(ctx)];
+  const types: Record<string, string> = (words as any).types || {};
+  const raw = getter(ctx); const made = new Set<string>();
+  const get = (p: string) => (made.has(p) ? raw(p) : asWordValue(raw(p), types[p]));
   for (const line of def.lines || []) {
     if (!line?.name || !String(line.expr || '').trim()) continue;
-    const v = evalExpression(compileExpr(line.expr, paths, Object.keys(CALC_FUNCS)), { __get: getter(ctx), ...CALC_FUNCS, Math });
+    const v = evalExpression(compileExpr(line.expr, paths, Object.keys(CALC_FUNCS)), { __get: get, ...CALC_FUNCS, Math });
+    made.add(line.name);
     ctx[line.name] = v; out[line.name] = v;
   }
   return out;
 }
 /** The project's word paths, so formulas can name words with dots and spaces. */
 export async function wordPaths(projectId: string): Promise<string[]> {
-  return (await prisma.vocabularyTerm.findMany({ where: { projectId, deletedAt: null }, select: { path: true } }).catch(() => [] as any[])).map((w: any) => w.path);
+  const ws = await prisma.vocabularyTerm.findMany({ where: { projectId, deletedAt: null }, select: { path: true, type: true } }).catch(() => [] as any[]);
+  return Object.assign(ws.map((w: any) => w.path), { types: Object.fromEntries(ws.map((w: any) => [w.path, String(w.type || '').toLowerCase()])) });
 }
 
 function runFormula(def: any, input: any, vars?: any, words?: string[]): any {

@@ -6,7 +6,7 @@
 
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { evalExpression } from './sandbox.service.js';
-import { compileExpr, getter, pathsOf } from './expr.js';
+import { compileExpr, getter, pathsOf, asWordValue } from './expr.js';
 
 // The decision date: "today", "days since", "N days ago" read it; a topic or a test case sets it, else the real date.
 const AS_OF = new AsyncLocalStorage<{ asOf: Date | null }>();
@@ -187,12 +187,14 @@ function formulaValue(arg: string, scope: any): any {
     .replace(/\b([A-Za-z_]\w*) of ([A-Za-z_][\w.]*)/g, (_m, c, w) => `__of(${JSON.stringify(w)}, ${JSON.stringify(c)})`)
     .replace(/@([A-Za-z_]\w*)/g, (_m, n) => `__agg(${JSON.stringify('@' + n)})`);
   const paths = [...(CTX?.words || []).map(w => w.path), ...pathsOf(scope)];
-  try { return evalExpression(compileExpr(e, paths, [...Object.keys(DATE_FUNCS), '__of', '__agg', 'IF', 'MIN', 'MAX', 'ROUND']), { __get: getter(scope), ...DATE_FUNCS, ...SMALL_FUNCS, Math, __of: (w: string, c: string) => setExtra(w, c, scope), __agg: (p: string) => aggValue(p) }); } catch { return undefined; }
+  try { return evalExpression(compileExpr(e, paths, [...Object.keys(DATE_FUNCS), '__of', '__agg', 'IF', 'MIN', 'MAX', 'ROUND', 'OR', 'AND', 'SUM']), { __get: (p: string) => asWordValue(getter(scope)(p)), ...DATE_FUNCS, ...SMALL_FUNCS, Math, __of: (w: string, c: string) => setExtra(w, c, scope), __agg: (p: string) => aggValue(p) }); } catch { return undefined; }
 }
 const SMALL_FUNCS = {
   IF: (c: any, a: any, b: any) => (c ? a : b),
   MIN: (...a: any[]) => Math.min(...a.flat().map(Number)), MAX: (...a: any[]) => Math.max(...a.flat().map(Number)),
   ROUND: (x: any, d = 0) => { const f = Math.pow(10, d); return Math.round(Number(x) * f) / f; },
+  OR: (...a: any[]) => a.some(Boolean), AND: (...a: any[]) => a.every(Boolean),
+  SUM: (...a: any[]) => a.flat().map((x: any) => asWordValue(x)).reduce((s: number, x: any) => s + (Number(x) || 0), 0),
 };
 /** A result value: a number or quoted text stays; a word or a formula of words is worked out. */
 export function resultValue(cell: any, scope: any): any {
