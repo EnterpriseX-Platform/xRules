@@ -342,8 +342,8 @@ export async function liveParams(projectId: string, user: AuthUser) {
   const { list } = await import('./product-settings.js');
   const sheet = await list(p.id, user);
   const requests = await prisma.reviewRequest.findMany({ where: { projectId: p.id, targetType: 'param_change' }, orderBy: { createdAt: 'desc' }, take: 100 });
-  const audit = await prisma.auditLog.findMany({ where: { workspaceId: p.workspaceId, entityType: 'live_param', entityId: p.id } as any, orderBy: { createdAt: 'desc' }, take: 100, include: { user: { select: { email: true, name: true } } } }).catch(() => [] as any[]);
-  return { environment: currentEnvironment(), products: sheet.products, rows: sheet.rows, requests, audit: audit.map((a: any) => ({ at: a.createdAt, action: a.action, by: a.user?.email || a.user?.name || null, details: a.metadata ?? a.details ?? null })) };
+  const audit = await prisma.auditLog.findMany({ where: { workspaceId: p.workspaceId, resource: 'live_param', resourceId: p.id }, orderBy: { createdAt: 'desc' }, take: 100, include: { user: { select: { email: true, name: true } } } });
+  return { environment: currentEnvironment(), products: sheet.products, rows: sheet.rows, requests, audit: audit.map(a => ({ at: a.createdAt, action: a.action, by: a.user?.email || a.user?.name || null, details: a.details ?? null })) };
 }
 
 export async function markTunable(data: { projectId: string; ids: string[]; tunable: boolean }, user: AuthUser) {
@@ -397,9 +397,13 @@ export async function requestChange(data: { projectId: string; changes: Change[]
   return r;
 }
 
-async function logParam(projectId: string, user: AuthUser, action: string, meta: any) {
-  const { audit } = await import('../services/governance.service.js');
-  await audit(projectId, user, action, 'live_param', projectId, meta);
+// the audit trail of live parameters (audit_logs: resource live_param, resourceId = project)
+async function logParam(projectId: string, user: AuthUser | { email?: string | null }, action: string, meta: any) {
+  const p = await prisma.project.findUnique({ where: { id: projectId }, select: { workspaceId: true } }); if (!p) return;
+  let userId = (user as any).userId as string | undefined;
+  if (!userId || userId === '__system__') userId = (await prisma.user.findFirst({ where: { email: String((user as any).email || '') } }))?.id;
+  if (!userId) return;
+  await prisma.auditLog.create({ data: { workspaceId: p.workspaceId, userId, action, resource: 'live_param', resourceId: projectId, details: meta } }).catch(() => {});
 }
 
 /** Put approved changes live once their effective time has come. Called on approval and every minute. */
@@ -413,7 +417,7 @@ export async function applyDueChanges(onlyId?: string) {
       await prisma.productSetting.update({ where: { id: row.id }, data: { values: { ...((row.values as any) || {}), [c.product]: c.to } } });
     }
     await prisma.reviewRequest.update({ where: { id: r.id }, data: { snapshot: { ...s, applied: true, appliedAt: new Date().toISOString() } } });
-    await logParam(r.projectId, { userId: '__system__', email: r.reviewedBy || 'system' } as any, 'live_param.apply', { request: r.id, changes: s.changes, approvedBy: r.reviewedBy, requestedBy: r.submittedBy });
+    await logParam(r.projectId, { email: r.reviewedBy }, 'live_param.apply', { request: r.id, changes: s.changes, approvedBy: r.reviewedBy, requestedBy: r.submittedBy });
     const { invalidateArtifacts } = await import('./runner.js'); invalidateArtifacts();
     n++;
   }

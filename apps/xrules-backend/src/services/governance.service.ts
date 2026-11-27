@@ -86,5 +86,7 @@ export async function list(projectIdOrSlug: string, user: AuthUser, status?: str
 export async function audit(projectId: string, user: AuthUser, action: string, entityType: string, entityId: string, meta?: any) {
   const p = await prisma.project.findUnique({ where: { id: projectId } });
   if (!p) return;
-  await prisma.auditLog.create({ data: { workspaceId: p.workspaceId, userId: user.userId === '__system__' ? null : user.userId, action, entityType, entityId, metadata: meta ?? {} } as any }).catch(() => {});
+  // audit_logs columns are resource / resourceId / details, and a user is required
+  if (!user.userId || user.userId === '__system__') return;
+  await prisma.auditLog.create({ data: { workspaceId: p.workspaceId, userId: user.userId, action, resource: entityType, resourceId: entityId, details: meta ?? {} } }).catch(() => {});
 }
