@@ -51,13 +51,18 @@ export function TopicMap({ projectId, topic, onTab }: { projectId: string; topic
     const w = new Map<string, Word>(); const o = new Map<string, Out>(); const inner: [string, string][] = [];
     const inTopic = new Set<string>(ds.map(d => d.id));
     const usedInside = new Set<string>();
+    // a word another box here works out is a line between the boxes, not something coming in
+    const made = new Map<string, string>();
+    ds.forEach(d => [...(d.definition?.outputs || []).map((x: any) => x?.name), ...(d.type === 'FORMULA' ? (d.definition?.lines || []).map((x: any) => x?.name) : [])].filter(Boolean).forEach((n: string) => { if (!made.has(n)) made.set(n, d.id); }));
     for (const d of ds) {
       const l = links?.[d.id]; if (!l) continue;
       for (const u of l.uses) {
-        if (u.kind === 'word' || u.kind === 'data') {
+        const maker = u.kind === 'word' ? made.get(u.id) : undefined;
+        if (maker && maker !== d.id) { if (!inner.some(([a, b]) => a === maker && b === d.id)) inner.push([maker, d.id]); usedInside.add(maker); }
+        else if (u.kind === 'word' || u.kind === 'data') {
           const x = w.get(u.id) || { id: u.id, name: u.name, note: u.kind === 'data' ? 'data set' : undefined, requested: u.note === 'requested', href: u.href, by: [] as string[] };
           x.by.push(d.id); w.set(u.id, x);
-        } else if (inTopic.has(u.id)) { inner.push([u.id, d.id]); usedInside.add(u.id); }
+        } else if (inTopic.has(u.id) && !inner.some(([a, b]) => a === u.id && b === d.id)) { inner.push([u.id, d.id]); usedInside.add(u.id); }
       }
       for (const u of l.usedBy) {
         if (inTopic.has(u.id)) continue;

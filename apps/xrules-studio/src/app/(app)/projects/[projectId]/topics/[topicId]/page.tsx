@@ -86,7 +86,7 @@ export default function TopicPage() {
   return (
     <div className="px-8 py-6">
       <div className="text-[13px] mb-1"><Link href={`/p/${projectId}/topics`} className="text-[#0f62fe] hover:underline">Topics</Link></div>
-      <div className="flex items-start gap-4"><h1 className="flex-1 text-[28px] leading-9 text-[#161616]">{t.name}</h1><div className="flex gap-2">{perms.write && <RequestData projectId={projectId} topicId={topicId} />}<Btn kind="secondary" onClick={() => go('simulate')}>Try on real data</Btn>{perms.write && <Btn onClick={() => go('approval')}>Request approval</Btn>}</div></div>
+      <div className="flex items-start gap-4"><h1 className="flex-1 text-[28px] leading-9 text-[#161616]">{t.name}</h1><div className="flex gap-2 shrink-0 whitespace-nowrap">{perms.write && <RequestData projectId={projectId} topicId={topicId} />}<Btn kind="secondary" onClick={() => go('simulate')}>Try on real data</Btn>{perms.write && <Btn onClick={() => go('approval')}>Request approval</Btn>}</div></div>
       {t.goal && <div className="text-[15px] text-[#525252] mt-1">{t.goal}</div>}
       <div className="flex border-b border-[#e0e0e0] mt-5 mb-6 overflow-x-auto" role="tablist">
         {tabs.map(x => (
