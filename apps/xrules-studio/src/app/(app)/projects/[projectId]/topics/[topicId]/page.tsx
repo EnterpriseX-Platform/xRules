@@ -11,6 +11,7 @@ import { usePerms } from '@/lib/perms';
 import { TopicSimulate } from '@/components/topic/TopicSimulate';
 import { RequestData } from '@/components/topic/RequestData';
 import { TopicMap } from '@/components/topic/TopicMap';
+import { TopicRipple } from '@/components/topic/TopicRipple';
 import { StagesEditor } from '@/components/topic/TopicStages';
 
 const TABS = [
@@ -101,31 +102,13 @@ export default function TopicPage() {
       {(tab === 'qualify' || tab === 'amount' || tab === 'choose') && list(by(tab), tab)}
       {tab === 'tests' && list(ds.filter(d => true))}
       {tab === 'simulate' && <TopicSimulate projectId={projectId} topicId={topicId} decisions={ds} last={t.lastSimulation} />}
-      {tab === 'approval' && <TopicApprovals projectId={projectId} ids={ds.map(d => d.id)} />}
+      {tab === 'approval' && <TopicRipple projectId={projectId} topic={t} />}
 
       {creating && (
         <Modal title={NEW[creating].label} onClose={() => setCreating(null)} onSubmit={() => create.mutate(creating)} submitLabel="Create" submitDisabled={!name.trim() || create.isPending} error={create.error ? String((create.error as any).message) : null}>
           <Input id="tp-new" label="Name" value={name} onChange={setName} />
         </Modal>
       )}
-    </div>
-  );
-}
-
-function TopicApprovals({ projectId, ids }: { projectId: string; ids: string[] }) {
-  const { data: rows = [] } = useQuery({ queryKey: ['reviews', projectId], queryFn: () => api.get<any[]>(`/platform/reviews?project_id=${projectId}`) });
-  const mine = (rows as any[]).filter(r => ids.includes(r.targetId));
-  return (
-    <div className="bg-white border border-[#e0e0e0]">
-      {mine.map(r => (
-        <Link key={r.id} href="/approvals" className="flex flex-wrap items-center gap-x-6 px-5 py-4 border-b border-[#e0e0e0] last:border-b-0 hover:bg-[#f4f4f4]">
-          <span className="flex-1 min-w-[220px] text-[15px]">{r.title}</span>
-          <span className="text-[13px] text-[#525252]">{r.submittedBy}</span>
-          <span>{r.status === 'PENDING' ? <Tag tone="blue">In review</Tag> : r.status === 'APPROVED' ? <Tag tone="green">Approved</Tag> : r.status === 'REJECTED' ? <Tag tone="red">Sent back</Tag> : <Tag tone="gray">{r.status}</Tag>}</span>
-          <span className="text-[12px] text-[#6f6f6f] w-[150px]">{fmtTime(r.createdAt)}</span>
-        </Link>
-      ))}
-      {!mine.length && <div className="px-5 py-8 text-[14px] text-[#525252]">No approval requests for this topic</div>}
     </div>
   );
 }
