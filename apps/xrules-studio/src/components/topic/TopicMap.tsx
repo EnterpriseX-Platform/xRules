@@ -15,6 +15,7 @@ import { Dropdown } from '@/components/pipeline/Dropdown';
 import { StrategySteps } from './StrategySteps';
 import { AddStep, StagePanel, useStages } from './TopicStages';
 import { FromLibrary, LibrarySection, originOf } from './Library';
+import { FormulaWords } from '@/components/rule/FormulaWords';
 
 export type AddKind = { type: 'DECISION_TABLE' | 'FORMULA' | 'STRATEGY'; question?: string; stageId?: string };
 
@@ -230,7 +231,7 @@ function BoxPanel({ projectId, box, links, label, numOf, onPick, onClose, onSimu
             {lines.length > 8 && <Link href={href(projectId, d)} className="inline-block mt-2 text-[14px]">and {(lines.length - 8).toLocaleString()} more lines</Link>}
             {!lines.length && <div className="text-[14px] text-[#6f6f6f]">No lines yet</div>}
           </>)}
-          {!d.libraryRef?.itemId && d.type === 'FORMULA' && <div className="space-y-1 text-[15px] leading-[26px]">{(d.definition?.lines || []).map((l: any, i: number) => <div key={i}><b className="font-semibold">{label(l.name)}</b> = {String(l.expr || '').replace(/[A-Za-z_][\w]*/g, (w: string) => (/^(SUM|AVG|COUNT|MIN|MAX|ROUND|ROUNDDOWN|ROUNDUP|IF)$/.test(w) ? w : label(w))).replace(/\*/g, '×').replace(/\//g, '÷')}</div>)}</div>}
+          {!d.libraryRef?.itemId && d.type === 'FORMULA' && <div className="space-y-1 text-[15px] leading-[26px]">{(d.definition?.lines || []).map((l: any, i: number) => <div key={i}><b className="font-semibold">{label(l.name)}</b> =<FormulaWords className="block pl-4" expr={String(l.expr || '')} label={label} /></div>)}</div>}
           {d.kind === 'flow' && <StrategySteps graph={d.graph} label={label} ruleChip={ruleChip} />}
           {d.type !== 'DECISION_TABLE' && d.type !== 'FORMULA' && d.kind !== 'flow' && <div className="text-[14px] text-[#6f6f6f]">{kindName(d.type)}; open it to read</div>}
           <LibrarySection projectId={projectId} d={d} label={label} canWrite={!!stage?.canWrite || !!canWriteBox} />

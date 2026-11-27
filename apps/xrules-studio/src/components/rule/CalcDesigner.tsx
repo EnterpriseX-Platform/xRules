@@ -9,6 +9,7 @@ import { InputFields } from '@/components/test/FieldsEditor';
 import { useQueryClient } from '@tanstack/react-query';
 import { RequestData } from '@/components/topic/RequestData';
 import { compileExpr, getter, pathsOf, asWordValue } from '@/lib/expr';
+import { wordsInline } from '@/lib/formulaWords';
 
 type Line = { name: string; expr: string; label?: string };
 const FUNCS: { name: string; insert: string; label: string; help?: string }[] = [
@@ -232,7 +233,7 @@ export function CalcDesigner({ rule, projectId, onChange }: { rule: any; project
         <InputFields title="" label={label} fields={used.map(name => ({ name, type: term(name)?.type === 'text' ? 'string' : 'number' }))} value={sample} onChange={setSample} />
         <div className="mt-4 border-t border-[#e0e0e0] pt-3 space-y-2 text-[14px]">
           {lines.map((l, i) => l.name && l.expr.trim() && results[i]?.ok && results[i].value !== undefined ? (
-            <div key={i}><span className="text-[#525252]">{label(l.name)}</span> = <span className="text-[#525252]">{toLabels(l.expr, terms)}</span> = <b className="font-semibold tabular-nums">{showValue(typeof results[i].value === 'number' ? Math.round(results[i].value * 1e6) / 1e6 : results[i].value, term(l.name))}</b></div>
+            <div key={i}><span className="text-[#525252]">{label(l.name)}</span> = <span className="text-[#525252]">{wordsInline(l.expr, label, terms.map(t => t.path))}</span> = <b className="font-semibold tabular-nums">{showValue(typeof results[i].value === 'number' ? Math.round(results[i].value * 1e6) / 1e6 : results[i].value, term(l.name))}</b></div>
           ) : null)}
         </div>
       </div>

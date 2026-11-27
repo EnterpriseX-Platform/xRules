@@ -8,9 +8,16 @@ import { api } from '@/lib/api';
 import { Input, Modal } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { tableSentences } from '@/components/review/sentences';
+import { wordsInline } from '@/lib/formulaWords';
+import { FormulaWords } from '@/components/rule/FormulaWords';
+import { useTerms } from '@/lib/terms';
+import { MoreHorizontal } from 'lucide-react';
 
 export type Mode = 'use' | 'extend' | 'own';
-const MODES: { v: Mode; label: string }[] = [{ v: 'use', label: 'Use' }, { v: 'extend', label: 'Extend' }, { v: 'own', label: 'Own' }];
+const MODES: { v: Mode; label: string; means: string; short: string }[] = [
+  { v: 'use', label: 'Use', short: 'used as is', means: 'Follows the library: its lines run here unchanged and new approved versions come in.' },
+  { v: 'extend', label: 'Extend', short: 'extended here', means: 'Follows the library, with lines added or switched off for this product.' },
+  { v: 'own', label: 'Own', short: 'own copy', means: 'A copy of its own: change anything here; library changes no longer come in.' }];
 
 /** The plain-text origin a box shows on the map. */
 export function originOf(d: any): string {
@@ -21,7 +28,7 @@ export function originOf(d: any): string {
 
 /** One line in words: a decision line as a sentence, a calculation line as word = formula. */
 export function lineText(type: string, line: any, columns: any, label: (p: string) => string) {
-  if (String(type).toUpperCase() === 'FORMULA') return `${label(line?.name || '')} = ${String(line?.expr ?? '')}`;
+  if (String(type).toUpperCase() === 'FORMULA') return `${label(line?.name || '')} = ${wordsInline(String(line?.expr ?? ''), label)}`;
   return tableSentences({ inputs: columns?.inputs || [], outputs: columns?.outputs || [], rules: [line] }, label)[0] || '';
 }
 
@@ -43,9 +50,10 @@ function numbersIn(type: string, line: any): { field: string; from: number; to: 
 }
 
 /** "Make it a setting": pick the number, name the setting; every product gets the current value. */
-export function MakeSetting({ ruleId, type, line, index, label, columns, onClose, onDone }: { ruleId: string; type: string; line: any; index: number; label: (p: string) => string; columns: any; onClose: () => void; onDone: () => void }) {
+export function MakeSetting({ ruleId, type, line, index, label, columns, onClose, onDone, start }: { ruleId: string; type: string; line: any; index: number; label: (p: string) => string; columns: any; onClose: () => void; onDone: () => void; start?: { value: string; nth: number } }) {
   const nums = numbersIn(type, line);
-  const [pick, setPick] = useState(0); const [name, setName] = useState('');
+  const first = start ? nums.map((x, i) => ({ x, i })).filter(({ x }) => Number(x.value) === Number(start.value))[start.nth]?.i ?? 0 : 0;
+  const [pick, setPick] = useState(first); const [name, setName] = useState('');
   const n = nums[pick];
   const go = useMutation({ meta: { silent: true }, mutationFn: () => api.post('/platform/settings-table/make', { ruleId, line: index, field: n.field, from: n.from, to: n.to, name: name.trim() }), onSuccess: () => { onDone(); onClose(); } });
   return (
@@ -70,14 +78,53 @@ export function LibrarySection({ projectId, d, label, canWrite }: { projectId: s
   const line = useMutation({ meta: { failLabel: "Couldn't change the line" }, mutationFn: (b: any) => api.post(`/platform/library/ref/${d.id}/line`, b), onSuccess: done });
   const move = useMutation({ meta: { failLabel: "Couldn't move to library" }, mutationFn: () => api.post('/platform/library/move', { ruleIds: [d.id] }), onSuccess: done });
   const [compare, setCompare] = useState(false);
-  const [setting, setSetting] = useState<number | null>(null);
+  const [setting, setSettingRaw] = useState<number | null>(null);
+  const [startAt, setStartAt] = useState<{ value: string; nth: number } | undefined>(undefined);
+  const setSetting = (i: number | null, at?: { value: string; nth: number }) => { setStartAt(at); setSettingRaw(i); };
+  const { terms } = useTerms(projectId);
+  const paths = terms.map(t => t.path);
+  // a test case to show what each line works out to
+  const { data: cases = [] } = useQuery({ queryKey: ['topic-tests', d.topicId], queryFn: () => api.get<any[]>(`/platform/tests/target/topic/${d.topicId}`), enabled: !!d.topicId });
+  const ran = (cases as any[]).filter(c => c.lastResult?.output);
+  const [caseId, setCaseId] = useState<string>('');
+  const cur = ran.find(c => c.id === caseId) || ran[0];
+  const [menu, setMenu] = useState<number | null>(null);
   const H = ({ children }: { children: React.ReactNode }) => <h3 className="m-0 mb-2 text-[12px] font-semibold tracking-[.4px] text-[#525252]">{children}</h3>;
   if (d.kind !== 'rule' || !info) return null;
   const sharable = d.type === 'DECISION_TABLE' || d.type === 'FORMULA';
   const lines: any[] = info.lines || (d.type === 'FORMULA' ? d.definition?.lines || [] : d.definition?.rules || []).map((l: any) => ({ line: l, from: '' }));
   const cols = info.columns || { inputs: d.definition?.inputs, outputs: d.definition?.outputs };
-  const mk = setting !== null && <MakeSetting ruleId={d.id} type={d.type} line={lines[setting]?.line} index={setting} label={label} columns={cols} onClose={() => setSetting(null)} onDone={done} />;
-  const settingBtn = (i: number) => canWrite && numbersIn(d.type, lines[i]?.line).length > 0 && <button type="button" className="text-[13px] text-[#0f62fe] hover:underline whitespace-nowrap" onClick={() => setSetting(i)}>Make it a setting</button>;
+  const mk = setting !== null && <MakeSetting ruleId={d.id} type={d.type} line={lines[setting]?.line} index={setting} label={label} columns={cols} start={startAt} onClose={() => setSetting(null)} onDone={done} />;
+  const settingBtn = (i: number) => canWrite && numbersIn(d.type, lines[i]?.line).length > 0 && <button type="button" className="block w-full text-left px-3 h-9 text-[14px] hover:bg-[#e8e8e8]" onClick={() => { setMenu(null); setSetting(i); }}>Make it a setting</button>;
+  const isCalc = String(d.type).toUpperCase() === 'FORMULA';
+  // the line in words; a calculation line with its numbers to click and the value for the chosen case
+  const lineView = (l: any, i: number) => isCalc
+    ? <span className="block"><b className="font-semibold">{label(l.line?.name || '')}</b> =<FormulaWords className="block pl-4" expr={String(l.line?.expr ?? '')} label={label} paths={paths} onNumber={canWrite ? (v, nth) => setSetting(i, { value: v, nth }) : undefined} /></span>
+    : <span>{lineText(d.type, l.line, cols, label)}</span>;
+  const worked = (l: any, i: number) => {
+    if (!cur) return null;
+    const out = cur.lastResult.output;
+    if (isCalc) { const v = out?.[l.line?.name]; return <span className="text-[13px] text-[#525252] tabular-nums whitespace-nowrap">{v === undefined || v === null || v === '' ? '—' : typeof v === 'number' ? (Math.round(v * 1e6) / 1e6).toLocaleString('en-US') : String(v)}</span>; }
+    const t = (out?._trace || []).find((x: any) => x.id === d.id);
+    return t?.lines?.includes(i + 1) ? <span className="text-[13px] text-[#198038] whitespace-nowrap">fired</span> : null;
+  };
+  const lineMenu = (l: any, i: number) => {
+    const canSet = canWrite && numbersIn(d.type, l.line).length > 0; const canOff = canWrite && info?.mode !== 'own' && !l.local && !['none', 'item', 'missing'].includes(info?.kind);
+    if (!canSet && !canOff) return null;
+    return (
+      <span className="relative">
+        <button type="button" aria-label={`Line ${i + 1} actions`} aria-expanded={menu === i} className="h-7 w-7 flex items-center justify-center text-[#525252] hover:bg-[#e8e8e8] opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => setMenu(m => (m === i ? null : i))}><MoreHorizontal className="h-4 w-4" /></button>
+        {menu === i && <span className="absolute right-0 top-full z-20 w-[200px] bg-white shadow-[0_2px_6px_rgba(0,0,0,.3)]" onMouseLeave={() => setMenu(null)}>
+          {canSet && settingBtn(i)}
+          {canOff && <button type="button" className="block w-full text-left px-3 h-9 text-[14px] hover:bg-[#e8e8e8]" disabled={line.isPending} onClick={() => { setMenu(null); line.mutate({ key: l.key, off: true }); }}>Switch off here</button>}
+        </span>}
+      </span>
+    );
+  };
+  const casePick = ran.length > 0 && (
+    <div className="flex items-center gap-2 text-[13px] text-[#525252]"><span>Worked out for</span>
+      <span className="w-[200px]"><Dropdown value={cur?.id || ''} options={ran.map(c => ({ value: c.id, label: c.name }))} onChange={v => setCaseId(v)} /></span></div>
+  );
 
   if (info.kind === 'none' || info.kind === 'item') return (
     <div className="mt-6">
@@ -86,7 +133,7 @@ export function LibrarySection({ projectId, d, label, canWrite }: { projectId: s
         {info.kind === 'none' && canWrite && sharable && <button type="button" className="h-8 px-3 text-[14px] border border-[#8d8d8d] hover:bg-[#e8e8e8]" disabled={move.isPending} onClick={() => move.mutate()}>Move to library</button>}
         {info.kind === 'item' && <Link href={`/p/${projectId}/library?item=${d.id}`}>See who uses it</Link>}</div>
       {canWrite && sharable && lines.some((_, i) => numbersIn(d.type, lines[i].line).length) && (
-        <ol className="m-0 mt-3 pl-0 list-none space-y-1 text-[14px]">{lines.map((l, i) => <li key={i} className="flex gap-3 items-baseline"><span className="text-[#6f6f6f] tabular-nums w-6 shrink-0">{i + 1}</span><span className="flex-1">{lineText(d.type, l.line, cols, label)}</span>{settingBtn(i)}</li>)}</ol>)}
+        <>{casePick && <div className="mt-3">{casePick}</div>}<ol className="m-0 mt-3 pl-0 list-none space-y-1 text-[14px]">{lines.map((l, i) => <li key={i} className="group flex gap-3 items-baseline"><span className="text-[#6f6f6f] tabular-nums w-6 shrink-0">{i + 1}</span><span className="flex-1 min-w-0">{lineView(l, i)}</span>{worked(l, i)}{lineMenu(l, i)}</li>)}</ol></>)}
       {mk}
     </div>
   );
@@ -95,15 +142,15 @@ export function LibrarySection({ projectId, d, label, canWrite }: { projectId: s
   const pinOpts = [{ value: 'latest', label: `Latest approved${info.latest ? ` (v${info.latest})` : ''}` }, ...(info.versions || []).map((v: any) => ({ value: String(v.version), label: `Stay on v${v.version}` }))];
   return (
     <div className="mt-6">
-      <H>FROM THE LIBRARY</H>
+      <H>FROM LIBRARY · <Link href={`/p/${projectId}/library?item=${info.itemId}`} className="font-semibold">{info.item}</Link> {info.mode === 'own' ? `v${info.copiedFrom?.version ?? '?'}` : `v${info.version ?? '?'}`} · {MODES.find(m => m.v === info.mode)?.short}</H>
       <div className="flex flex-wrap items-center gap-3 text-[14px]">
-        <Link href={`/p/${projectId}/library?item=${info.itemId}`}>{info.item}</Link>
-        <span className="text-[#525252]">{info.mode === 'own' ? `copied from ${info.copiedFrom?.name || info.item} v${info.copiedFrom?.version ?? '?'}` : `v${info.version ?? '?'}`}</span>
-        <span className="flex-1" />
         {canWrite ? <Seg value={info.mode} disabled={set.isPending} onChange={m => set.mutate({ mode: m })} /> : <span>{MODES.find(m => m.v === info.mode)?.label}</span>}
+        <span className="flex-1" />
         {info.mode !== 'own' && (canWrite ? <span className="w-[220px]"><Dropdown value={String(info.pin)} options={pinOpts} onChange={v => set.mutate({ pin: v === 'latest' ? 'latest' : Number(v) })} /></span>
           : <span>{info.pin === 'latest' ? 'Latest approved' : `Stays on v${info.pin}`}</span>)}
       </div>
+      <div className="mt-2 text-[14px] text-[#525252]">{MODES.find(m => m.v === info.mode)?.means}</div>
+      {casePick && <div className="mt-3">{casePick}</div>}
       {info.mode !== 'own' && info.pin !== 'latest' && info.latest > info.pin && <div className="mt-2 text-[14px]">v{info.latest} is approved · <Link href="/">see it on Home</Link></div>}
       {info.mode === 'own' && <div className="mt-2 text-[14px]">{info.differ ? `${info.differ} line${info.differ === 1 ? '' : 's'} differ from library v${info.compare?.libraryVersion}` : `Same lines as library v${info.compare?.libraryVersion}`}{info.differ > 0 && <> · <button type="button" className="text-[#0f62fe] hover:underline" onClick={() => setCompare(c => !c)}>{compare ? 'Hide compare' : 'Compare'}</button></>}</div>}
       {compare && info.compare && (
@@ -113,12 +160,12 @@ export function LibrarySection({ projectId, d, label, canWrite }: { projectId: s
         </div>)}
       <ol className="m-0 mt-4 pl-0 list-none text-[14px] leading-[22px]">
         {lines.map((l: any, i: number) => (
-          <li key={l.key + i} className={`flex gap-3 items-baseline py-1.5 border-b border-[#e0e0e0] ${l.local ? 'border-l-2 border-l-[#0f62fe] pl-2' : 'pl-2.5'}`}>
+          <li key={l.key + i} className={`group flex gap-3 items-baseline py-1.5 border-b border-[#e0e0e0] ${l.local ? 'border-l-2 border-l-[#0f62fe] pl-2' : 'pl-2.5'}`}>
             <span className="text-[#6f6f6f] tabular-nums w-6 shrink-0">{i + 1}</span>
-            <span className={`flex-1 ${info.mode !== 'own' && !l.local ? 'text-[#6f6f6f]' : 'text-[#161616]'}`}>{lineText(d.type, l.line, cols, label)}</span>
-            <span className="text-[12px] text-[#525252] whitespace-nowrap">{l.from}</span>
-            {settingBtn(i)}
-            {canWrite && info.mode !== 'own' && !l.local && <button type="button" className="text-[13px] text-[#0f62fe] hover:underline whitespace-nowrap" disabled={line.isPending} onClick={() => line.mutate({ key: l.key, off: true })}>Switch off here</button>}
+            <span className={`flex-1 min-w-0 ${info.mode !== 'own' && !l.local ? 'text-[#525252]' : 'text-[#161616]'}`}>{lineView(l, i)}</span>
+            {l.local && <span className="text-[12px] text-[#525252] whitespace-nowrap">{l.from}</span>}
+            {worked(l, i)}
+            {lineMenu(l, i)}
           </li>))}
       </ol>
       {(info.off || []).length > 0 && (
