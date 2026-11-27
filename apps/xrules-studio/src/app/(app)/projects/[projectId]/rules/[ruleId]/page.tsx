@@ -113,7 +113,7 @@ function DefinitionTab({ rule, projectId }: { rule: any; projectId: string }) {
   const [saves, setSaves] = useState(0);
   // beside a topic's decision or calculation: the topic's test cases, run again after each save
   const withTests = (el: React.ReactNode) => rule.topicId
-    ? <BesideTests editor={el} tests={<TopicTests projectId={projectId} topicId={rule.topicId} focusId={rule.id} runKey={saves} />} />
+    ? <BesideTests editor={el} tests={<TopicTests projectId={projectId} topicId={rule.topicId} focusId={rule.id} runKey={saves} staleSince={rule.updatedAt} />} />
     : el;
   // every keystroke used to PUT straight away; replies could land out of order and leave an older definition saved
   const pending = useRef<any>({});
@@ -761,7 +761,7 @@ function BesideTests({ editor, tests }: { editor: React.ReactNode; tests: React.
   }, []);
   return (
     <div ref={box} className={`grid gap-4 items-start ${wide ? 'grid-cols-[minmax(0,1fr)_340px]' : 'grid-cols-1'}`}>
-      <div className="min-w-0">{editor}</div><div className={wide ? 'sticky top-4' : ''}>{tests}</div>
+      <div className="min-w-0">{editor}</div><div className={`min-w-0 ${wide ? 'sticky top-4' : ''}`}>{tests}</div>
     </div>
   );
 }

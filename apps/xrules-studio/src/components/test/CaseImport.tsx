@@ -86,7 +86,7 @@ export function CaseImport({ projectId, topicId, outputs = [], onClose }: { proj
     setTable(t);
     setCols((t[0] || []).map((h: any) => {
       const head = String(h ?? '').trim(); const path = match(head);
-      const role: Col['role'] = /^(name|case|case ?id|test ?case|no\.?)$/i.test(head) ? 'name' : /^(expected|exp)\b/i.test(head) || outputSet.has(path) ? 'expected' : path ? 'input' : 'skip';
+      const role: Col['role'] = /^(name|case|case ?(id|name|no\.?)|test ?case|scenario( ?(id|name))?|id|no\.?)$/i.test(head.trim()) ? 'name' : /^(expected|exp)\b/i.test(head) || outputSet.has(path) ? 'expected' : path ? 'input' : 'skip';
       return { head, role, path };
     }));
   };

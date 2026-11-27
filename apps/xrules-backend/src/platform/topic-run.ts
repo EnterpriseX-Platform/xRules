@@ -121,3 +121,13 @@ export function byDependency(ids: string[], rules: any[]): string[] {
   ids.forEach(visit);
   return out;
 }
+
+/** Remove (stamp) or bring back several test cases at once. */
+export async function stampCases(ids: any, user: any, remove: boolean) {
+  const { assertProjectAccess } = await import('../services/_access.js');
+  const list = (Array.isArray(ids) ? ids : []).map(String).slice(0, 5000);
+  const cases = await prisma.testCase.findMany({ where: { id: { in: list } }, select: { id: true, projectId: true } });
+  for (const pid of Array.from(new Set(cases.map(c => c.projectId)))) await assertProjectAccess(String(pid), user, 'write');
+  const r = await prisma.testCase.updateMany({ where: { id: { in: cases.map(c => c.id) } }, data: remove ? { deletedAt: new Date(), deletedBy: user.userId } : { deletedAt: null, deletedBy: null } });
+  return { count: r.count };
+}

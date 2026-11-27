@@ -93,3 +93,25 @@ export function RemovedCell({ onUndo }: { onUndo: () => Promise<unknown> }) {
     </span>
   );
 }
+
+/** Remove many rows at once: they stay greyed and marked Removed in place, one toast offers Undo for all of them. */
+export function useBulkRemove<T extends { id: string }>({ queryKey, also = [], noun, remove, restore }: {
+  queryKey: QueryKey; also?: QueryKey[]; noun: string; remove: (rows: T[]) => Promise<unknown>; restore: (rows: T[]) => Promise<unknown>;
+}) {
+  const qc = useQueryClient();
+  const push = useToasts(s => s.push);
+  const [busy, setBusy] = useState(false);
+  const mark = (ids: Set<string>, on: boolean) => qc.setQueryData(queryKey, (old: any) => (Array.isArray(old) ? old.map((r: any) => (ids.has(r.id) ? { ...r, _removed: on } : r)) : old));
+  const removeMany = async (rows: T[]) => {
+    const live = rows.filter(r => !(r as any)._removed); if (busy || !live.length) return;
+    const ids = new Set(live.map(r => r.id)); const what = `${live.length} ${noun}${live.length === 1 ? '' : 's'}`;
+    setBusy(true); await qc.cancelQueries({ queryKey }); mark(ids, true);
+    try {
+      await remove(live);
+      push({ message: `Removed ${what}`, undo: async () => { await restore(live); [queryKey, ...also].forEach(k => qc.invalidateQueries({ queryKey: k })); } });
+    } catch (e: any) { mark(ids, false); push({ error: true, message: `Couldn't remove ${what} — ${e?.message || 'request failed'}` }); }
+    finally { setBusy(false); }
+  };
+  const undoOne = async (row: T) => { await restore([row]); mark(new Set([row.id]), false); also.forEach(k => qc.invalidateQueries({ queryKey: k })); };
+  return { removeMany, undoOne, busy, isRemoved: (row: T) => !!(row as any)._removed };
+}
