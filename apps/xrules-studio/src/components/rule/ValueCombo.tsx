@@ -2,8 +2,8 @@
 // A value box that takes any typed value and offers the word's known values as you type ("Use 'Y'" when it is new).
 import { useRef, useState } from 'react';
 
-export function ValueCombo({ value, values, onChange, className = '', ariaLabel, placeholder = 'value' }: {
-  value: string; values: string[]; onChange: (v: string) => void; className?: string; ariaLabel?: string; placeholder?: string;
+export function ValueCombo({ value, values, onChange, className = '', ariaLabel, placeholder = 'value', block }: {
+  block?: boolean; value: string; values: string[]; onChange: (v: string) => void; className?: string; ariaLabel?: string; placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState<string | null>(null);
@@ -14,18 +14,19 @@ export function ValueCombo({ value, values, onChange, className = '', ariaLabel,
   const shown = values.filter(v => !t || q == null || v.toLowerCase().includes(t.toLowerCase())).slice(0, 30);
   const known = values.some(v => v === t);
   const items = [...shown.map(v => ({ v, label: v })), ...(t && !known ? [{ v: t, label: `Use "${t}"` }] : [])];
-  const pick = (v: string) => { onChange(v); setQ(null); setOpen(false); };
+  const typed = useRef<string | null>(null);   // what is typed and not yet used, read on blur
+  const pick = (v: string) => { typed.current = null; onChange(v); setQ(null); setOpen(false); };
   return (
-    <span className="relative inline-block">
+    <span className={`relative ${block ? 'block' : 'inline-block'}`}>
       <input ref={ref} aria-label={ariaLabel} placeholder={placeholder} className={className} value={text} role="combobox" aria-expanded={open} autoComplete="off"
         onFocus={() => { setOpen(true); setHi(0); }}
-        onChange={e => { setQ(e.target.value); setOpen(true); setHi(0); }}
-        onBlur={() => setTimeout(() => { setOpen(false); if (q != null) { if (q.trim() !== String(value ?? '')) onChange(q.trim()); setQ(null); } }, 120)}
+        onChange={e => { typed.current = e.target.value; setQ(e.target.value); setOpen(true); setHi(0); }}
+        onBlur={() => setTimeout(() => { setOpen(false); const v = typed.current; typed.current = null; if (v != null) { if (v.trim() !== String(value ?? '')) onChange(v.trim()); setQ(null); } }, 120)}
         onKeyDown={e => {
           if (e.key === 'ArrowDown') { e.preventDefault(); setHi(h => Math.min(h + 1, items.length - 1)); }
           else if (e.key === 'ArrowUp') { e.preventDefault(); setHi(h => Math.max(h - 1, 0)); }
           else if (e.key === 'Enter') { e.preventDefault(); const it = items[hi] || (t ? { v: t } : null); if (it) pick(it.v); ref.current?.blur(); }
-          else if (e.key === 'Escape') { setQ(null); setOpen(false); }
+          else if (e.key === 'Escape') { typed.current = null; setQ(null); setOpen(false); }
         }} />
       {open && items.length > 0 && (
         <span role="listbox" className="absolute left-0 top-full z-20 mt-px min-w-full w-max max-w-[320px] max-h-[260px] overflow-auto bg-white shadow-[0_2px_6px_rgba(0,0,0,.3)] text-[14px] text-[#161616] leading-normal">

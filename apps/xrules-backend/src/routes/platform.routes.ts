@@ -130,6 +130,7 @@ r.get('/vocabulary/suggest', authMiddleware, h(async req => (await import('../pl
 r.post('/vocabulary/bulk', authMiddleware, h(async req => (await import('../platform/vocabulary.js')).bulkTerms(req.body, req.user), 201));
 r.get('/reasons', authMiddleware, h(async req => (await import('../platform/reasons.js')).list(String(req.query.project_id), req.user)));
 r.post('/reasons', authMiddleware, h(async req => (await import('../platform/reasons.js')).save(req.body, req.user), 201));
+r.post('/reasons/bulk', authMiddleware, h(async req => (await import('../platform/reasons.js')).bulk(req.body, req.user), 201));
 r.post('/reasons/:id/remove', authMiddleware, h(async req => (await import('../platform/reasons.js')).remove(req.params.id, req.user)));
 r.post('/topics/:id/stages', authMiddleware, h(async req => (await import('../platform/topics.js')).setStages(req.params.id, req.body, req.user)));
 r.post('/vocabulary/ensure', authMiddleware, h(async req => (await import('../platform/vocabulary.js')).ensureTerms(req.body, req.user)));

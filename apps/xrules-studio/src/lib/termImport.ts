@@ -59,7 +59,8 @@ export function propose(rows: Record<string, any>[], known: { path: string; term
 
 function csvRows(text: string): string[][] {
   const rows: string[][] = []; let row: string[] = []; let cell = ''; let q = false;
-  const sep = (text.split('\n')[0].match(/;/g)?.length || 0) > (text.split('\n')[0].match(/,/g)?.length || 0) ? ';' : ',';
+  const first = text.split('\n')[0]; const n = (re: RegExp) => first.match(re)?.length || 0;
+  const sep = n(/\t/g) ? '\t' : n(/;/g) > n(/,/g) ? ';' : ',';
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
     if (q) { if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; } else if (c === '"') q = false; else cell += c; continue; }
@@ -84,13 +85,20 @@ export async function readSample(input: File | string): Promise<Record<string, a
   const name = input.name.toLowerCase();
   if (name.endsWith('.json')) { const j = JSON.parse(await input.text()); return Array.isArray(j) ? j : [j]; }
   if (name.endsWith('.csv') || name.endsWith('.txt')) return tableToRows(csvRows(await input.text()));
-  if (name.endsWith('.xlsx')) {
-    const ExcelJS = (await import('exceljs')).default;
-    const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await input.arrayBuffer());
-    const ws = wb.worksheets[0]; if (!ws) throw new Error('The file has no sheet');
-    const table: any[][] = [];
-    ws.eachRow({ includeEmpty: false }, row => { const r: any[] = []; row.eachCell({ includeEmpty: true }, (c, i) => { const v: any = c.value; r[i - 1] = v && typeof v === 'object' && !(v instanceof Date) ? (v.result ?? v.text ?? c.text) : v; }); table.push(r); });
-    return tableToRows(table);
-  }
+  if (name.endsWith('.xlsx')) return tableToRows(await readTable(input));
   throw new Error('Drop a .json, .xlsx or .csv file');
+}
+
+/** A table (rows of cells) from a dropped .xlsx / .csv or pasted rows (tab, comma or semicolon separated).
+ *  In a workbook the sheet whose first row names `prefer` is taken, else the first sheet. */
+export async function readTable(input: File | string, prefer?: RegExp): Promise<any[][]> {
+  if (typeof input === 'string') return csvRows(input.replace(/\r?\n$/, ''));
+  const name = input.name.toLowerCase();
+  if (name.endsWith('.csv') || name.endsWith('.txt') || name.endsWith('.tsv')) return csvRows(await input.text());
+  if (!name.endsWith('.xlsx')) throw new Error('Drop an .xlsx or .csv file');
+  const ExcelJS = (await import('exceljs')).default;
+  const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await input.arrayBuffer());
+  const read = (ws: any) => { const table: any[][] = []; ws.eachRow({ includeEmpty: false }, (row: any) => { const r: any[] = []; row.eachCell({ includeEmpty: true }, (c: any, i: number) => { const v: any = c.value; r[i - 1] = v && typeof v === 'object' && !(v instanceof Date) ? (v.result ?? v.text ?? c.text) : v; }); table.push(r); }); return table; };
+  const sheets = wb.worksheets.map(read); if (!sheets.length) throw new Error('The file has no sheet');
+  return (prefer && sheets.find(t => (t[0] || []).some(h => prefer.test(String(h ?? ''))))) || sheets[0];
 }
