@@ -4,14 +4,17 @@ import { useRef, useState } from 'react';
 import { valueLabel, valueCode } from '@/lib/terms';
 // values of a value set show their label (Retail) and store their code (C003); groups read "group Prohibited"
 
-export function ValueCombo({ value, values, onChange, className = '', ariaLabel, placeholder = 'value', block }: {
-  block?: boolean; value: string; values: string[]; onChange: (v: string) => void; className?: string; ariaLabel?: string; placeholder?: string;
+export function ValueCombo({ value, values, onChange, className = '', ariaLabel, placeholder = 'value', block, clearOnPick }: {
+  clearOnPick?: boolean; block?: boolean; value: string; values: string[]; onChange: (v: string) => void; className?: string; ariaLabel?: string; placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState<string | null>(null);
   const [hi, setHi] = useState(0);
   const ref = useRef<HTMLInputElement>(null);
-  const text = q ?? valueLabel(String(value ?? ''));
+  // after a pick the box shows the picked value until the saved one arrives
+  const [picked, setPicked] = useState<string | null>(null);
+  if (picked !== null && String(value ?? '') === picked) setPicked(null);
+  const text = q ?? valueLabel(String(picked ?? value ?? ''));
   const t = text.trim();
   const shown = values.filter(v => !t || q == null || v.toLowerCase().includes(t.toLowerCase()) || valueLabel(v).toLowerCase().includes(t.toLowerCase())).slice(0, 30);
   const known = values.some(v => v === t || valueLabel(v) === t);
@@ -20,15 +23,17 @@ export function ValueCombo({ value, values, onChange, className = '', ariaLabel,
   // the blur commit runs a moment later: it must use the newest onChange, or it writes an older line back
   const latest = useRef(onChange); latest.current = onChange;
   const cur = useRef(value); cur.current = value;
-  const pick = (v: string) => { typed.current = null; onChange(v); setQ(null); setOpen(false); };
+  const pick = (v: string) => { typed.current = null; onChange(v); if (!clearOnPick) { setPicked(v); setTimeout(() => setPicked(null), 2000); } setQ(null); setOpen(false); ref.current?.blur(); };
   return (
     <span className={`relative ${block ? 'block' : 'inline-block'}`}>
       <input ref={ref} aria-label={ariaLabel} placeholder={placeholder} className={className} value={text} role="combobox" aria-expanded={open} autoComplete="off"
         onMouseDown={e => { if (document.activeElement !== e.currentTarget) { e.preventDefault(); e.currentTarget.focus(); } }}
-        onFocus={e => { e.currentTarget.select(); setOpen(true); setHi(0); }}
-        onChange={e => { typed.current = e.target.value; setQ(e.target.value); setOpen(true); setHi(0); }}
+        onFocus={e => { const el = e.currentTarget; el.select(); requestAnimationFrame(() => { if (document.activeElement === el) el.select(); }); setOpen(true); setHi(0); }}
+        onClick={e => { if (!open) { e.currentTarget.select(); setOpen(true); } }}
+        onChange={e => { setPicked(null); typed.current = e.target.value; setQ(e.target.value); setOpen(true); setHi(0); }}
         onBlur={() => setTimeout(() => { setOpen(false); const v = typed.current; typed.current = null; if (v != null) { const c = valueCode(v, values); if (c !== String(cur.current ?? '')) latest.current(c); setQ(null); } }, 120)}
         onKeyDown={e => {
+          if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); e.stopPropagation(); e.currentTarget.select(); return; }
           if (e.key === 'ArrowDown') { e.preventDefault(); setHi(h => Math.min(h + 1, items.length - 1)); }
           else if (e.key === 'ArrowUp') { e.preventDefault(); setHi(h => Math.max(h - 1, 0)); }
           else if (e.key === 'Enter') { e.preventDefault(); const it = items[hi] || (t ? { v: valueCode(t, values) } : null); if (it) pick(it.v); ref.current?.blur(); }

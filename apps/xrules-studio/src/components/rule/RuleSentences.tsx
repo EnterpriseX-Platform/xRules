@@ -139,6 +139,9 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
   const findings = useMemo(() => tableChecks(def, label, fmt), [def, label]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function addRow() {
+    // an empty line already waiting is used instead of adding another one
+    const empty = (r: any) => (r.inputs || []).every(isAny) && !(r.or || []).length && !(r.reasons || []).length && (r.outputs || []).every((x: any) => x === null || x === undefined || x === '');
+    if (rules.some(empty)) return;
     const blank = { id: nid(), inputs: inputs.map(() => '-'), outputs: outputs.map(() => null) };
     const last = rules[rules.length - 1];
     const catchAll = last && (last.inputs || []).every(isAny) && !(last.or || []).length && !(last.reasons || []).length;
@@ -196,7 +199,8 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
     const t = term(name);
     const put = (op: string, a: any[]) => set(formatCellExpression(op, a));
     // a value the word does not allow (its allowed values or value set); formulas and dates like "180 days ago" are not checked
-    const notKnown = (v: any) => { const x = String(v ?? '').trim(); const vs = t?.values || []; return !!x && vs.length > 0 && !/^GROUP:/i.test(x) && !/[*/+×÷()]|\s-\s|\bago$|^today$|^in \d/i.test(x) && !vs.includes(x) && !vs.some(o => valueLabel(o).toLowerCase() === x.toLowerCase()); };
+    // only a value set is a closed list; values seen in imported samples are suggestions, numbers are never checked
+    const notKnown = (v: any) => { const x = String(v ?? '').trim(); const vs = t?.values || []; return !!x && !!(t?.valueSetId || t?.valueSet) && isNaN(Number(x.replace(/,/g, ''))) && vs.length > 0 && !/^GROUP:/i.test(x) && !/[*/+×÷()]|\s-\s|\bago$|^today$|^in \d/i.test(x) && !vs.includes(x) && !vs.some(o => valueLabel(o).toLowerCase() === x.toLowerCase()); };
     return (
       <span key={key} data-cond={key} className="inline-flex flex-wrap items-center gap-x-1.5">
         <Chip title={name}>{label(name)}</Chip>
@@ -210,7 +214,7 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
           const vals = String(args[0] ?? '').split(',').map(x => x.trim()).filter(Boolean);
           return <>
             {vals.map((v, k) => <span key={v} className="inline-flex items-center"><Chip className={notKnown(v) ? '!text-[#da1e28] !border-[#da1e28]' : ''} title={notKnown(v) ? `${v} is not one of the values of ${label(name)}` : undefined}>{valueLabel(v)}</Chip><button type="button" aria-label={`Remove ${v}`} className="h-6 w-5 text-[#8d8d8d] hover:text-[#da1e28]" onClick={() => put(operator, [vals.filter((_, i) => i !== k).join(', ')])}>×</button></span>)}
-            <ValueCombo className={`${plain} min-w-[90px]`} value="" placeholder={vals.length ? 'another' : 'value'} values={(t?.values || []).filter(x => !vals.includes(x))} ariaLabel={`${label(name)} value`}
+            <ValueCombo clearOnPick className={`${plain} min-w-[90px]`} value="" placeholder={vals.length ? 'another' : 'value'} values={(t?.values || []).filter(x => !vals.includes(x))} ariaLabel={`${label(name)} value`}
               onChange={v => { const add = v.split(',').map(x => x.trim()).filter(Boolean); if (add.length) put(operator, [Array.from(new Set([...vals, ...add])).join(', ')]); }} />
           </>;
         })()
@@ -340,9 +344,9 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
             <button type="button" disabled={pg >= pages - 1} className="h-8 px-3 text-[#0f62fe] disabled:text-[#c6c6c6] hover:bg-[#e8e8e8]" onClick={() => setPage(pg + 1)}>Next</button>
           </div>
         )}
-        <button type="button" className="h-10 px-4 text-[14px] text-[#0f62fe] hover:bg-[#f4f4f4] w-full text-left flex items-center gap-1 border-t border-[#e0e0e0]" onClick={addRow}>
+        <div className="border-t border-[#e0e0e0]"><button type="button" className="h-10 px-4 text-[14px] text-[#0f62fe] hover:bg-[#f4f4f4] text-left inline-flex items-center gap-1" onClick={addRow}>
           <Plus className="h-4 w-4" /> Add line
-        </button>
+        </button></div>
       </div>
       {findings.length > 0 && (
         <div className="space-y-1">

@@ -10,7 +10,10 @@ export function FmtInput({ value, onChange, className, size, ...rest }: { value:
   const shown = focus ? String(value ?? '') : fmtNum(value);
   return (
     <input {...rest} className={className} value={shown} size={size ?? Math.max(4, shown.length + 1)}
-      onFocus={e => { setFocus(true); rest.onFocus?.(e); }} onBlur={e => { setFocus(false); rest.onBlur?.(e); }}
+      // the shown text changes on focus (15,000 → 15000): select it after, so typing replaces it
+      onFocus={e => { setFocus(true); const el = e.currentTarget; requestAnimationFrame(() => { if (document.activeElement === el) el.select(); }); rest.onFocus?.(e); }}
+      onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); e.stopPropagation(); e.currentTarget.select(); return; } rest.onKeyDown?.(e); }}
+      onBlur={e => { setFocus(false); rest.onBlur?.(e); }}
       onChange={e => onChange(e.target.value.replace(/,/g, '').replace(/^\s+/, ''))} />
   );
 }
