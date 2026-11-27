@@ -4,8 +4,8 @@ import { useRef, useState } from 'react';
 import { valueLabel, valueCode } from '@/lib/terms';
 // values of a value set show their label (Retail) and store their code (C003); groups read "group Prohibited"
 
-export function ValueCombo({ value, values, onChange, className = '', ariaLabel, placeholder = 'value', block, clearOnPick }: {
-  clearOnPick?: boolean; block?: boolean; value: string; values: string[]; onChange: (v: string) => void; className?: string; ariaLabel?: string; placeholder?: string;
+export function ValueCombo({ value, values, onChange, className = '', ariaLabel, placeholder = 'value', block, clearOnPick, id }: {
+  id?: string; clearOnPick?: boolean; block?: boolean; value: string; values: string[]; onChange: (v: string) => void; className?: string; ariaLabel?: string; placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState<string | null>(null);
@@ -26,7 +26,7 @@ export function ValueCombo({ value, values, onChange, className = '', ariaLabel,
   const pick = (v: string) => { typed.current = null; onChange(v); if (!clearOnPick) { setPicked(v); setTimeout(() => setPicked(null), 2000); } setQ(null); setOpen(false); ref.current?.blur(); };
   return (
     <span className={`relative ${block ? 'block' : 'inline-block'}`}>
-      <input ref={ref} aria-label={ariaLabel} placeholder={placeholder} className={className} value={text} role="combobox" aria-expanded={open} autoComplete="off"
+      <input ref={ref} id={id} aria-label={ariaLabel} placeholder={placeholder} className={className} value={text} role="combobox" aria-expanded={open} autoComplete="off"
         onMouseDown={e => { if (document.activeElement !== e.currentTarget) { e.preventDefault(); e.currentTarget.focus(); } }}
         onFocus={e => { const el = e.currentTarget; el.select(); requestAnimationFrame(() => { if (document.activeElement === el) el.select(); }); setOpen(true); setHi(0); }}
         onClick={e => { if (!open) { e.currentTarget.select(); setOpen(true); } }}
