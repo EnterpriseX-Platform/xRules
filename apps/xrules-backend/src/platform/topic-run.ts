@@ -10,18 +10,22 @@ const REASON_KEYS = new Set(['reasons', 'reason', 'reasonText', 'outcome', 'deci
 /** What a topic answers when no reason fires, and its decision date. */
 export const topicSettings = (t: any) => { const s = t?.settings && typeof t.settings === 'object' ? t.settings : {}; return { decisionDate: s.decisionDate || null, outputs: { result: s.outputs?.result || null, decision: s.outputs?.decision || null, reasons: s.outputs?.reasons || null } as Record<'result' | 'decision' | 'reasons', string | null>, noReason: { outcome: s.noReason?.outcome || 'Approve', result: s.noReason?.result || s.noReason?.outcome || 'Approve' } }; };
 
-export async function runTopic(topicId: string, input: any) {
+export async function runTopic(topicId: string, input: any, opts: { overrides?: Record<string, any> } = {}) {
   const t = await prisma.topic.findFirst({ where: { id: topicId, deletedAt: null } });
   if (!t) throw new NotFoundError('Topic');
   const { withDecisionDate, decisionDateIn } = await import('../services/table-eval.js');
   const set = topicSettings(t);
   // a case's own decision date wins over the topic's
-  return withDecisionDate(decisionDateIn(input) || set.decisionDate, () => runSteps(t, input, set));
+  return withDecisionDate(decisionDateIn(input) || set.decisionDate, () => runSteps(t, input, set, opts.overrides || {}));
 }
 
-async function runSteps(t: any, input: any, set: ReturnType<typeof topicSettings>) {
+async function runSteps(t: any, input: any, set: ReturnType<typeof topicSettings>, overrides: Record<string, any>) {
   const topicId = t.id;
-  const rules = await prisma.rule.findMany({ where: { topicId }, orderBy: { createdAt: 'asc' } });
+  const { withSettings } = await import('./product-settings.js');
+  const product = typeof input?.product === 'string' && input.product.trim() ? input.product.trim() : t.product || null;
+  // a decision replaced for this run (approval ripple, a newer library version) and settings filled for the product
+  const rules = await Promise.all((await prisma.rule.findMany({ where: { topicId }, orderBy: { createdAt: 'asc' } }))
+    .map(r => withSettings(overrides[r.id] ? { ...r, definition: overrides[r.id], libraryRef: null } : r, input, product)));
   const flows = await prisma.flow.findMany({ where: { topicId, status: { not: 'ARCHIVED' as any } }, orderBy: { createdAt: 'asc' } });
   const stages: any[] = Array.isArray(t.stages) ? (t.stages as any[]) : [];
   const order: string[] = [];
@@ -53,7 +57,7 @@ async function runSteps(t: any, input: any, set: ReturnType<typeof topicSettings
       if (r) {
         const def: any = r.definition || {};
         if (r.type === 'DECISION_TABLE') lines = (def.rules || []).map((row: any, i: number) => (rowMatches(def, row, ctx) ? i + 1 : 0)).filter(Boolean);
-        o = r.type === 'DECISION_TABLE' && usesGroupsOrReasons(def) ? evaluateTable(def, ctx, catalogue) : ((await executeRule(r.id, ctx, {}, SYSTEM)) as any).output;
+        o = r.type === 'DECISION_TABLE' && usesGroupsOrReasons(def) ? evaluateTable(def, ctx, catalogue) : ((await executeRule(r.id, ctx, { __definition: def }, SYSTEM)) as any).output;
       } else {
         const { runArtifact } = await import('./runner.js');
         const res = await runArtifact(t.projectId, f!.id, ctx, { draft: true });
@@ -61,7 +65,10 @@ async function runSteps(t: any, input: any, set: ReturnType<typeof topicSettings
         o = res.output;
       }
       take(o);
-      trace.push({ id, name: r?.name || f?.name, lines, output: o });
+      // where each line came from: the library (and its version) or this product
+      const origins: string[] | undefined = (r as any)?.libraryRef?.origins;
+      const from = origins && lines ? lines.map(n => origins[n - 1] || '') : origins && r?.type === 'FORMULA' ? origins : undefined;
+      trace.push({ id, name: r?.name || f?.name, lines, output: o, ...(from && { from }), ...((r as any)?.libraryRef?.itemId && { origin: (r as any).libraryRef.mode }) });
     } catch (e: any) {
       trace.push({ id, name: r?.name || f?.name, error: String(e?.response?.data?.error?.message || e?.message || e) });
     }

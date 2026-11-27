@@ -23,6 +23,8 @@ function formatRule(rule: any) {
     tags: rule.tags || [],
     status: rule.status.toLowerCase(),
     reviewState: rule.reviewState,
+    library: !!rule.library,
+    libraryRef: rule.libraryRef ?? null,
     version: rule.version,
     projectId: rule.projectId,
     workspaceId: rule.project?.workspaceId,
@@ -304,6 +306,11 @@ export async function updateRule(
     data: updateData,
     include: { createdBy: true },
   });
+  // a step that uses a library item keeps only its difference from the library
+  if (data.definition && (rule as any).libraryRef) {
+    await (await import('../platform/library.js')).onLocalEdit(id);
+    return formatRule(await prisma.rule.findUnique({ where: { id }, include: { createdBy: true } }));
+  }
 
   return formatRule(updated);
 }
@@ -356,6 +363,8 @@ export async function publishRule(id: string, user: AuthUser) {
     data: { status: 'PUBLISHED' },
     include: { createdBy: true },
   });
+  // an approved library item flows into every step that follows its latest version
+  if ((rule as any).library) await (await import('../platform/library.js')).refreshUsers(rule.id);
 
   return formatRule(updated);
 }

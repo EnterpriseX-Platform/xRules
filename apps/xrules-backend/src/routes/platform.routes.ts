@@ -37,6 +37,24 @@ r.get('/home', authMiddleware, h(async req => (await import('../platform/home.js
 r.get('/data-requests', authMiddleware, h(async req => (await import('../platform/home.js')).listRequests(String(req.query.project_id), req.user)));
 r.post('/data-requests', authMiddleware, h(async req => (await import('../platform/home.js')).requestData(req.body, req.user), 201));
 r.post('/data-requests/:id/close', authMiddleware, h(async req => (await import('../platform/home.js')).closeRequest(req.params.id, req.body, req.user)));
+// ---- Library (shared decisions and calculations), settings tables, new product from a product
+const LIB = () => import('../platform/library.js'); const SET = () => import('../platform/product-settings.js');
+r.get('/library', authMiddleware, h(async req => (await LIB()).list(String(req.query.project_id), req.user)));
+r.get('/library/duplicates', authMiddleware, h(async req => (await LIB()).duplicates(String(req.query.project_id), req.user)));
+r.post('/library/move', authMiddleware, h(async req => (await LIB()).moveToLibrary(req.body, req.user), 201));
+r.post('/library/reference', authMiddleware, h(async req => (await LIB()).reference(req.body, req.user), 201));
+r.get('/library/:id/ripple', authMiddleware, h(async req => (await LIB()).ripple(req.params.id, req.user)));
+r.get('/library/ref/:ruleId', authMiddleware, h(async req => (await LIB()).info(req.params.ruleId, req.user)));
+r.post('/library/ref/:ruleId', authMiddleware, h(async req => (await LIB()).setRef(req.params.ruleId, req.body || {}, req.user)));
+r.post('/library/ref/:ruleId/line', authMiddleware, h(async req => (await LIB()).toggleLine(req.params.ruleId, req.body || {}, req.user)));
+r.get('/library/ref/:ruleId/difference', authMiddleware, h(async req => (await LIB()).versionDiff(req.params.ruleId, req.user)));
+r.post('/library/ref/:ruleId/take', authMiddleware, h(async req => (await LIB()).takeNew(req.params.ruleId, req.body || {}, req.user)));
+r.post('/products/new', authMiddleware, h(async req => (await LIB()).newProduct(req.body, req.user), 201));
+r.get('/settings-table', authMiddleware, h(async req => (await SET()).list(String(req.query.project_id), req.user)));
+r.post('/settings-table', authMiddleware, h(async req => (await SET()).save(req.body, req.user)));
+r.post('/settings-table/restore', authMiddleware, h(async req => (await SET()).restore(req.body?.ids || [], req.user)));
+r.post('/settings-table/make', authMiddleware, h(async req => (await SET()).makeSetting(req.body, req.user), 201));
+r.post('/settings-table/make-pair', authMiddleware, h(async req => (await SET()).makeSettingPair(req.body, req.user), 201));
 r.get('/topics/templates', authMiddleware, h(async () => (await import('../platform/topic-templates.js')).list()));
 r.post('/topics/start', authMiddleware, h(async req => (await import('../platform/topic-templates.js')).start(req.body, req.user), 201));
 r.get('/topics', authMiddleware, h(async req => (await import('../platform/topics.js')).list(String(req.query.project_id), req.user)));

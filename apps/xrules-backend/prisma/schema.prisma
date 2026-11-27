@@ -236,6 +236,11 @@ model Rule {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   reviewState String   @default("NONE")
+  // a project library item: one decision or calculation several products share
+  library     Boolean  @default(false)
+  // a topic step's reference to a library item:
+  // { itemId, mode: use|extend|own, pin: "latest"|n, version, diff: { off: [key], added: [{ after, line }] }, origins: [text], copiedFrom: { id, name, version } }
+  libraryRef  Json?
 
   @@unique([projectId, slug])
   @@unique([projectId, alias])
@@ -1291,4 +1296,21 @@ model ValueSet {
 
   @@index([projectId])
   @@map("value_sets")
+}
+
+// Settings table: one row per setting (max DSR (bureau hit), min RI, …), one value per product.
+// A line reads one as "<setting> of this product"; the run knows the product from the topic or the API call.
+model ProductSetting {
+  id        String    @id @default(cuid())
+  projectId String
+  name      String
+  values    Json      @default("{}")
+  position  Int       @default(0)
+  deletedAt DateTime?
+  deletedBy String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([projectId])
+  @@map("product_settings")
 }

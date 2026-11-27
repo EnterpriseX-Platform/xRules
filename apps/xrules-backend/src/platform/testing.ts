@@ -60,6 +60,23 @@ async function execute(c: any): Promise<{ status: number; body: any; ms: number;
   return { status: 200, body: r.output, ms: r.ms };
 }
 
+/** Run a topic's cases with some decisions replaced, without saving results (approval ripple, taking a new version). */
+export async function dryRunTopic(topicId: string, overrides: Record<string, any>) {
+  const { runTopic } = await import('./topic-run.js');
+  const cases = await prisma.testCase.findMany({ where: { deletedAt: null, targetType: 'topic', targetId: topicId }, orderBy: { createdAt: 'asc' } });
+  const out: { id: string; name: string; pass: boolean; checks: { ok: boolean; message: string }[]; result: any }[] = [];
+  for (const c of cases) {
+    const exps: Expectation[] = (c.expectations as any) || (c.expected ? [{ kind: 'equals', path: '$', value: c.expected }] : []);
+    const t0 = Date.now(); let r: { status: number; body: any; ms: number; error?: string };
+    try { const x = await runTopic(topicId, c.input, { overrides }); const failed = x.trace.find((y: any) => y.error); r = { status: 200, body: x.output, ms: Date.now() - t0, ...(failed && { error: `${failed.name}: ${failed.error}` }) }; }
+    catch (e: any) { r = { status: 500, body: null, ms: Date.now() - t0, error: e.message }; }
+    const checks = r.error ? [{ ok: false, message: r.error }] : exps.map(e => check(e, r));
+    const result = Object.fromEntries(exps.filter(e => e.kind === 'equals' && e.path).map(e => [e.path!, read(r.body, e.path)]));
+    out.push({ id: c.id, name: c.name, pass: !r.error && checks.every(x => x.ok), checks, result });
+  }
+  return out;
+}
+
 export async function runCase(caseId: string) {
   const c = await prisma.testCase.findUnique({ where: { id: caseId } });
   if (!c) throw new NotFoundError('Test case');

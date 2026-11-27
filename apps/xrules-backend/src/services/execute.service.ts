@@ -239,6 +239,9 @@ async function executeRuleIn(ruleId: string, input: any, context: any, user: Aut
   if (!rule) {
     throw new NotFoundError('Rule');
   }
+  // a topic run hands over the definition it works with; settings are filled for the product this run is for
+  if (context?.__definition) { rule = { ...rule, definition: context.__definition }; const { __definition, ...rest } = context; context = rest; }
+  rule = await (await import('../platform/product-settings.js')).withSettings(rule, input);
 
   // System user (used by DR.solve chained calls) skips membership check —
   // the originating call already validated the caller, so we trust the chain.

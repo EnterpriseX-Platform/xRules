@@ -39,7 +39,9 @@ export async function home(user: AuthUser) {
       tests: { total: ts.reduce((a, b) => a + b.total, 0), pass: ts.reduce((a, b) => a + b.pass, 0), fail: ts.reduce((a, b) => a + (b.fail || 0), 0) } };
   };
   const ready = await prisma.dataRequest.findMany({ where: { projectId: { in: ids }, deletedAt: null, status: 'DONE', requestedBy: me, doneAt: { gte: new Date(Date.now() - 14 * 864e5) } }, orderBy: { doneAt: 'desc' }, take: 10 }).catch(() => []);
+  const behind = await (await import('./library.js')).behind(ids).catch(() => []);
   return {
+    libraryBehind: behind,
     topics: topics.map(t => ({ id: t.id, name: t.name, goal: t.goal, projectId: t.projectId, project: pname.get(t.projectId), updatedAt: t.updatedAt, shape: t.shape, ...sum(t) })),
     dataReady: (ready as any[]).map(d => ({ id: d.id, term: d.term, projectId: d.projectId, createdAt: d.createdAt, doneAt: d.doneAt, answer: d.answer })),
     failingTests: failing.map(f => ({ ...f, target: rn.get(f.targetId!) || '—', project: pname.get(f.projectId!) })),
