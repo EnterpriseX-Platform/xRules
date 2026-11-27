@@ -11,7 +11,7 @@ const KIND: Record<string, string> = { DECISION_TABLE: 'qualify', DECISION_TREE:
 function fieldsOf(def: any, graph: any): string[] {
   const out = new Set<string>();
   const words = (s: any) => (String(s ?? '').match(/[A-Za-z_][\w]*/g) || []).forEach(w => out.add(w));
-  (def?.inputs || []).forEach((c: any) => c?.name && out.add(String(c.name)));
+  (def?.inputs || []).forEach((c: any) => c?.name && out.add(String(c.name).replace(/^(any|all):/, '')));
   (def?.lines || []).forEach((l: any) => words(l?.expr));
   for (const n of graph?.nodes || []) {
     const d = n.data || {};

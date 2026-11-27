@@ -11,11 +11,83 @@ type Reason = { code: string; text: string; outcome: string; priority: number };
 
 const blank = (c: any) => c === null || c === undefined || (typeof c === 'string' && ['', '-', 'any'].includes(c.trim().toLowerCase()));
 export const isElseCell = (c: any) => typeof c === 'string' && ['else', '_else_'].includes(c.trim().toLowerCase());
-const get = (o: any, path: string) => (path in (o || {}) ? o[path] : String(path).split('.').reduce((a, k) => (a == null ? undefined : a[k]), o));
+const plainGet = (o: any, path: string) => (o && typeof o === 'object' && path in o ? o[path] : String(path).split('.').reduce((a, k) => (a == null ? undefined : a[k]), o));
+
+// ---- multi-level data: paths through lists (bureau_accounts[].payments[].days_past_due), aggregate words (@name),
+// "any:" / "all:" columns over a list, tables run per item of a list, and value sets (codes, groups, extra columns).
+type Entry = { v: any; at: string[] };
+type Frame = { list: string; item: any; at: string[] };
+type ProjectCtx = { aggs: Record<string, any>; sets: Record<string, { name: string; rows: any[]; groups: Record<string, string[]>; columns: string[] }> };
+let CTX: ProjectCtx | null = null; let ROOT: any = null; let FRAMES: Frame[] = []; let FIRED: string[][] = [];
+const singular = (k: string) => k.replace(/([a-z\d])([A-Z])/g, '$1 $2').replace(/[_\-]+/g, ' ').toLowerCase().replace(/ies$/, 'y').replace(/(?<!s)s$/, '');
+/** Every value at a path, each with the list items it came through ("bureau account 3", "payment 5"). */
+export function walk(o: any, path: string, at: string[] = []): Entry[] {
+  let cur: Entry[] = [{ v: o, at }];
+  for (const seg of String(path).split('.').filter(Boolean)) {
+    const isList = seg.endsWith('[]'); const key = isList ? seg.slice(0, -2) : seg; const next: Entry[] = [];
+    for (const c of cur) {
+      const x = key === '' ? c.v : c.v && typeof c.v === 'object' ? c.v[key] : undefined;
+      if (isList) (Array.isArray(x) ? x : []).forEach((it, i) => next.push({ v: it, at: [...c.at, `${singular(key) || 'item'} ${i + 1}`] }));
+      else next.push({ v: x, at: c.at });
+    }
+    cur = next;
+  }
+  return cur;
+}
+/** A path read where the current list item (a per-item table, an aggregate) is in force. */
+function resolveAll(path: string): Entry[] {
+  for (let i = FRAMES.length - 1; i >= 0; i--) { const f = FRAMES[i]; if (path.startsWith(f.list + '.')) return walk(f.item, path.slice(f.list.length + 1), f.at); }
+  return walk(ROOT, path);
+}
+const hasList = (p: string) => p.includes('[]');
+function aggValue(path: string): any {
+  const a = CTX?.aggs?.[path]; if (!a || !a.list) return undefined;
+  const list = String(a.list).endsWith('[]') ? String(a.list) : `${a.list}[]`;
+  const rel = (f: string) => (f.startsWith(list + '.') ? f.slice(list.length + 1) : f);
+  const vals: number[] = [];
+  for (const e of resolveAll(list)) {
+    FRAMES.push({ list, item: e.v, at: e.at });
+    try {
+      const conds = (Array.isArray(a.where) ? a.where : a.where ? [a.where] : []).filter((w: any) => w?.field && !blank(w.cell));
+      if (!conds.every((w: any) => matchCell(w.cell, valueAt(`${list}.${rel(String(w.field))}`, w.field), ROOT))) continue;
+      if (String(a.fn).toLowerCase() === 'count') { vals.push(1); continue; }
+      const v = num(valueAt(`${list}.${rel(String(a.field || ''))}`, a.field)); if (!isNaN(v)) vals.push(v);
+    } finally { FRAMES.pop(); }
+  }
+  switch (String(a.fn).toLowerCase()) {
+    case 'count': return vals.length;
+    case 'sum': return vals.reduce((x, y) => x + y, 0);
+    case 'max': return vals.length ? Math.max(...vals) : null;
+    case 'min': return vals.length ? Math.min(...vals) : null;
+    case 'avg': return vals.length ? vals.reduce((x, y) => x + y, 0) / vals.length : null;
+  }
+  return null;
+}
+function valueAt(full: string, field?: string): any {
+  if (field && String(field).startsWith('@')) return aggValue(String(field));
+  const es = resolveAll(full); const rest = FRAMES.length && full.startsWith(FRAMES[FRAMES.length - 1].list + '.') ? full.slice(FRAMES[FRAMES.length - 1].list.length + 1) : full;
+  return hasList(rest) ? es.map(e => e.v) : es[0]?.v;
+}
+/** value-set lookups: "margin of business_type" */
+function setExtra(word: string, column: string, scope: any): any {
+  const vs = CTX?.sets?.[word]; if (!vs) return undefined;
+  const code = get(scope, word); const row = vs.rows.find((r: any) => String(r.code) === String(code));
+  return row?.extra?.[column] ?? null;
+}
+const get = (o: any, path: string): any => {
+  const p = String(path);
+  if (p.startsWith('@')) return aggValue(p);
+  if (o && typeof o === 'object' && p in o) return o[p];
+  if (hasList(p) || FRAMES.length) return valueAt(p);
+  const v = plainGet(o, p);
+  if (v === undefined && CTX && p.includes('.')) { const i = p.lastIndexOf('.'); const w = p.slice(0, i); if (CTX.sets[w]) return setExtra(w, p.slice(i + 1), o); }
+  return v;
+};
+const inGroup = (actual: any, g: string) => Object.values(CTX?.sets || {}).some(s => (s.groups?.[g] || []).map(String).includes(String(actual)));
 const num = (v: any) => (v === '' || v === null || v === undefined ? NaN : Number(String(v).replace(/,/g, '')));
 const unq = (s: string) => s.trim().replace(/^["']|["']$/g, '');
 const list = (s: string) => String(s ?? '').replace(/^\[|\]$/g, '').split(',').map(unq).filter(x => x !== '');
-const same = (a: any, b: string) => { const n = num(b); return typeof a === 'number' || (!isNaN(n) && !isNaN(num(a)) && typeof a !== 'boolean') ? num(a) === n : String(a) === unq(b); };
+const same = (a: any, b: string) => { if (/^GROUP:/i.test(String(b).trim())) return inGroup(a, unq(String(b)).replace(/^GROUP:\s*/i, '')); const n = num(b); return typeof a === 'number' || (!isNaN(n) && !isNaN(num(a)) && typeof a !== 'boolean') ? num(a) === n : String(a) === unq(b); };
 
 // ---- dates and small formulas inside a line ("is at least monthly_income * 0.8", "is after 180 days ago")
 /** A date from 20250115 / "2025-01-15" / an ISO time / a Date; null when it is not one. */
@@ -61,8 +133,11 @@ export const isFormulaArg = (arg: string, op = '>') => {
   return /[*/+×÷()]|\s-\s/.test(a) || /^[A-Z_]+\(/.test(a) || (['>', '>=', '<', '<='].includes(op) && /[A-Za-z_]/.test(a));
 };
 function formulaValue(arg: string, scope: any): any {
-  const e = String(arg).replace(/−/g, '-').replace(/×/g, '*').replace(/÷/g, '/');
-  try { return evalExpression(e, { ...(scope || {}), input: scope, ...DATE_FUNCS, Math }); } catch { return undefined; }
+  const e = String(arg).replace(/−/g, '-').replace(/×/g, '*').replace(/÷/g, '/')
+    // "margin of business_type" reads an extra column of the word's value set; @words are aggregates
+    .replace(/\b([A-Za-z_]\w*) of ([A-Za-z_][\w.]*)/g, (_m, c, w) => `__of(${JSON.stringify(w)}, ${JSON.stringify(c)})`)
+    .replace(/@([A-Za-z_]\w*)/g, (_m, n) => `__agg(${JSON.stringify('@' + n)})`);
+  try { return evalExpression(e, { ...(scope || {}), input: scope, ...DATE_FUNCS, Math, __of: (w: string, c: string) => setExtra(w, c, scope), __agg: (p: string) => aggValue(p) }); } catch { return undefined; }
 }
 
 export function matchCell(cell: any, actual: any, scope?: any): boolean {
@@ -110,16 +185,28 @@ export function groupsOf(def: any, row: any): Group[] {
   return [main, ...extra].filter(g => g.cells.length);
 }
 
+/** One condition: a plain word, or a word over a list ("any:" / "all:", or a list path read as any). */
+function cellHolds(name: string, cell: any, input: any): boolean {
+  const q = String(name).match(/^(any|all):(.*)$/); const path = q ? q[2] : String(name);
+  if (!q && !hasList(path)) return matchCell(cell, get(input, path), input);
+  if (!q && FRAMES.length && !hasList(path.slice(FRAMES[FRAMES.length - 1].list.length + 1)) && path.startsWith(FRAMES[FRAMES.length - 1].list + '.')) return matchCell(cell, get(input, path), input);
+  const es = resolveAll(path);
+  if (q?.[1] === 'all') return es.length > 0 && es.every(e => matchCell(cell, e.v, input));
+  const hit = es.find(e => matchCell(cell, e.v, input)); if (hit && hit.at.length) FIRED.push(hit.at);
+  return !!hit;
+}
 export function rowMatches(def: any, row: any, input: any): boolean {
   const gs = groupsOf(def, row);
   if (!gs.length) return true;
-  return gs.some(g => g.match === 'any' ? g.cells.some(c => matchCell(c.cell, get(input, c.name), input)) : g.cells.every(c => matchCell(c.cell, get(input, c.name), input)));
+  return gs.some(g => g.match === 'any' ? g.cells.some(c => cellHolds(c.name, c.cell, input)) : g.cells.every(c => cellHolds(c.name, c.cell, input)));
 }
 
 const cellUsesFormula = (c: any) => { if (typeof c !== 'string') return false; const m = c.trim().match(/^(>=|<=|!=|>|<|=)\s*(.*)$/); return !!m && (isFormulaArg(m[2], m[1]) || !!relDate(m[2]) || (['>', '>=', '<', '<='].includes(m[1]) && /^\d{8}$/.test(m[2].trim()))); };
 /** A line value that is a formula or a date only this evaluator understands. */
 export const usesFormulas = (def: any) => (def?.rules || []).some((r: any) => (r?.inputs || []).some(cellUsesFormula) || (Array.isArray(r?.or) && r.or.some((g: any) => Object.values(g?.when || {}).some(cellUsesFormula))));
-export const usesGroupsOrReasons = (def: any) => usesFormulas(def) || (def?.rules || []).some((r: any) => (Array.isArray(r?.or) && r.or.length) || r?.match === 'any' || (Array.isArray(r?.reasons) && r.reasons.length));
+/** Lists, aggregates, per-item tables and value-set groups run only in this evaluator. */
+export const usesLists = (def: any) => !!def?.perItem?.list || (def?.inputs || []).some((c: any) => /\[\]|^@|^(any|all):/.test(String(c?.name || ''))) || /GROUP:|@[A-Za-z_]| of [A-Za-z_]/.test(JSON.stringify(def?.rules || []));
+export const usesGroupsOrReasons = (def: any) => usesFormulas(def) || usesLists(def) || (def?.rules || []).some((r: any) => (Array.isArray(r?.or) && r.or.length) || r?.match === 'any' || (Array.isArray(r?.reasons) && r.reasons.length));
 export const usesReasons = (def: any) => (def?.rules || []).some((r: any) => Array.isArray(r?.reasons) && r.reasons.length);
 
 /** Lines with "or" groups as plain rows for an engine that only knows AND rows (one row per alternative). */
@@ -139,33 +226,73 @@ export function expandForEngine(def: any): any[] {
 
 /** Run the whole table here. Hit policies as the studio names them: FIRST_MATCH · STANDARD · ARRAY · EVALUATE_ALL. */
 export function evaluateTable(def: any, input: any, catalogue: Reason[] = []): any {
+  const prev = { CTX, ROOT, FRAMES, FIRED };
+  CTX = (catalogue as any)?.project || null; ROOT = input; FRAMES = []; FIRED = [];
+  try { return evaluateIn(def, input, catalogue); } finally { ({ CTX, ROOT, FRAMES, FIRED } = prev); }
+}
+function evaluateIn(def: any, input: any, catalogue: Reason[]): any {
   const outs: string[] = (def?.outputs || []).map((o: any) => o.name);
   const policy = String(def?.hitPolicy || 'STANDARD').toUpperCase();
   const first = policy === 'FIRST' || policy === 'FIRST_MATCH' || policy === 'UNIQUE' || policy === 'ANY';
   const rows: any[] = def?.rules || [];
   const elseRow = rows.find(r => Array.isArray(r?.inputs) && r.inputs.some(isElseCell));
   const value = (r: any) => Object.fromEntries(outs.map((n, i) => [n, r?.outputs?.[i] ?? null]));
-  const hits: any[] = []; const all: any[] = [];
-  for (const r of rows) {
-    if (r === elseRow) continue;
-    const ok = rowMatches(def, r, input);
-    if (policy === 'EVALUATE_ALL') all.push({ _match: ok, ...value(r) });
-    if (ok) { hits.push(r); if (first) break; }
-  }
+  const hits: any[] = []; const all: any[] = []; const trace: string[] = [];
+  const tag = (r: any) => (Array.isArray(r?.reasons) && r.reasons.length ? r.reasons.join(', ') : outs.length ? outs.map((n, i) => `${n} ${r?.outputs?.[i] ?? ''}`).join(', ') : `line ${rows.indexOf(r) + 1}`);
+  const runLines = (where?: string[]) => {
+    const got: any[] = [];
+    for (const r of rows) {
+      if (r === elseRow) continue;
+      FIRED = [];
+      const ok = rowMatches(def, r, input);
+      if (policy === 'EVALUATE_ALL' && !where) all.push({ _match: ok, ...value(r) });
+      if (ok) {
+        const at = where?.length ? where.join(' · ') : FIRED[0]?.join(' · ');
+        if (at) trace.push(`${at} → ${tag(r)}`);
+        got.push(r); if (first) break;
+      }
+    }
+    return got;
+  };
+  const per = def?.perItem?.list ? String(def.perItem.list).replace(/(\[\])?$/, '[]') : '';
+  const perItems: { row: any; at: string }[] = [];
+  if (per) {
+    // the table runs once per item of the list; "first" stops at the first item with a matching line
+    for (const e of walk(input, per)) {
+      FRAMES = [{ list: per, item: e.v, at: e.at }];
+      const got = runLines(e.at);
+      FRAMES = [];
+      got.forEach(r => perItems.push({ row: r, at: e.at.join(' · ') }));
+      if (got.length) hits.push(...got);
+      if (got.length && def.perItem.rollup === 'first') break;
+    }
+  } else hits.push(...runLines());
   if (!hits.length && elseRow) hits.push(elseRow);
   let result: any;
   if (policy === 'EVALUATE_ALL') result = all;
   else if (first) result = hits[0] ? value(hits[0]) : null;
   else if (policy === 'ARRAY') { const cols: Record<string, unknown[]> = {}; for (const h of hits) for (const [k, v] of Object.entries(value(h))) (cols[k] ||= []).push(v); result = cols; }
   else result = hits.map(value);
-  if (!usesReasons(def)) return result;
+  if (per && perItems.length) result = first || def.perItem.rollup === 'first' ? { ...value(perItems[0].row), _item: perItems[0].at } : perItems.map(h => ({ _item: h.at, ...value(h.row) }));
+  // the item that fired, and values that are not in the word's value set
+  const extra: any = {};
+  if (trace.length) extra._trace = trace;
+  const unknown: string[] = [];
+  for (const c of def?.inputs || []) {
+    const p = String(c?.name || '').replace(/^(any|all):/, ''); const vs = CTX?.sets?.[p]; if (!vs) continue;
+    const vals = hasList(p) ? walk(input, p).map(e => e.v) : [get(input, p)];
+    for (const v of vals) if (v !== undefined && v !== null && v !== '' && !vs.rows.some((r: any) => String(r.code) === String(v))) unknown.push(`${v} is not in ${vs.name}`);
+  }
+  if (unknown.length) extra._unknown = Array.from(new Set(unknown));
+  const withExtra = (x: any) => (!Object.keys(extra).length ? x : x && typeof x === 'object' && !Array.isArray(x) ? { ...x, ...extra } : { result: x, ...extra });
+  if (!usesReasons(def)) return withExtra(result);
 
   // reasons: every code the matching lines raise, the top one by priority, and its outcome
-  const codes = Array.from(new Set(hits.flatMap(h => (Array.isArray(h.reasons) ? h.reasons : []).map(String))));
+  const codes = Array.from(new Set(hits.flatMap((h: any) => (Array.isArray(h.reasons) ? h.reasons : []).map(String))));
   const known = codes.map(c => catalogue.find(x => x.code === c) || { code: c, text: c, outcome: 'Decline', priority: Number.MAX_SAFE_INTEGER });
   const top = [...known].sort((a, b) => a.priority - b.priority)[0];
   const reasons = { reasons: codes, reason: top?.code ?? null, reasonText: top?.text ?? null, outcome: top?.outcome ?? 'Approve' };
-  if (!outs.length) return reasons;
-  if (result && typeof result === 'object' && !Array.isArray(result)) return { ...result, ...reasons };
-  return { lines: result, ...reasons };
+  if (!outs.length) return withExtra(reasons);
+  if (result && typeof result === 'object' && !Array.isArray(result)) return withExtra({ ...result, ...reasons });
+  return withExtra({ lines: result, ...reasons });
 }

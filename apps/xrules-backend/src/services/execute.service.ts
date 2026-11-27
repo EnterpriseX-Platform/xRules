@@ -11,7 +11,19 @@ import { evaluateTable, expandForEngine, usesGroupsOrReasons, DATE_FUNCS } from 
 
 /** The project's reason codes, for tables whose lines add reasons. */
 export async function reasonCatalogue(projectId: string) {
-  return prisma.reasonCode.findMany({ where: { projectId, deletedAt: null }, select: { code: true, text: true, outcome: true, priority: true } });
+  const [list, words, sets] = await Promise.all([
+    prisma.reasonCode.findMany({ where: { projectId, deletedAt: null }, select: { code: true, text: true, outcome: true, priority: true } }),
+    prisma.vocabularyTerm.findMany({ where: { projectId, deletedAt: null }, select: { path: true, aggregate: true, valueSetId: true } }).catch(() => [] as any[]),
+    prisma.valueSet.findMany({ where: { projectId, deletedAt: null } }).catch(() => [] as any[]),
+  ]);
+  // aggregate words and value sets travel with the catalogue to the table evaluator
+  const project = { aggs: {} as Record<string, any>, sets: {} as Record<string, any> };
+  for (const w of words as any[]) {
+    if (w.aggregate) project.aggs[w.path] = w.aggregate;
+    const vs = w.valueSetId && (sets as any[]).find(s => s.id === w.valueSetId);
+    if (vs) project.sets[w.path] = { name: vs.name, rows: vs.rows || [], groups: vs.groups || {}, columns: vs.columns || [] };
+  }
+  return Object.assign(list, { project });
 }
 
 // Wire DR.solve() in the sandbox so SCRIPT rules can chain into other rules.

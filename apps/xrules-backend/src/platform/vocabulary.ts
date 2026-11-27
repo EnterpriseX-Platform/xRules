@@ -114,13 +114,26 @@ export async function terms(projectId: string): Promise<Term[]> {
 }
 export async function listTerms(projectIdOrSlug: string, user: AuthUser) {
   const p = await assertProjectAccess(projectIdOrSlug, user);
-  return prisma.vocabularyTerm.findMany({ where: { projectId: p.id, deletedAt: null }, orderBy: { term: 'asc' } });
+  const [list, sets] = await Promise.all([
+    prisma.vocabularyTerm.findMany({ where: { projectId: p.id, deletedAt: null }, orderBy: { term: 'asc' } }),
+    prisma.valueSet.findMany({ where: { projectId: p.id, deletedAt: null } }),
+  ]);
+  // a word on a value set offers the set's codes (labels shown) and its groups
+  return list.map(t => {
+    const vs = t.valueSetId ? sets.find(s => s.id === t.valueSetId) : null;
+    if (!vs) return t;
+    const rows = (vs.rows as any[]) || [];
+    return { ...t, values: rows.map(r => String(r.code)), labels: Object.fromEntries(rows.map(r => [String(r.code), String(r.label ?? r.code)])),
+      groups: Object.keys((vs.groups as any) || {}), valueSet: { id: vs.id, name: vs.name, columns: vs.columns } };
+  });
 }
-export async function upsertTerm(data: { id?: string; projectId: string; term: string; path: string; type?: string; values?: string[]; description?: string; unit?: string }, user: AuthUser) {
+export async function upsertTerm(data: { id?: string; projectId: string; term: string; path: string; type?: string; values?: string[]; description?: string; unit?: string; valueSetId?: string | null; aggregate?: any }, user: AuthUser) {
   const p = await assertProjectAccess(data.projectId, user, 'write');
   if (!data.term?.trim() || !data.path?.trim()) throw new ValidationError('term and path required');
   if (/[\s]/.test(data.path)) throw new ValidationError('path must not contain spaces');
-  const fields = { term: data.term.trim(), path: data.path.trim(), type: data.type || 'text', values: data.values || [], description: data.description, unit: data.unit?.trim() || null };
+  const fields: any = { term: data.term.trim(), path: data.path.trim(), type: data.type || 'text', values: data.values || [], description: data.description, unit: data.unit?.trim() || null };
+  if ('valueSetId' in data) fields.valueSetId = data.valueSetId || null;
+  if ('aggregate' in data) { fields.aggregate = data.aggregate || null; if (data.aggregate && !fields.path.startsWith('@')) fields.path = `@${fields.path}`; if (data.aggregate) fields.type = 'number'; }
   const clash = await prisma.vocabularyTerm.findFirst({ where: { projectId: p.id, term: fields.term, deletedAt: null, ...(data.id ? { NOT: { id: data.id } } : {}) } });
   if (data.id) {
     if (clash) throw new ValidationError(`"${fields.term}" is already a term`);
@@ -151,9 +164,9 @@ export async function deleteTerm(id: string, user: AuthUser) {
   await assertProjectAccess(t.projectId, user, 'write'); await prisma.vocabularyTerm.update({ where: { id }, data: { deletedAt: new Date() } });
 }
 /** Create or update many terms in one call (Import). Same rules as one term; a term name already used updates that term. */
-export async function bulkTerms(data: { projectId: string; terms: { term: string; path: string; type?: string; values?: string[]; unit?: string }[] }, user: AuthUser) {
+export async function bulkTerms(data: { projectId: string; terms: { term: string; path: string; type?: string; values?: string[]; unit?: string; valueSetId?: string }[] }, user: AuthUser) {
   const p = await assertProjectAccess(data.projectId, user, 'write');
-  const list = (data.terms || []).map(t => ({ term: String(t.term || '').trim(), path: String(t.path || '').trim(), type: t.type || 'text', values: (t.values || []).map(String).slice(0, 50), unit: t.unit?.trim() || null }));
+  const list = (data.terms || []).map(t => ({ term: String(t.term || '').trim(), path: String(t.path || '').trim(), type: t.type || 'text', values: (t.values || []).map(String).slice(0, 50), unit: t.unit?.trim() || null, ...(t.valueSetId ? { valueSetId: t.valueSetId } : {}) }));
   const bad = list.filter(t => !t.term || !t.path || /\s/.test(t.path));
   if (bad.length) throw new ValidationError(`${bad.length} row${bad.length === 1 ? '' : 's'} need a term and a data path without spaces`);
   const names = new Set<string>(); for (const t of list) { if (names.has(t.term)) throw new ValidationError(`"${t.term}" is used twice`); names.add(t.term); }

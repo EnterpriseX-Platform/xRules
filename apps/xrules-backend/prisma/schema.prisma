@@ -1098,6 +1098,10 @@ model VocabularyTerm {
   description String?
   // shown after values: บาท, ปี, %
   unit        String?
+  // the word takes its values from a value set (codes stored, labels shown)
+  valueSetId  String?
+  // an aggregate word: { fn: sum|max|min|count|avg, list: 'a[].b[]', field?, where?: { field, cell } }
+  aggregate   Json?
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   deletedAt   DateTime?
@@ -1266,4 +1270,21 @@ model DataRequest {
 
   @@index([projectId, status])
   @@map("data_requests")
+}
+
+// Possible values: code · label · extra columns (C003 · Retail · margin 0.3), named groups of codes.
+model ValueSet {
+  id        String    @id @default(cuid())
+  projectId String
+  name      String
+  columns   String[]  @default([])
+  rows      Json      @default("[]")
+  groups    Json      @default("{}")
+  version   Int       @default(1)
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([projectId])
+  @@map("value_sets")
 }
