@@ -1,8 +1,9 @@
 'use client';
+import { useSearchParams } from 'next/navigation';
 import { useDevMode } from '@/lib/devmode';
 import { Chip } from '@/components/links/Links';
 const TYPE_NAME: Record<string, string> = { text: 'Text', number: 'Number', money: 'Money', date: 'Date', enum: 'List of values', boolean: 'Yes / no' };
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { ImportTerms } from '@/components/vocab/ImportTerms';
 import { ReasonCodes } from '@/components/vocab/ReasonCodes';
@@ -100,7 +101,9 @@ function Cowork({ projectId }: { projectId: string }) {
 function Terms({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('import') === '1');
+  const [importOpen, setImportOpen] = useState(false);
+  const askImport = useSearchParams()?.get('import') === '1';
+  useEffect(() => { if (askImport) setImportOpen(true); }, [askImport]);
   const blankT = { id: '', term: '', path: '', type: 'text', values: '', unit: '' };
   const [f, setF] = useState<any>(blankT);
   const { data: terms = [] } = useQuery({ queryKey: ['vocab', projectId], queryFn: () => api.get<any[]>(`/platform/vocabulary?project_id=${projectId}`) });

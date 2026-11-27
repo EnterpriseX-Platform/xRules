@@ -1,7 +1,8 @@
 'use client';
+import { useSearchParams } from 'next/navigation';
 // The project's reason codes: code, text, outcome and priority (1 = most important). Decision lines add them
 // with "then add reason"; the decision returns every code raised, the top one and its outcome.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Btn, DropZone, Input, Modal, Table, Td, TextArea } from '@/components/pipeline/ui';
@@ -77,7 +78,9 @@ export function ReasonCodes({ projectId }: { projectId: string }) {
   const { data: rows = [] } = useReasons(projectId);
   const blank = { id: '', code: '', text: '', outcome: '', priority: '' };
   const [f, setF] = useState<any>(null);
-  const [importing, setImporting] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('import') === '1');
+  const [importing, setImporting] = useState(false);
+  const askImport = useSearchParams()?.get('import') === '1';
+  useEffect(() => { if (askImport) setImporting(true); }, [askImport]);
   const done = () => qc.invalidateQueries({ queryKey: ['reasons', projectId] });
   const save = useMutation({ meta: { silent: true }, mutationFn: () => api.post('/platform/reasons', { projectId, id: f.id || undefined, code: f.code, text: f.text, outcome: f.outcome, priority: String(f.priority).trim() === '' ? undefined : Number(f.priority) }), onSuccess: () => { done(); setF(null); } });
   const remove = useListRemove<Reason>({ queryKey: ['reasons', projectId], noun: 'reason code', name: r => r.code,
