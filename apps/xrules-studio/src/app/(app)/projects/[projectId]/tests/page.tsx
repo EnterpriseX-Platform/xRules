@@ -51,7 +51,7 @@ export default function TestsPage() {
         {perms.write && <Btn kind="ghost" onClick={() => setSuiteOpen(true)}>New suite</Btn>}
       </div>
       {suiteOpen && (
-        <Modal title="New suite" onClose={() => setSuiteOpen(false)} submitLabel="Create" submitDisabled={!suiteName.trim() || newSuite.isPending}
+        <Modal title="New suite" onClose={() => setSuiteOpen(false)} submitLabel={newSuite.isPending ? 'Creating…' : 'Create'} submitDisabled={!suiteName.trim() || newSuite.isPending}
           onSubmit={() => newSuite.mutate(suiteName, { onSuccess: () => { setSuiteName(''); setSuiteOpen(false); } })}>
           <Input id="suite-new" label="Name" value={suiteName} onChange={setSuiteName} />
         </Modal>

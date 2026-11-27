@@ -220,7 +220,7 @@ function CreateFlowDialog({
   const meta = KIND_META[kind];
 
   return (
-    <Modal title={meta.cta} onClose={onClose} onSubmit={() => mut.mutate()} submitLabel="Create" submitDisabled={mut.isPending || !name.trim()} error={error}>
+    <Modal title={meta.cta} onClose={onClose} onSubmit={() => mut.mutate()} submitLabel={mut.isPending ? 'Creating…' : 'Create'} submitDisabled={mut.isPending || !name.trim()} error={error}>
       {!lockKind && (
         <div className="grid grid-cols-2 gap-2">
           <KindOption active={kind === 'DECISION'} onClick={() => setKind('DECISION')} icon={Workflow} label="Rule Flow" hint="Sync · chain rules" />

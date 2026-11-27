@@ -140,7 +140,7 @@ export function NewRuleDialog({
         </div>
         <div className="flex border-t border-[#e0e0e0]">
           <button type="button" className="flex-1 h-14 text-left px-4 text-[14px] bg-[#393939] text-white hover:bg-[#4c4c4c]" onClick={onClose}>Cancel</button>
-          <button type="submit" className="flex-1 h-14 text-left px-4 text-[14px] bg-[#0f62fe] text-white hover:bg-[#0353e9] disabled:bg-[#c6c6c6]" disabled={mut.isPending || !name.trim()}>Create</button>
+          <button type="submit" className="flex-1 h-14 text-left px-4 text-[14px] bg-[#0f62fe] text-white hover:bg-[#0353e9] disabled:bg-[#c6c6c6]" disabled={mut.isPending || !name.trim()}>{mut.isPending ? "Creating…" : "Create"}</button>
         </div>
       </form>
     </div>

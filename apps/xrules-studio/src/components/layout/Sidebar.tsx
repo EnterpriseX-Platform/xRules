@@ -34,6 +34,7 @@ export function Sidebar() {
   // phones: the menu is a drawer opened from the top bar
   const [navOpen, setNavOpen] = useState(false);
   useEffect(() => { const t = () => setNavOpen(o => !o); window.addEventListener('xrules:nav', t); return () => window.removeEventListener('xrules:nav', t); }, []);
+  useEffect(() => { if (!navOpen) return; const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setNavOpen(false); }; document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k); }, [navOpen]);
   const pathname = usePathname();
   const router = useRouter();
   const project = useProject((s) => s.currentProjectId);
@@ -133,7 +134,13 @@ export function Sidebar() {
   return (
     <>
     {navOpen && <div className="fixed inset-0 top-12 z-30 bg-[#161616]/40 md:hidden" onClick={() => setNavOpen(false)} />}
-    <aside onClick={e => { if ((e.target as HTMLElement).closest('a')) setNavOpen(false); }}
+    <aside onClick={e => {
+        // go first, then close: closing the drawer in the same tick sometimes swallowed the navigation
+        const a = (e.target as HTMLElement).closest('a') as HTMLAnchorElement | null; if (!a) return;
+        const href = a.getAttribute('href');
+        if (href && href.startsWith('/') && !e.metaKey && !e.ctrlKey && !e.shiftKey && a.target !== '_blank') { e.preventDefault(); router.push(href); }
+        setTimeout(() => setNavOpen(false), 0);
+      }}
       className={cn('shrink-0 w-[220px] bg-[#f4f4f4] border-r border-[#e0e0e0] flex-col overflow-y-auto overflow-x-hidden',
         navOpen ? 'flex fixed top-12 bottom-0 left-0 z-40 md:static' : 'hidden md:flex')}>
       {title && <div className="px-4 pt-4 pb-2 text-[14px] font-semibold text-[#161616] truncate">{title}</div>}
@@ -227,8 +234,9 @@ export function ProjectPicker({ projects, current, onPick }: {
     const onDoc = (e: MouseEvent) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
-    if (open) document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    if (open) { document.addEventListener('mousedown', onDoc); document.addEventListener('keydown', onKey); }
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
   }, [open]);
 
   function pick(p: any) {

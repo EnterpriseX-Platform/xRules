@@ -58,7 +58,7 @@ function Orgs() {
         <div className="ml-auto"><Btn onClick={() => setOpen(o => !o)}>New organization</Btn></div>
       </div>
       {open && (
-        <Modal title="New organization" onClose={() => setOpen(false)} onSubmit={() => create.mutate()} submitLabel="Create"
+        <Modal title="New organization" onClose={() => setOpen(false)} onSubmit={() => create.mutate()} submitLabel={create.isPending ? 'Creating…' : 'Create'}
           submitDisabled={!f.name.trim() || !f.ownerEmail.trim() || create.isPending} error={(create.error as any)?.message}>
           <Input label="Name" id="o-name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} />
           <Input label="Owner email" id="o-owner" value={f.ownerEmail} onChange={(v: string) => setF({ ...f, ownerEmail: v })} />

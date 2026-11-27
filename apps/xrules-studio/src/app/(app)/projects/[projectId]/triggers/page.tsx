@@ -30,7 +30,7 @@ export default function TriggersPage() {
     <div className="px-8 py-6">
       <PageHead title="Triggers" sub={`${rows.length} trigger${rows.length === 1 ? '' : 's'}`} actions={perms.integrate ? (<Btn onClick={() => setOpen(true)}>New Trigger</Btn>) : undefined} />
       {open && (
-        <Modal title="New trigger" onClose={() => setOpen(false)} wide onSubmit={() => create.mutate()} submitLabel="Create" submitDisabled={(!f.name && f.type !== 'data_sync') || create.isPending}>
+        <Modal title="New trigger" onClose={() => setOpen(false)} wide onSubmit={() => create.mutate()} submitLabel={create.isPending ? 'Creating…' : 'Create'} submitDisabled={(!f.name && f.type !== 'data_sync') || create.isPending}>
           <div className="grid gap-4 md:grid-cols-3">
             <Input id="tr-name" label="Name" value={f.name} onChange={(v: string) => setF({ ...f, name: v })} />
             <div><div className="text-[12px] text-[#525252] mb-1.5">Starts on</div><Dropdown value={f.type} onChange={v => setF({ ...f, type: v })} options={Object.entries(TYPE).map(([value, label]) => ({ value, label }))} /></div>
