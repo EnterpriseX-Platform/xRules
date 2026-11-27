@@ -1,21 +1,28 @@
 'use client';
 import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, usePathname, useRouter } from 'next/navigation';
+import { ImportTerms } from '@/components/vocab/ImportTerms';
+import { ReasonCodes } from '@/components/vocab/ReasonCodes';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { PageHead, Table, Td, Tag, Btn, Input, TextArea, Panel, Notice, Tabs, DropZone, Modal } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 
+const TABS = [{ key: '', label: 'Vocabulary' }, { key: 'reasons', label: 'Reason codes' }, { key: 'write', label: 'Write rules' }, { key: 'cowork', label: 'Rule Cowork' }];
+
 export default function VocabularyPage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const [tab, setTab] = useState('Write rules');
+  const pathname = usePathname() || ''; const router = useRouter();
+  const seg = pathname.split('/')[4] || '';
+  const tab = TABS.find(t => t.key === seg) || TABS[0];
   return (
     <div className="px-8 py-6">
-      <PageHead title="Vocabulary" />
-      <Tabs tabs={['Write rules', 'Rule Cowork', 'Vocabulary']} value={tab} onChange={setTab} />
-      {tab === 'Write rules' && <Writer projectId={projectId} />}
-      {tab === 'Rule Cowork' && <Cowork projectId={projectId} />}
-      {tab === 'Vocabulary' && <Terms projectId={projectId} />}
+      <PageHead title="Words" />
+      <Tabs tabs={TABS.map(t => t.label)} value={tab.label} onChange={l => { const k = TABS.find(t => t.label === l)!.key; router.replace(`/p/${projectId}/vocabulary${k ? `/${k}` : ''}`, { scroll: false }); }} />
+      {tab.key === '' && <Terms projectId={projectId} />}
+      {tab.key === 'reasons' && <ReasonCodes projectId={projectId} />}
+      {tab.key === 'write' && <Writer projectId={projectId} />}
+      {tab.key === 'cowork' && <Cowork projectId={projectId} />}
     </div>
   );
 }
@@ -89,15 +96,17 @@ function Cowork({ projectId }: { projectId: string }) {
 function Terms({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const blankT = { id: '', term: '', path: '', type: 'text', values: '', unit: '' };
   const [f, setF] = useState<any>(blankT);
   const { data: terms = [] } = useQuery({ queryKey: ['vocab', projectId], queryFn: () => api.get<any[]>(`/platform/vocabulary?project_id=${projectId}`) });
   const { data: sug = [] } = useQuery({ queryKey: ['vocab-sug', projectId], queryFn: () => api.get<any[]>(`/platform/vocabulary/suggest?project_id=${projectId}`) });
   const save = useMutation({ mutationFn: (t: any) => api.post('/platform/vocabulary', { projectId, ...t }), onSuccess: () => { setAddOpen(false); qc.invalidateQueries({ queryKey: ['vocab', projectId] }); qc.invalidateQueries({ queryKey: ['vocab-sug', projectId] }); setF(blankT); } });
-  const del = useMutation({ mutationFn: (id: string) => api.del(`/platform/vocabulary/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ['vocab', projectId] }) });
+  const del = useMutation({ mutationFn: (id: string) => api.del(`/platform/vocabulary/${id}`), onSuccess: () => { qc.invalidateQueries({ queryKey: ['vocab', projectId] }); qc.invalidateQueries({ queryKey: ['vocab-sug', projectId] }); } });
   return (
     <div className="space-y-4">
-      <div><Btn onClick={() => { setF(blankT); setAddOpen(true); }}>Add term</Btn></div>
+      <div className="flex gap-2"><Btn onClick={() => { setF(blankT); setAddOpen(true); }}>Add term</Btn><Btn kind="tertiary" onClick={() => setImportOpen(true)}>Import</Btn></div>
+      {importOpen && <ImportTerms projectId={projectId} known={terms as any[]} onClose={() => setImportOpen(false)} />}
       {addOpen && <Modal title={f.id ? 'Edit term' : 'Add term'} onClose={() => setAddOpen(false)} wide onSubmit={() => save.mutate({ id: f.id || undefined, term: f.term, path: f.path, type: f.type, unit: f.unit, values: String(f.values || '').split(',').map((s: string) => s.trim()).filter(Boolean) })} submitLabel={f.id ? 'Save' : 'Add'} submitDisabled={!f.term || !f.path} error={save.error ? String((save.error as any).message) : null}>
         <div className="grid gap-4">
           <Input id="t-term" label="Term" value={f.term} onChange={(v: string) => setF({ ...f, term: v })} />
@@ -108,7 +117,7 @@ function Terms({ projectId }: { projectId: string }) {
         </div>
       </Modal>}
       <Table head={['Term', 'Means', 'Type', 'Unit', 'Allowed values', '']}>
-        {(terms as any[]).map(t => <tr key={t.id} className="cursor-pointer hover:bg-[#f4f4f4]" onClick={() => { setF({ id: t.id, term: t.term, path: t.path, type: t.type, unit: t.unit || '', values: (t.values || []).join(', ') }); setAddOpen(true); }}><Td>{t.term}</Td><Td mono>{t.path}</Td><Td>{t.type}</Td><Td>{t.unit || ''}</Td><Td>{t.values.join(', ')}</Td><Td><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={e => { e.stopPropagation(); del.mutate(t.id); }}>Delete</button></Td></tr>)}
+        {(terms as any[]).map(t => <tr key={t.id} className="cursor-pointer hover:bg-[#f4f4f4]" onClick={() => { setF({ id: t.id, term: t.term, path: t.path, type: t.type, unit: t.unit || '', values: (t.values || []).join(', ') }); setAddOpen(true); }}><Td>{t.term}</Td><Td mono>{t.path}</Td><Td>{t.type}</Td><Td>{t.unit || ''}</Td><Td>{t.values.join(', ')}</Td><Td><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={e => { e.stopPropagation(); del.mutate(t.id); }}>Remove</button></Td></tr>)}
       </Table>
       {(sug as any[]).length > 0 && <>
         <h2 className="text-[16px] mt-6">Fields seen in real requests that have no term yet</h2>

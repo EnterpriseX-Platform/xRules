@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, ChevronRight, FolderKanban } from 'lucide-react';
@@ -11,6 +11,7 @@ import { projectsApi } from '@/lib/api';
 export default function ProjectsPage() {
   // tenant prefix removed from URLs
   const qc = useQueryClient();
+  const router = useRouter();
   const [showCreate, setShowCreate] = useState(false);
 
   const { data: projects = [], isLoading } = useQuery({
@@ -76,18 +77,18 @@ export default function ProjectsPage() {
         </table>
       </div>
 
-      {showCreate && <CreateProjectDialog onClose={() => setShowCreate(false)} onCreated={() => qc.invalidateQueries({ queryKey: ['projects'] })} />}
+      {showCreate && <CreateProjectDialog onClose={() => setShowCreate(false)} onCreated={(p: any) => { qc.invalidateQueries({ queryKey: ['projects'] }); if (p?.id) router.push(`/p/${p.id}/topics`); }} />}
     </PageContent>
   );
 }
 
-function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (p: any) => void }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
   const mut = useMutation({
     mutationFn: () => projectsApi.create({ name, description }),
-    onSuccess: () => { onCreated(); onClose(); },
+    onSuccess: (p: any) => { onClose(); onCreated(p); },
     onError: (e: any) => setError(e.message),
   });
 

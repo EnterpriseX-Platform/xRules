@@ -92,7 +92,8 @@ async function request<T>(path: string, init?: RequestInit, _retried = false): P
     headers['X-HTTP-Method-Override'] = method;
     sendInit = { ...init, method: 'POST' };
   }
-  const res = await fetch(`${BASE_URL}${path}`, { ...sendInit, headers });
+  // no-store: a cached GET kept lists stale after Add (browser / proxy cache)
+  const res = await fetch(`${BASE_URL}${path}`, { cache: 'no-store', ...sendInit, headers });
 
   // 401 — try a single refresh + retry. If refresh fails, redirect to /login.
   if (res.status === 401 && !_retried && !path.startsWith('/auth/')) {
