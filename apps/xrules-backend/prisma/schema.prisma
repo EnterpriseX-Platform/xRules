@@ -1100,6 +1100,7 @@ model VocabularyTerm {
   unit        String?
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  deletedAt   DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -1215,12 +1216,32 @@ model Topic {
   goal        String?
   createdById String?
   lastSimulation Json?
+  // questions = Who qualifies / How much / Which one · steps = ordered named stages
+  shape       String    @default("questions")
+  // [{ id, name, items: [decisionId] }] when shape = steps
+  stages      Json?
   deletedAt   DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   @@index([projectId])
   @@map("topics")
+}
+
+// Reason codes a decision line can raise; a final step ranks them by priority (1 = most important)
+model ReasonCode {
+  id        String    @id @default(cuid())
+  projectId String
+  code      String
+  text      String
+  outcome   String    @default("Decline") // Decline | Refer | Approve
+  priority  Int       @default(100)
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([projectId])
+  @@map("reason_codes")
 }
 
 // "Request this data": a business user asks for a term the rules need but the system does not have yet

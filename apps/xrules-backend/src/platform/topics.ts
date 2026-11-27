@@ -29,7 +29,7 @@ export async function list(projectIdOrSlug: string, user: AuthUser) {
     const rs = rules.filter(r => r.topicId === t.id), fs = flows.filter(f => f.topicId === t.id);
     const tests = [...rs.map(r => rt.get(r.id)), ...fs.map(f => ft.get(f.id))].filter(Boolean) as { total: number; pass: number }[];
     const items = [...rs, ...fs];
-    return { id: t.id, name: t.name, description: t.description, goal: t.goal, updatedAt: t.updatedAt,
+    return { id: t.id, name: t.name, description: t.description, goal: t.goal, updatedAt: t.updatedAt, shape: t.shape, stages: t.shape === 'steps' ? stagesOf(t).length : 0,
       decisions: items.length, live: items.filter(i => String(i.status).toUpperCase() === 'PUBLISHED').length,
       inReview: items.filter(i => i.reviewState === 'PENDING').length,
       tests: { total: tests.reduce((a, b) => a + b.total, 0), pass: tests.reduce((a, b) => a + b.pass, 0) } };
@@ -47,13 +47,44 @@ export async function get(id: string, user: AuthUser) {
     ...rules.map(r => ({ id: r.id, kind: 'rule' as const, name: r.name, slug: r.slug, type: r.type, question: QUESTION[String(r.type).toUpperCase()] || 'qualify', status: String(r.status).toLowerCase(), reviewState: r.reviewState, version: r.version, updatedAt: r.updatedAt, tests: rt.get(r.id) || { total: 0, pass: 0 }, definition: r.definition })),
     ...flows.map(f => ({ id: f.id, kind: 'flow' as const, name: f.name, type: 'FLOW', question: 'choose' as const, status: String(f.status).toLowerCase(), reviewState: f.reviewState, version: f.version, updatedAt: f.updatedAt, tests: ft.get(f.id) || { total: 0, pass: 0 }, definition: null, graph: f.graph })),
   ];
-  return { id: t.id, projectId: t.projectId, name: t.name, description: t.description, goal: t.goal, createdAt: t.createdAt, updatedAt: t.updatedAt, lastSimulation: t.lastSimulation, decisions };
+  const ids = new Set(decisions.map(d => d.id));
+  const stages = stagesOf(t).map(st => ({ ...st, items: st.items.filter(i => ids.has(i)) }));
+  return { id: t.id, projectId: t.projectId, name: t.name, description: t.description, goal: t.goal, shape: t.shape, stages, createdAt: t.createdAt, updatedAt: t.updatedAt, lastSimulation: t.lastSimulation, decisions };
 }
 
-export async function create(data: { projectId: string; name: string; description?: string; goal?: string }, user: AuthUser) {
+// a "steps" topic: an ordered list of named stages, each holding decisions and calculations
+type Stage = { id: string; name: string; items: string[] };
+export const DEFAULT_STAGES = ['Policy', 'Income', 'Affordability', 'Score', 'Line', 'Verification', 'Final'];
+const sid = () => `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+function stagesOf(t: { stages: any }): Stage[] {
+  return (Array.isArray(t.stages) ? t.stages : []).filter((s: any) => s && s.name).map((s: any) => ({ id: String(s.id || sid()), name: String(s.name), items: Array.isArray(s.items) ? s.items.map(String) : [] }));
+}
+function cleanStages(input: any[]): Stage[] {
+  const out: Stage[] = []; const seen = new Set<string>();
+  for (const s of input || []) {
+    const name = String(s?.name || '').trim(); if (!name) throw new ValidationError('Every step needs a name');
+    const items = (Array.isArray(s?.items) ? s.items : []).map(String).filter((i: string) => !seen.has(i)); items.forEach((i: string) => seen.add(i));
+    out.push({ id: String(s?.id || sid()), name: name.slice(0, 80), items });
+  }
+  if (out.length > 30) throw new ValidationError('At most 30 steps');
+  return out;
+}
+
+export async function create(data: { projectId: string; name: string; description?: string; goal?: string; shape?: string; stages?: string[] }, user: AuthUser) {
   const p = await assertProjectAccess(data.projectId, user, 'write');
   const name = String(data.name || '').trim(); if (!name) throw new ValidationError('A topic needs a name');
-  return prisma.topic.create({ data: { projectId: p.id, name, description: data.description?.trim() || null, goal: data.goal?.trim() || null, createdById: user.userId } });
+  const shape = data.shape === 'steps' ? 'steps' : 'questions';
+  const stages = shape === 'steps' ? cleanStages((data.stages?.length ? data.stages : DEFAULT_STAGES).map(n => ({ name: n }))) : undefined;
+  return prisma.topic.create({ data: { projectId: p.id, name, description: data.description?.trim() || null, goal: data.goal?.trim() || null, createdById: user.userId, shape, ...(stages && { stages: stages as any }) } });
+}
+
+/** Replace the ordered steps of a steps topic (names, order and which decisions each holds). */
+export async function setStages(id: string, data: { stages: any[] }, user: AuthUser) {
+  const t = await prisma.topic.findFirst({ where: { id, deletedAt: null } }); if (!t) throw new NotFoundError('Topic');
+  await assertProjectAccess(t.projectId, user, 'write');
+  const stages = cleanStages(data.stages);
+  await prisma.topic.update({ where: { id }, data: { shape: 'steps', stages: stages as any } });
+  return { stages };
 }
 
 export async function update(id: string, data: { name?: string; description?: string; goal?: string }, user: AuthUser) {
@@ -84,7 +115,9 @@ export async function assign(data: { topicId: string | null; kind: 'rule' | 'flo
 async function runRuleDef(rule: any, definition: any, input: any) {
   const { tryLocalExecutor, applyElseRow, shapeByHitPolicy, transformDefinitionForEngine, executeDmnLocally } = await import('../services/execute.service.js');
   const r = { ...rule, definition };
-  const local = r.type === 'DECISION_TABLE' && String(definition?.hitPolicy).toUpperCase() === 'EVALUATE_ALL' ? executeDmnLocally(r, input) : await tryLocalExecutor(r, input, {});
+  const { evaluateTable, usesGroupsOrReasons } = await import('../services/table-eval.js');
+  const local = r.type === 'DECISION_TABLE' && usesGroupsOrReasons(definition) ? evaluateTable(definition, input, await (await import('../services/execute.service.js')).reasonCatalogue(rule.projectId))
+    : r.type === 'DECISION_TABLE' && String(definition?.hitPolicy).toUpperCase() === 'EVALUATE_ALL' ? executeDmnLocally(r, input) : await tryLocalExecutor(r, input, {});
   if (local != null) return local;
   const axios = (await import('axios')).default; const { env } = await import('../config/env.js');
   const resp = await axios.post(`${env.engineHubUrl}/api/v1/execute`, { rule: { type: rule.type, engine: rule.engine || 'rules', definition: transformDefinitionForEngine(r) }, input, context: { rule_id: rule.id } }, { timeout: 30000 });

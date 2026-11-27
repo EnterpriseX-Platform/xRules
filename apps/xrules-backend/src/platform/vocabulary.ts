@@ -110,41 +110,56 @@ export function compile(ast: Ast): string {
 
 // ---------------------------------------------------------------- persistence
 export async function terms(projectId: string): Promise<Term[]> {
-  return (await prisma.vocabularyTerm.findMany({ where: { projectId } })).map(t => ({ term: t.term, path: t.path, type: t.type, values: t.values }));
+  return (await prisma.vocabularyTerm.findMany({ where: { projectId, deletedAt: null } })).map(t => ({ term: t.term, path: t.path, type: t.type, values: t.values }));
 }
 export async function listTerms(projectIdOrSlug: string, user: AuthUser) {
   const p = await assertProjectAccess(projectIdOrSlug, user);
-  return prisma.vocabularyTerm.findMany({ where: { projectId: p.id }, orderBy: { term: 'asc' } });
+  return prisma.vocabularyTerm.findMany({ where: { projectId: p.id, deletedAt: null }, orderBy: { term: 'asc' } });
 }
 export async function upsertTerm(data: { id?: string; projectId: string; term: string; path: string; type?: string; values?: string[]; description?: string; unit?: string }, user: AuthUser) {
   const p = await assertProjectAccess(data.projectId, user, 'write');
   if (!data.term?.trim() || !data.path?.trim()) throw new ValidationError('term and path required');
   if (/[\s]/.test(data.path)) throw new ValidationError('path must not contain spaces');
   const fields = { term: data.term.trim(), path: data.path.trim(), type: data.type || 'text', values: data.values || [], description: data.description, unit: data.unit?.trim() || null };
-  const clash = await prisma.vocabularyTerm.findFirst({ where: { projectId: p.id, term: fields.term, ...(data.id ? { NOT: { id: data.id } } : {}) } });
+  const clash = await prisma.vocabularyTerm.findFirst({ where: { projectId: p.id, term: fields.term, deletedAt: null, ...(data.id ? { NOT: { id: data.id } } : {}) } });
   if (data.id) {
     if (clash) throw new ValidationError(`"${fields.term}" is already a term`);
-    const t = await prisma.vocabularyTerm.findFirst({ where: { id: data.id, projectId: p.id } }); if (!t) throw new NotFoundError('Term');
+    const t = await prisma.vocabularyTerm.findFirst({ where: { id: data.id, projectId: p.id, deletedAt: null } }); if (!t) throw new NotFoundError('Term');
+    // a removed term may still hold the name: free it
+    await prisma.vocabularyTerm.updateMany({ where: { projectId: p.id, term: fields.term, NOT: { deletedAt: null } }, data: { term: `${fields.term} (removed ${Date.now()})` } });
     return prisma.vocabularyTerm.update({ where: { id: t.id }, data: fields });
   }
-  return prisma.vocabularyTerm.upsert({ where: { projectId_term: { projectId: p.id, term: fields.term } }, create: { projectId: p.id, ...fields }, update: fields });
+  return prisma.vocabularyTerm.upsert({ where: { projectId_term: { projectId: p.id, term: fields.term } }, create: { projectId: p.id, ...fields }, update: { ...fields, deletedAt: null } });
 }
 /** Make sure every field a rule uses has a term; missing ones get the field name as a temporary term. */
 export async function ensureTerms(data: { projectId: string; fields: { path: string; type?: string }[] }, user: AuthUser) {
   const p = await assertProjectAccess(data.projectId, user, 'write');
-  const have = await prisma.vocabularyTerm.findMany({ where: { projectId: p.id } });
+  const all = await prisma.vocabularyTerm.findMany({ where: { projectId: p.id } });
+  const have = all.filter(t => !t.deletedAt);
   const typeOf = (t?: string) => t === 'number' || t === 'integer' ? 'number' : t === 'boolean' ? 'boolean' : t === 'date' ? 'date' : 'text';
   for (const f of data.fields || []) {
     const path = String(f.path || '').trim(); if (!path || /\s/.test(path)) continue;
     if (have.some(t => t.path === path)) continue;
-    let term = path, i = 2; while (have.some(t => t.term === term)) term = `${path} ${i++}`;
-    have.push(await prisma.vocabularyTerm.create({ data: { projectId: p.id, term, path, type: typeOf(f.type) } }));
+    let term = path, i = 2; while (all.some(t => t.term === term)) term = `${path} ${i++}`;
+    const made = await prisma.vocabularyTerm.create({ data: { projectId: p.id, term, path, type: typeOf(f.type) } }); have.push(made); all.push(made);
   }
   return have.sort((a, b) => a.term.localeCompare(b.term));
 }
+/** Removing a term stamps it; rules that use its path keep working and show the field name. */
 export async function deleteTerm(id: string, user: AuthUser) {
-  const t = await prisma.vocabularyTerm.findUnique({ where: { id } }); if (!t) throw new NotFoundError('Term');
-  await assertProjectAccess(t.projectId, user, 'write'); await prisma.vocabularyTerm.delete({ where: { id } });
+  const t = await prisma.vocabularyTerm.findFirst({ where: { id, deletedAt: null } }); if (!t) throw new NotFoundError('Term');
+  await assertProjectAccess(t.projectId, user, 'write'); await prisma.vocabularyTerm.update({ where: { id }, data: { deletedAt: new Date() } });
+}
+/** Create or update many terms in one call (Import). Same rules as one term; a term name already used updates that term. */
+export async function bulkTerms(data: { projectId: string; terms: { term: string; path: string; type?: string; values?: string[]; unit?: string }[] }, user: AuthUser) {
+  const p = await assertProjectAccess(data.projectId, user, 'write');
+  const list = (data.terms || []).map(t => ({ term: String(t.term || '').trim(), path: String(t.path || '').trim(), type: t.type || 'text', values: (t.values || []).map(String).slice(0, 50), unit: t.unit?.trim() || null }));
+  const bad = list.filter(t => !t.term || !t.path || /\s/.test(t.path));
+  if (bad.length) throw new ValidationError(`${bad.length} row${bad.length === 1 ? '' : 's'} need a term and a data path without spaces`);
+  const names = new Set<string>(); for (const t of list) { if (names.has(t.term)) throw new ValidationError(`"${t.term}" is used twice`); names.add(t.term); }
+  if (list.length > 2000) throw new ValidationError('At most 2,000 terms at once');
+  const done = await prisma.$transaction(list.map(t => prisma.vocabularyTerm.upsert({ where: { projectId_term: { projectId: p.id, term: t.term } }, create: { projectId: p.id, ...t }, update: { ...t, deletedAt: null } })));
+  return { created: done.length };
 }
 /** Suggest paths that have no term yet, from the inputs of test cases and recent executions. */
 export async function suggest(projectIdOrSlug: string, user: AuthUser) {

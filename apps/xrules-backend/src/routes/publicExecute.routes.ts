@@ -5,7 +5,8 @@ import { env } from '../config/env.js';
 import { apiKeyAuthMiddleware } from '../middleware/apiKeyAuth.js';
 import { NotFoundError } from '../utils/errors.js';
 import { parseSolverHeaders } from '../middleware/solverHeaders.js';
-import { tryLocalExecutor, engineHitPolicy, applyElseRow, shapeByHitPolicy, executeDmnLocally } from '../services/execute.service.js';
+import { tryLocalExecutor, engineHitPolicy, applyElseRow, shapeByHitPolicy, executeDmnLocally, reasonCatalogue } from '../services/execute.service.js';
+import { evaluateTable, expandForEngine, usesGroupsOrReasons } from '../services/table-eval.js';
 import { runFlow } from '../services/flow-runtime.service.js';
 import { dispatch as dispatchWebhook } from '../services/webhooks.service.js';
 
@@ -62,7 +63,10 @@ async function solveOne(rule: any, input: any, context: any, headers: ReturnType
   // 1) In-process executors (AI_AGENT / SCORECARD / SCRIPT / FORMULA / LOOKUP).
   let output: any;
   // EVALUATE_ALL has no engine policy: evaluated in the API, as on the Studio path
-  const local = rule.type === 'DECISION_TABLE' && String((rule.definition as any)?.hitPolicy).toUpperCase() === 'EVALUATE_ALL'
+  // lines with "or" groups or reason codes are evaluated in the API too
+  const local = rule.type === 'DECISION_TABLE' && usesGroupsOrReasons(rule.definition)
+    ? evaluateTable(rule.definition, input || {}, await reasonCatalogue(rule.projectId))
+    : rule.type === 'DECISION_TABLE' && String((rule.definition as any)?.hitPolicy).toUpperCase() === 'EVALUATE_ALL'
     ? executeDmnLocally(rule, input || {})
     : await tryLocalExecutor(rule, input, fullContext);
   if (local !== null) {
@@ -311,7 +315,7 @@ function transformForEngine(rule: any): any {
         hit_policy: engineHitPolicy(def?.hitPolicy),
         inputs: inputs.map((i: any) => ({ name: i.name, expression: i.name, type: i.type || 'string' })),
         outputs: outputs.map((o: any) => ({ name: o.name, label: o.label || o.name, type: o.type || 'string' })),
-        rules: (def?.rules || []).map((r: any) => ({ id: r.id, inputs: r.inputs || [], outputs: r.outputs || [] })),
+        rules: expandForEngine(def),
       },
     };
   }

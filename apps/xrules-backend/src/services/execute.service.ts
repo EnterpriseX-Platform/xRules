@@ -7,6 +7,12 @@ import { runScripting, evalExpression, setSolveResolver } from './sandbox.servic
 import { runFlow } from './flow-runtime.service.js';
 import { dispatch as dispatchWebhook } from './webhooks.service.js';
 import type { AuthUser } from '../middleware/auth.js';
+import { evaluateTable, expandForEngine, usesGroupsOrReasons } from './table-eval.js';
+
+/** The project's reason codes, for tables whose lines add reasons. */
+export async function reasonCatalogue(projectId: string) {
+  return prisma.reasonCode.findMany({ where: { projectId, deletedAt: null }, select: { code: true, text: true, outcome: true, priority: true } });
+}
 
 // Wire DR.solve() in the sandbox so SCRIPT rules can chain into other rules.
 // We resolve by id, slug, or alias (project-scoped via the originating rule).
@@ -223,7 +229,9 @@ export async function executeRule(ruleId: string, input: any, context: any, user
     let output: any;
 
     // 1) In-process executors for non-Rust rule kinds (AI Agent / Scorecard / Script / Lookup)
-    const local = rule.type === 'DECISION_TABLE' && String((rule.definition as any)?.hitPolicy).toUpperCase() === 'EVALUATE_ALL'
+    const local = rule.type === 'DECISION_TABLE' && usesGroupsOrReasons(rule.definition)
+      ? evaluateTable(rule.definition, input, await reasonCatalogue(rule.projectId))
+      : rule.type === 'DECISION_TABLE' && String((rule.definition as any)?.hitPolicy).toUpperCase() === 'EVALUATE_ALL'
       ? executeDmnLocally(rule, input)
       : await tryLocalExecutor(rule, input, context);
     if (local !== null) {
@@ -387,9 +395,8 @@ export function transformDefinitionForEngine(rule: any): any {
           name: o.name, label: o.label || o.name, type: o.type || 'string',
         })),
         // the Else row is not a condition the engine knows — it is applied after, when nothing matched
-        rules: (def?.rules || []).filter((r: any) => !isElseRow(r)).map((r: any, i: number) => ({
-          id: r.id || `row-${i + 1}`, inputs: r.inputs || [], outputs: r.outputs || [],
-        })),
+        // lines with "or" groups become one plain row per alternative (the engine knows AND rows only)
+        rules: expandForEngine({ ...def, rules: (def?.rules || []).filter((r: any) => !isElseRow(r)) }),
       },
     };
   }
