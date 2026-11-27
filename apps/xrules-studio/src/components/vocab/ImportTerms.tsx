@@ -1,4 +1,5 @@
 'use client';
+import { Tick } from '@/lib/tick';
 // Import terms from a sample: a dropped .json / .xlsx / .csv file or pasted JSON. Every field path is proposed
 // as a term with a type read from the values; the user unticks or renames, then all are created in one call.
 import { useState } from 'react';
@@ -59,7 +60,7 @@ export function ImportTerms({ projectId, known, onClose }: { projectId: string; 
                   const exists = known.some(k => k.path === r.path);
                   return (
                     <tr key={r.path} className={r.keep ? '' : 'text-[#8d8d8d]'}>
-                      <td className={td}><input type="checkbox" aria-label={`Import ${r.path}`} checked={r.keep} onChange={e => set(i, { keep: e.target.checked })} /></td>
+                      <td className={td}><Tick className="h-4 w-4 accent-[#161616]" aria-label={`Import ${r.path}`} checked={r.keep} onSet={on => set(i, { keep: on })} /></td>
                       <td className={td}><input aria-label={`Term for ${r.path}`} className="h-8 w-full min-w-[180px] px-2 bg-[#f4f4f4] border-b border-[#8d8d8d] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2" value={r.term} onChange={e => set(i, { term: e.target.value })} /></td>
                       <td className={`${td} font-mono text-[13px]`}>{r.path}{exists && <span className="ml-2 font-sans text-[12px] text-[#6f6f6f]">has a term</span>}</td>
                       <td className={td}><Dropdown value={r.type} options={TYPES} onChange={v => set(i, { type: v })} /></td>

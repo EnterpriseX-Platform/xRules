@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { Tick } from '@/lib/tick';
 import { useTerms } from '@/lib/terms';
 import { CaseImport } from '@/components/test/CaseImport';
 import { useBulkRemove, RemovedCell } from '@/lib/listRemove';
@@ -36,7 +37,6 @@ export function TopicTests({ projectId, topicId, runKey, focusId, canWrite = tru
   const shownCases = cases as any[];
   const list = shownCases.filter(c => !c._removed);
   const [picked, setPicked] = useState<Set<string>>(new Set());
-  const flip = (id: string) => setPicked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const bulk = useBulkRemove<any>({ queryKey: ['topic-tests', topicId], also: [['topics', projectId]], noun: 'test case',
     remove: rows => api.post('/platform/tests/remove', { ids: rows.map(r => r.id) }), restore: rows => api.post('/platform/tests/restore', { ids: rows.map(r => r.id) }) });
   const pickedLive = list.filter(c => picked.has(c.id));
@@ -62,9 +62,9 @@ export function TopicTests({ projectId, topicId, runKey, focusId, canWrite = tru
       </div>
       {canWrite && list.length > 0 && (
         <div className="flex items-center gap-2 px-4 h-10 border-b border-[#e0e0e0] text-[13px]">
-          <label className="flex items-center gap-2 flex-1 cursor-pointer"><input type="checkbox" className="h-4 w-4 accent-[#161616]" aria-label="Select all test cases"
-            checked={pickedLive.length === list.length} ref={el => { if (el) el.indeterminate = pickedLive.length > 0 && pickedLive.length < list.length; }}
-            onChange={() => setPicked(pickedLive.length === list.length ? new Set() : new Set(list.map(c => c.id)))} />{pickedLive.length ? `${pickedLive.length} selected` : 'Select'}</label>
+          <label className="flex items-center gap-2 flex-1 cursor-pointer"><Tick aria-label="Select all test cases"
+            checked={pickedLive.length === list.length} indeterminate={pickedLive.length > 0 && pickedLive.length < list.length}
+            onSet={on => setPicked(on ? new Set(list.map(c => c.id)) : new Set())} />{pickedLive.length ? `${pickedLive.length} selected` : 'Select'}</label>
           {pickedLive.length > 0 && <button type="button" disabled={bulk.busy} className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1] disabled:text-[#8d8d8d]" onClick={() => { bulk.removeMany(pickedLive); setPicked(new Set()); }}>Remove {pickedLive.length}</button>}
         </div>
       )}
@@ -100,7 +100,7 @@ export function TopicTests({ projectId, topicId, runKey, focusId, canWrite = tru
           return (
             <div key={c.id} className="border-b border-[#e0e0e0] last:border-b-0">
               <div className="flex items-center">
-              {canWrite && <input type="checkbox" className="ml-4 h-4 w-4 shrink-0 accent-[#161616]" aria-label={`Select ${c.name}`} checked={picked.has(c.id)} onChange={() => flip(c.id)} />}
+              {canWrite && <Tick className="ml-4 h-4 w-4 shrink-0 accent-[#161616]" aria-label={`Select ${c.name}`} checked={picked.has(c.id)} onSet={on => setPicked(s => { const n = new Set(s); on ? n.add(c.id) : n.delete(c.id); return n; })} />}
               <button type="button" className="flex-1 min-w-0 flex items-center gap-3 px-4 h-10 text-left hover:bg-[#f4f4f4]" onClick={() => toggle(c.id)} aria-expanded={isOpen(c.id)}>
                 <span className={`w-12 text-[13px] ${c.lastStatus === 'PASS' ? 'text-[#198038]' : bad ? 'text-[#da1e28]' : 'text-[#6f6f6f]'}`}>{c.lastStatus === 'PASS' ? 'Pass' : c.lastStatus === 'ERROR' ? 'Error' : bad ? 'Fail' : 'Not run'}</span>
                 <span className="flex-1 truncate text-[14px] text-[#161616]">{c.name}</span>
