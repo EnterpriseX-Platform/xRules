@@ -11,12 +11,14 @@ import { usePerms } from '@/lib/perms';
 import { TopicSimulate } from '@/components/topic/TopicSimulate';
 import { RequestData } from '@/components/topic/RequestData';
 import { TopicDoc } from '@/components/topic/TopicDoc';
+import { StagesEditor, StagesOverview } from '@/components/topic/TopicStages';
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
   { key: 'qualify', label: 'Who qualifies' },
   { key: 'amount', label: 'How much' },
   { key: 'choose', label: 'Which one' },
+  { key: 'steps', label: 'Steps' },
   { key: 'tests', label: 'Tests' },
   { key: 'simulate', label: 'Simulate' },
   { key: 'approval', label: 'Approval' },
@@ -39,7 +41,6 @@ export default function TopicPage() {
   const { projectId, topicId } = useParams<{ projectId: string; topicId: string }>();
   const pathname = usePathname() || ''; const router = useRouter();
   const seg = pathname.split('/')[5] || 'overview';
-  const tab: Key = (TABS.some(t => t.key === seg) ? seg : 'overview') as Key;
   const go = (k: Key) => router.replace(`/p/${projectId}/topics/${topicId}${k === 'overview' ? '' : `/${k}`}`, { scroll: false });
   const qc = useQueryClient(); const perms = usePerms();
   const { data: t } = useQuery({ queryKey: ['topic', topicId], queryFn: () => api.get<any>(`/platform/topics/${topicId}`) });
@@ -54,6 +55,10 @@ export default function TopicPage() {
     },
     onSuccess: ({ kind, r }: any) => { qc.invalidateQueries({ queryKey: ['topic', topicId] }); setCreating(null); router.push(kind === 'flow' ? `/p/${projectId}/flows/${r.id}` : `/p/${projectId}/rules/${r.id}`); } });
   if (!t) return null;
+  // a steps topic shows its ordered stages; a questions topic the three questions
+  const steps = t.shape === 'steps';
+  const tabs = TABS.filter(x => (steps ? !['qualify', 'amount', 'choose'].includes(x.key) : x.key !== 'steps'));
+  const tab: Key = (tabs.some(x => x.key === seg) ? seg : 'overview') as Key;
   const ds: any[] = t.decisions || [];
   const by = (q: string) => ds.filter(d => d.question === q);
   const href = (d: any) => d.kind === 'flow' ? `/p/${projectId}/flows/${d.id}` : `/p/${projectId}/rules/${d.id}`;
@@ -83,15 +88,16 @@ export default function TopicPage() {
       <div className="flex items-start gap-4"><h1 className="flex-1 text-[28px] leading-9 text-[#161616]">{t.name}</h1>{perms.write && <RequestData projectId={projectId} topicId={topicId} />}</div>
       {t.goal && <div className="text-[15px] text-[#525252] mt-1">{t.goal}</div>}
       <div className="flex border-b border-[#e0e0e0] mt-5 mb-6 overflow-x-auto" role="tablist">
-        {TABS.map(x => (
+        {tabs.map(x => (
           <button key={x.key} role="tab" aria-selected={tab === x.key} onClick={() => go(x.key)}
             className={`h-11 px-4 text-[14px] whitespace-nowrap border-b-2 -mb-px ${tab === x.key ? 'border-[#0f62fe] text-[#161616] font-semibold' : 'border-transparent text-[#525252] hover:text-[#161616]'}`}>
-            {x.label}{x.key !== 'overview' && x.key !== 'simulate' && x.key !== 'approval' && x.key !== 'tests' && <span className="ml-1.5 text-[12px] text-[#6f6f6f] font-normal tabular-nums">{by(x.key).length}</span>}
+            {x.label}{x.key === 'steps' && <span className="ml-1.5 text-[12px] text-[#6f6f6f] font-normal tabular-nums">{(t.stages || []).length}</span>}{x.key !== 'overview' && x.key !== 'simulate' && x.key !== 'approval' && x.key !== 'tests' && x.key !== 'steps' && <span className="ml-1.5 text-[12px] text-[#6f6f6f] font-normal tabular-nums">{by(x.key).length}</span>}
           </button>
         ))}
       </div>
 
-      {tab === 'overview' && <TopicDoc projectId={projectId} topic={t} onTab={go} />}
+      {tab === 'overview' && (steps ? <StagesOverview projectId={projectId} topic={t} onTab={go} /> : <TopicDoc projectId={projectId} topic={t} onTab={go} />)}
+      {tab === 'steps' && <StagesEditor projectId={projectId} topic={t} canWrite={!!perms.write} />}
       {(tab === 'qualify' || tab === 'amount' || tab === 'choose') && list(by(tab), tab)}
       {tab === 'tests' && list(ds.filter(d => true))}
       {tab === 'simulate' && <TopicSimulate projectId={projectId} topicId={topicId} decisions={ds} last={t.lastSimulation} />}
