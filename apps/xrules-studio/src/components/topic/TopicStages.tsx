@@ -29,6 +29,7 @@ export function useStages(topic: any) {
     stages, save, put,
     move: (i: number, by: number) => { const n = [...stages]; const [x] = n.splice(i, 1); n.splice(i + by, 0, x); put(n); },
     place: (stageId: string, id: string) => put(stages.map(s => ({ ...s, items: s.id === stageId ? [...s.items.filter(x => x !== id), id] : s.items.filter(x => x !== id) }))),
+    moveItem: (stageId: string, id: string, by: number) => put(stages.map(s => { if (s.id !== stageId) return s; const n = [...s.items]; const i = n.indexOf(id); const j = i + by; if (i < 0 || j < 0 || j >= n.length) return s; n.splice(i, 1); n.splice(j, 0, id); return { ...s, items: n }; })),
     takeOut: (id: string) => put(stages.map(s => ({ ...s, items: s.items.filter(x => x !== id) }))),
     rename: (stageId: string, name: string) => put(stages.map(s => (s.id === stageId ? { ...s, name } : s))),
     remove: (stageId: string) => put(stages.filter(s => s.id !== stageId)),
@@ -77,11 +78,13 @@ export function StagePanel({ projectId, topic, stageId, canWrite, onPick, onClos
       <div className="px-6 py-5">
         <h3 className="m-0 mb-2 text-[12px] font-semibold tracking-[.4px] text-[#525252]">IN THIS STEP</h3>
         <div className="border border-[#e0e0e0]">
-          {items.map(d => (
+          {items.map((d, k) => (
             <div key={d.id} className="flex flex-wrap items-center gap-x-6 px-4 h-11 border-b border-[#e0e0e0] last:border-b-0">
               <button className="flex-1 min-w-[200px] text-left text-[14px] text-[#0f62fe] hover:underline" onClick={() => onPick(d.id)}>{d.name}</button>
               <span className="text-[13px] text-[#525252] w-[130px]">{kindName(d.type)}</span>
               <Link href={href(projectId, d)} className="text-[13px]">Edit</Link>
+              {canWrite && <span className="inline-flex"><button type="button" aria-label={`Move ${d.name} up`} disabled={k === 0} className="h-8 w-8 text-[14px] text-[#525252] hover:bg-[#e8e8e8] disabled:text-[#c6c6c6]" onClick={() => s.moveItem(st.id, d.id, -1)}>↑</button>
+                <button type="button" aria-label={`Move ${d.name} down`} disabled={k === items.length - 1} className="h-8 w-8 text-[14px] text-[#525252] hover:bg-[#e8e8e8] disabled:text-[#c6c6c6]" onClick={() => s.moveItem(st.id, d.id, 1)}>↓</button></span>}
               {canWrite && <button type="button" className="text-[13px] text-[#525252] hover:text-[#da1e28]" onClick={() => s.takeOut(d.id)}>Take out</button>}
             </div>
           ))}

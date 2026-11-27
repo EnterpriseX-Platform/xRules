@@ -13,6 +13,7 @@ import { TopicMap, type AddKind } from '@/components/topic/TopicMap';
 import { TopicRipple } from '@/components/topic/TopicRipple';
 import { TopicTests } from '@/components/topic/TopicTests';
 import { ValueCombo } from '@/components/rule/ValueCombo';
+import { useTerms } from '@/lib/terms';
 
 // Old tab URLs (/qualify, /tests, /steps, …) land on the map; /simulate and /approval open that view.
 const OLD_VIEW: Record<string, string> = { simulate: 'simulate', approval: 'approval' };
@@ -66,9 +67,10 @@ export default function TopicPage() {
           values={Array.from(new Set(((allTopics as any[]) || []).map((x: any) => x.product).filter(Boolean)))} onChange={v => setProduct.mutate(v)} /> : <span>{t.product || 'None'}</span>}
         <TopicSettings settings={t.settings || {}} canWrite={!!perms.write} error={setSettings.error ? String((setSettings.error as any).message) : null} onSave={v => setSettings.mutate(v)} />
       </div>
+      <TopicOutputs projectId={projectId} settings={t.settings || {}} canWrite={!!perms.write} onSave={v => setSettings.mutate(v)} />
       <div className="text-[13px] text-[#525252] mt-2 mb-6 border-b border-[#e0e0e0] pb-3">{ds.length} decision{ds.length === 1 ? '' : 's'}{t.shape === 'steps' ? ` in ${(t.stages || []).length} step${(t.stages || []).length === 1 ? '' : 's'}` : ''} · <span className={tests.fail ? 'text-[#da1e28]' : ''}>{tests.total ? `tests ${tests.pass}/${tests.total} pass${tests.fail ? ` · ${tests.fail} fail` : ''}` : 'no tests yet'}</span></div>
 
-      {view === 'map' && <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_360px] items-start">
+      {view === 'map' && <div className="grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1fr)_360px] items-start">
         <TopicMap projectId={projectId} topic={t} canWrite={!!perms.write} onAdd={k => { setName(''); setCreating(k); }} onSimulate={() => show('simulate')} />
         <TopicTests projectId={projectId} topicId={topicId} canWrite={!!perms.write} runKey={t.updatedAt}
           outputs={ds.flatMap((d: any) => [...(d.definition?.outputs || []), ...(d.type === 'FORMULA' ? d.definition?.lines || [] : [])]).map((o: any) => o?.name).filter(Boolean).map((n: string) => ({ path: n, name: n }))} />
@@ -103,5 +105,24 @@ function TopicSettings({ settings, canWrite, onSave, error }: { settings: any; c
       <ValueCombo className={`${box} w-[110px]`} value={nr.result || ''} placeholder={nr.outcome || 'Approve'} ariaLabel="Result when no reason fires" values={OUTS} onChange={v => onSave({ noReason: { result: v } })} />
       {error && <span className="text-[#da1e28]">{error}</span>}
     </>
+  );
+}
+
+/** Which words receive the topic's answer: the top reason's result, the final decision, the list of reasons. */
+function TopicOutputs({ projectId, settings, canWrite, onSave }: { projectId: string; settings: any; canWrite: boolean; onSave: (v: any) => void }) {
+  const { terms, label } = useTerms(projectId);
+  const o = settings.outputs || {};
+  const box = 'h-8 bg-transparent border-b border-[#8d8d8d] px-1 text-[14px] text-[#161616] outline-none focus:border-[#0f62fe] min-w-[170px]';
+  const words = terms.map(t => t.term);
+  const pathOf = (v: string) => { const x = v.trim(); if (!x) return ''; return terms.find(t => t.term === x || t.path === x)?.path || x; };
+  const field = (k: 'result' | 'decision' | 'reasons', title: string) => (
+    <><span className="ml-6 first:ml-0 text-[#525252]">{title}</span>
+      {canWrite ? <ValueCombo className={box} value={o[k] ? label(o[k]) : ''} placeholder="No word" ariaLabel={title} values={words} onChange={v => onSave({ outputs: { [k]: pathOf(v) } })} />
+        : <span>{o[k] ? label(o[k]) : 'No word'}</span>}</>
+  );
+  return (
+    <div className="flex flex-wrap items-center gap-2 mt-2 text-[14px]">
+      {field('result', 'Top reason result goes to')}{field('decision', 'Final decision goes to')}{field('reasons', 'Reasons go to')}
+    </div>
   );
 }
