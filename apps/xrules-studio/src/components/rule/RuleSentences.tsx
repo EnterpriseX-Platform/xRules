@@ -173,9 +173,10 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
     return (
       <span key={key} className="inline-flex flex-wrap items-center gap-x-1.5">
         <Chip title={name}>{label(name)}</Chip>
-        <span className="inline-block min-w-[96px] [&_button]:h-8 [&_button]:border-0 [&_button]:border-b-2 [&_button]:border-[#0f62fe] [&_button]:bg-transparent [&_button]:text-[#0f62fe] [&_button]:text-[15px]">
-          <Dropdown value={spec.value} options={OP_TH.map(o => ({ value: o.value, label: o.label }))}
-            onChange={op => put(op, OP_TH.find(o => o.value === op)!.args === 2 ? [args[0] ?? '', args[1] ?? ''] : [args[0] ?? ''])} />
+        <span className="inline-block">
+          {/* typed or picked with the arrow keys; no page jump */}
+          <ValueCombo className={`${plain} w-[120px]`} value={spec.label} values={OP_TH.map(o => o.label)} ariaLabel={`${label(name)} comparison`}
+            onChange={l => { const o = OP_TH.find(x => x.label === l) || OP_TH.find(x => x.label.toLowerCase().startsWith(l.toLowerCase())); if (o) put(o.value, o.args === 2 ? [args[0] ?? '', args[1] ?? ''] : [args[0] ?? '']); }} />
         </span>
         {(operator === 'IN' || operator === '!IN') ? (() => {
           // one of several values: each value a removable piece, Enter adds the next one
