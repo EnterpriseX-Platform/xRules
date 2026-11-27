@@ -109,17 +109,18 @@ function Terms({ projectId }: { projectId: string }) {
   const { data: usage } = useQuery({ queryKey: ['vocab-usage', projectId], queryFn: () => api.get<any>(`/platform/vocabulary-usage?project_id=${projectId}`) });
   const shown = (terms as any[]).filter(t => !q || `${t.term} ${t.path} ${t.description || ''}`.toLowerCase().includes(q.toLowerCase()));
   const del = useMutation({ mutationFn: (id: string) => api.del(`/platform/vocabulary/${id}`), onSuccess: () => { qc.invalidateQueries({ queryKey: ['vocab', projectId] }); qc.invalidateQueries({ queryKey: ['vocab-sug', projectId] }); } });
+  const edit = (t: any) => { save.reset(); setF({ id: t.id, term: t.term, path: t.path, type: t.type, unit: t.unit || '', values: (t.values || []).join(', '), description: t.description }); setAddOpen(true); };
   return (
     <div className="space-y-4">
       <div className="flex gap-2"><Btn onClick={() => { setF(blankT); setAddOpen(true); }}>Add term</Btn><Btn kind="tertiary" onClick={() => setImportOpen(true)}>Import</Btn></div>
       {importOpen && <ImportTerms projectId={projectId} known={terms as any[]} onClose={() => setImportOpen(false)} />}
-      {addOpen && <Modal title={f.id ? 'Edit term' : 'Add term'} onClose={() => setAddOpen(false)} wide onSubmit={() => save.mutate({ id: f.id || undefined, term: f.term, path: f.path, type: f.type, unit: f.unit, values: String(f.values || '').split(',').map((s: string) => s.trim()).filter(Boolean) })} submitLabel={f.id ? 'Save' : 'Add'} submitDisabled={!f.term || !f.path} error={save.error ? String((save.error as any).message) : null}>
+      {addOpen && <Modal title={f.id ? 'Edit term' : 'Add term'} onClose={() => setAddOpen(false)} wide onSubmit={() => save.mutate({ id: f.id || undefined, term: f.term, path: f.path, type: f.type, unit: f.unit, description: f.description, values: String(f.values || '').split(',').map((s: string) => s.trim()).filter(Boolean) })} submitLabel={f.id ? 'Save' : 'Add'} submitDisabled={!f.term || !f.path} error={save.error ? String((save.error as any).message) : null}>
         <div className="grid gap-4">
           <Input id="t-term" label="Term" value={f.term} onChange={(v: string) => setF({ ...f, term: v })} />
           <Input id="t-path" label="Data path" mono value={f.path} onChange={(v: string) => setF({ ...f, path: v })} placeholder="item.unitPrice" />
-          <div><div className="text-[12px] text-[#525252] mb-1.5">Type</div><Dropdown value={f.type} onChange={v => setF({ ...f, type: v })} options={[{ value: 'text', label: 'Text' }, { value: 'number', label: 'Number' }, { value: 'money', label: 'Money' }, { value: 'date', label: 'Date' }, { value: 'enum', label: 'List of values' }]} /></div>
+          <div><div className="text-[12px] text-[#525252] mb-1.5">Type</div><Dropdown value={f.type} onChange={v => setF({ ...f, type: v })} options={[{ value: 'text', label: 'Text' }, { value: 'number', label: 'Number' }, { value: 'money', label: 'Money' }, { value: 'date', label: 'Date' }, { value: 'enum', label: 'List of values' }, { value: 'boolean', label: 'Yes / no' }]} /></div>
           <Input id="t-unit" label="Unit" value={f.unit} onChange={(v: string) => setF({ ...f, unit: v })} placeholder="THB" />
-          <Input id="t-vals" label="Allowed values (comma separated)" value={f.values} onChange={(v: string) => setF({ ...f, values: v })} />
+          <Input id="t-vals" label="Allowed values" placeholder="Y, N" value={f.values} onChange={(v: string) => setF({ ...f, values: v })} />
         </div>
       </Modal>}
       <div className="flex items-center gap-3">
@@ -131,13 +132,13 @@ function Terms({ projectId }: { projectId: string }) {
           const by = (usage as any)?.[t.path] || [];
           const requested = String(t.description || '').startsWith('Requested');
           return (
-            <tr key={t.id} className="cursor-pointer hover:bg-[#f4f4f4]" onClick={() => { setF({ id: t.id, term: t.term, path: t.path, type: t.type, unit: t.unit || '', values: (t.values || []).join(', ') }); setAddOpen(true); }}>
+            <tr key={t.id} className="cursor-pointer hover:bg-[#f4f4f4]" onClick={() => edit(t)}>
               <Td><span className="text-[#161616]">{t.term}</span>{t.values?.length > 0 && <div className="text-[12px] text-[#525252] whitespace-normal">{t.values.slice(0, 6).join(', ')}{t.values.length > 6 ? ` and ${t.values.length - 6} more` : ''}</div>}</Td>
               {dev && <Td mono>{t.path}</Td>}
               <Td>{TYPE_NAME[t.type] || t.type}{t.unit ? ` · ${t.unit}` : ''}</Td>
               <Td className="!whitespace-normal">{requested ? <span className="text-[#8a3800]">Asked from IT</span> : <span className="text-[#525252]">{t.description || ''}</span>}</Td>
               <Td className="!whitespace-normal">{by.length ? <span className="flex flex-wrap gap-x-3 gap-y-1" onClick={e => e.stopPropagation()}>{by.slice(0, 4).map((u: any) => <Chip key={u.id} item={{ kind: u.kind, id: u.id, name: u.name, href: u.href }} />)}{by.length > 4 && <span className="text-[#525252]">and {by.length - 4} more</span>}</span> : <span className="text-[#6f6f6f]">Not used yet</span>}</Td>
-              <Td><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={e => { e.stopPropagation(); del.mutate(t.id); }}>Remove</button></Td>
+              <Td className="whitespace-nowrap"><button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={e => { e.stopPropagation(); edit(t); }}>Edit</button><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={e => { e.stopPropagation(); del.mutate(t.id); }}>Remove</button></Td>
             </tr>
           );
         })}

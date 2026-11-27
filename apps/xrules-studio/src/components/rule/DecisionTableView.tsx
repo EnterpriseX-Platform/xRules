@@ -54,7 +54,7 @@ export function DecisionTableView({ rule, projectId, onChange }: { rule: any; pr
       </div>
       {view === 'sentence'
         ? <RuleSentences def={def} onChange={change} label={label} term={term} terms={terms} onAddTerm={addTerm} reasons={reasons} live={live} />
-        : <TableDesigner key={gen} definition={def} inputSchema={rule.inputSchema} outputSchema={rule.outputSchema} onChange={change} hidePolicy label={label} reasons={reasons} />}
+        : <TableDesigner key={gen} definition={def} inputSchema={rule.inputSchema} outputSchema={rule.outputSchema} onChange={change} hidePolicy label={label} reasons={reasons} valuesOf={(n: string) => term(n)?.values || []} />}
     </div>
   );
 }

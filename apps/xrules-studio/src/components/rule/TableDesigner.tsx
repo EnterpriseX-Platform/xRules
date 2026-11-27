@@ -5,6 +5,7 @@
 // Colors: condition cells (LHS) tinted yellow; result cells (RHS) tinted green.
 // Rule definition shape kept compatible:
 //   { hitPolicy: 'FIRST'|'ARRAY'|..., inputs:[{name,type,label}], outputs:[...], rules:[{id,inputs:[...],outputs:[...]}] }
+import { ValueCombo } from './ValueCombo';
 import { useMemo, useState, useEffect } from 'react';
 
 // Module-level cache so the trace highlight survives DEFINITION ↔ TEST tab switches.
@@ -26,8 +27,9 @@ interface DefShape {
 }
 
 export function TableDesigner({
-  definition, inputSchema, outputSchema, onChange, hidePolicy, label = (k: string) => k, reasons = [],
+  definition, inputSchema, outputSchema, onChange, hidePolicy, label = (k: string) => k, reasons = [], valuesOf,
 }: {
+  valuesOf?: (name: string) => string[];
   hidePolicy?: boolean; label?: (k: string) => string; reasons?: { code: string; text: string }[];
   definition: any;
   inputSchema?: any;
@@ -297,9 +299,9 @@ export function TableDesigner({
                     />
                   </td>
                   <td className="px-2 py-1.5 text-subtle tabular-nums">{ri + 1}</td>
-                  {inputs.map((_, ci) => (
+                  {inputs.map((c, ci) => (
                     <td key={ci} className="border-r border-border/30 bg-warn/[0.04]">
-                      <Cell side="condition" value={r.inputs[ci]} onChange={(v) => setCell(r.id, 'inputs', ci, v)} />
+                      <Cell side="condition" values={valuesOf?.(c.name) || []} value={r.inputs[ci]} onChange={(v) => setCell(r.id, 'inputs', ci, v)} />
                     </td>
                   ))}
                   <td className="bg-border/30 w-px" />
@@ -383,7 +385,7 @@ function ColumnHeader({ col, side, inputSchema, onUpdate, onRemove, label = (k: 
   );
 }
 
-function Cell({ side, value, onChange }: { side: ColumnSide; value: any; onChange: (v: any) => void }) {
+function Cell({ side, value, onChange, values = [] }: { side: ColumnSide; value: any; onChange: (v: any) => void; values?: string[] }) {
   // Decompose existing value into operator + args, render dropdown + 1 or 2 inputs.
   const parsed = parseCellExpression(value);
   const opSpec = OPERATORS.find(o => o.code === parsed.operator) || OPERATORS[0];
@@ -410,7 +412,11 @@ function Cell({ side, value, onChange }: { side: ColumnSide; value: any; onChang
       >
         {OPERATORS.map(op => <option key={op.code} value={op.code}>{op.code}</option>)}
       </Select>
-      {opSpec.argCount >= 1 && (
+      {opSpec.argCount === 1 && values.length > 0 && (
+        <ValueCombo ariaLabel="Condition value" value={String(parsed.args[0] ?? '')} values={values} onChange={v => setArg(0, v)}
+          className="h-8 px-2 bg-white border-b border-[#8d8d8d] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2 text-[14px] text-text w-full min-w-[60px]" />
+      )}
+      {opSpec.argCount >= 1 && !(opSpec.argCount === 1 && values.length > 0) && (
         <input
           aria-label="Condition value"
           className="h-8 px-2 bg-white border-b border-[#8d8d8d] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe] focus:-outline-offset-2 text-[14px] text-text flex-1 min-w-[60px]"

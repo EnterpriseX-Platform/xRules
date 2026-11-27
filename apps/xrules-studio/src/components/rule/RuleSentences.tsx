@@ -5,6 +5,7 @@
 import { useMemo, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Dropdown } from '@/components/pipeline/Dropdown';
+import { ValueCombo } from './ValueCombo';
 import { parseCellExpression, formatCellExpression } from './operators';
 import { tableChecks } from './tableChecks';
 import { showValue, type Term } from '@/lib/terms';
@@ -165,8 +166,8 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
           <Dropdown value={spec.value} options={OP_TH.map(o => ({ value: o.value, label: o.label }))}
             onChange={op => put(op, OP_TH.find(o => o.value === op)!.args === 2 ? [args[0] ?? '', args[1] ?? ''] : [args[0] ?? ''])} />
         </span>
-        {spec.args >= 1 && (t?.type === 'enum' && t.values?.length && spec.args === 1 && (operator === '=' || operator === '!=')
-          ? <span className="inline-block min-w-[120px]"><Dropdown value={String(args[0] ?? '')} placeholder="Choose" options={t.values.map(v => ({ value: v, label: v }))} onChange={v => put(operator, [v])} /></span>
+        {spec.args >= 1 && ((t?.type === 'enum' || t?.type === 'text' || t?.type === 'string' || t?.values?.length) && spec.args === 1
+          ? <ValueCombo className={`${plain} min-w-[90px]`} value={String(args[0] ?? '')} values={t?.values || []} ariaLabel={`${label(name)} value`} onChange={v => put(operator, [v])} />
           : <FmtInput className={`${plain} text-right`} value={args[0] ?? ''} aria-label={`${label(name)} value`} onChange={v => put(operator, spec.args === 2 ? [v, args[1] ?? ''] : [v])} />)}
         {spec.args === 2 && <><span>and</span><FmtInput className={`${plain} text-right`} value={args[1] ?? ''} aria-label={`${label(name)} to`} onChange={v => put(operator, [args[0] ?? '', v])} /></>}
         {spec.args >= 1 && t?.unit && <span className="text-[#525252]">{t.unit}</span>}

@@ -9,15 +9,20 @@ export function humanise(path: string): string {
   return last.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
+const YMD = (s: string) => { const m = /^(\d{4})(\d{2})(\d{2})$/.exec(s); if (!m) return false; const y = +m[1], mo = +m[2], d = +m[3]; return y >= 1900 && y <= 2200 && mo >= 1 && mo <= 12 && d >= 1 && d <= 31; };
+
 function infer(vals: any[]): { type: string; values: string[] } {
   const v = vals.filter(x => x !== null && x !== undefined && String(x).trim() !== '');
   if (!v.length) return { type: 'text', values: [] };
   if (v.every(x => typeof x === 'boolean' || /^(true|false)$/i.test(String(x)))) return { type: 'boolean', values: [] };
+  // dates before numbers: 20210615 is a date (yyyymmdd), not a number
+  if (v.every(x => x instanceof Date || DATE.test(String(x).trim()) || YMD(String(x).trim()))) return { type: 'date', values: [] };
   if (v.every(x => typeof x === 'number' || /^-?[\d,]*\.?\d+$/.test(String(x).trim()))) return { type: 'number', values: [] };
-  if (v.every(x => x instanceof Date || DATE.test(String(x).trim()))) return { type: 'date', values: [] };
-  const distinct = Array.from(new Set(v.map(x => String(x).trim())));
-  // a few distinct short words repeated over several rows reads as a list of values
-  if (distinct.length <= 12 && distinct.every(s => s.length <= 40) && (v.length >= distinct.length * 2 || distinct.length <= 5)) return { type: 'enum', values: distinct };
+  const distinct = Array.from(new Set(v.map(x => String(x).trim()))).sort();
+  // many rows: every distinct value up to 30 is the list of allowed values; above that it is text
+  if (v.length >= 5) return distinct.length <= 30 && distinct.every(s => s.length <= 40) ? { type: 'enum', values: distinct } : { type: 'text', values: [] };
+  // one or a few samples: a few short words read as a list of values (more can be typed or added on the word)
+  if (distinct.length <= 5 && distinct.every(s => s.length <= 40)) return { type: 'enum', values: distinct };
   return { type: 'text', values: [] };
 }
 
@@ -74,6 +79,7 @@ function tableToRows(table: any[][]): Record<string, any>[] {
 
 /** Rows read from a dropped file or pasted JSON. Flat keys with dots stay as paths. */
 export async function readSample(input: File | string): Promise<Record<string, any>[]> {
+  if (typeof input !== 'string' && !(input instanceof File)) { const j: any = input; return Array.isArray(j) ? j : [j]; }
   if (typeof input === 'string') { const j = JSON.parse(input); return Array.isArray(j) ? j : [j]; }
   const name = input.name.toLowerCase();
   if (name.endsWith('.json')) { const j = JSON.parse(await input.text()); return Array.isArray(j) ? j : [j]; }
