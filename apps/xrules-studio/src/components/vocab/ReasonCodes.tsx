@@ -77,7 +77,7 @@ export function ReasonCodes({ projectId }: { projectId: string }) {
   const { data: rows = [] } = useReasons(projectId);
   const blank = { id: '', code: '', text: '', outcome: '', priority: '' };
   const [f, setF] = useState<any>(null);
-  const [importing, setImporting] = useState(false);
+  const [importing, setImporting] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('import') === '1');
   const done = () => qc.invalidateQueries({ queryKey: ['reasons', projectId] });
   const save = useMutation({ meta: { silent: true }, mutationFn: () => api.post('/platform/reasons', { projectId, id: f.id || undefined, code: f.code, text: f.text, outcome: f.outcome, priority: String(f.priority).trim() === '' ? undefined : Number(f.priority) }), onSuccess: () => { done(); setF(null); } });
   const remove = useListRemove<Reason>({ queryKey: ['reasons', projectId], noun: 'reason code', name: r => r.code,

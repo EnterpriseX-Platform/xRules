@@ -100,7 +100,7 @@ function Cowork({ projectId }: { projectId: string }) {
 function Terms({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('import') === '1');
   const blankT = { id: '', term: '', path: '', type: 'text', values: '', unit: '' };
   const [f, setF] = useState<any>(blankT);
   const { data: terms = [] } = useQuery({ queryKey: ['vocab', projectId], queryFn: () => api.get<any[]>(`/platform/vocabulary?project_id=${projectId}`) });
