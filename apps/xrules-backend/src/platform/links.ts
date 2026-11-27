@@ -53,3 +53,18 @@ export async function links(kind: 'rule' | 'flow', id: string, user: AuthUser) {
     checks: { total: cases.length, pass: cases.filter(c => c.lastStatus === 'PASS').length, fail: cases.filter(c => c.lastStatus && c.lastStatus !== 'PASS').length },
   };
 }
+
+/** For each word of a project: the decisions that read it (Words screen "Used in"). */
+export async function termUsage(projectIdOrSlug: string, user: AuthUser) {
+  const p = await assertProjectAccess(projectIdOrSlug, user);
+  const [rules, flows] = await Promise.all([
+    prisma.rule.findMany({ where: { projectId: p.id }, select: { id: true, name: true, topicId: true, definition: true } }),
+    prisma.flow.findMany({ where: { projectId: p.id, status: { not: 'ARCHIVED' as any } }, select: { id: true, name: true, topicId: true, graph: true } }),
+  ]);
+  const out: Record<string, { kind: string; id: string; name: string; topicId: string | null; href: string }[]> = {};
+  const add = (f: string, x: any) => { (out[f] ||= []).push(x); };
+  for (const r of rules as any[]) for (const f of fieldsOf(r.definition, null).concat((r.definition?.outputs || []).map((o: any) => o?.name).filter(Boolean))) add(f, { kind: 'decision', id: r.id, name: r.name, topicId: r.topicId, href: `/p/${p.id}/rules/${r.id}` });
+  for (const fl of flows as any[]) for (const f of fieldsOf(null, fl.graph)) add(f, { kind: 'flow', id: fl.id, name: fl.name, topicId: fl.topicId, href: `/p/${p.id}/flows/${fl.id}` });
+  for (const k of Object.keys(out)) out[k] = out[k].filter((x, i, a) => a.findIndex(y => y.id === x.id) === i);
+  return out;
+}

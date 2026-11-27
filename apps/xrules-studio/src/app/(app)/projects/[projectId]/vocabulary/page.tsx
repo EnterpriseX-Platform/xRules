@@ -1,4 +1,7 @@
 'use client';
+import { useDevMode } from '@/lib/devmode';
+import { Chip } from '@/components/links/Links';
+const TYPE_NAME: Record<string, string> = { text: 'Text', number: 'Number', money: 'Money', date: 'Date', enum: 'List of values', boolean: 'Yes / no' };
 import { useState } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { ImportTerms } from '@/components/vocab/ImportTerms';
@@ -102,6 +105,9 @@ function Terms({ projectId }: { projectId: string }) {
   const { data: terms = [] } = useQuery({ queryKey: ['vocab', projectId], queryFn: () => api.get<any[]>(`/platform/vocabulary?project_id=${projectId}`) });
   const { data: sug = [] } = useQuery({ queryKey: ['vocab-sug', projectId], queryFn: () => api.get<any[]>(`/platform/vocabulary/suggest?project_id=${projectId}`) });
   const save = useMutation({ mutationFn: (t: any) => api.post('/platform/vocabulary', { projectId, ...t }), onSuccess: () => { setAddOpen(false); qc.invalidateQueries({ queryKey: ['vocab', projectId] }); qc.invalidateQueries({ queryKey: ['vocab-sug', projectId] }); setF(blankT); } });
+  const [dev] = useDevMode(); const [q, setQ] = useState('');
+  const { data: usage } = useQuery({ queryKey: ['vocab-usage', projectId], queryFn: () => api.get<any>(`/platform/vocabulary-usage?project_id=${projectId}`) });
+  const shown = (terms as any[]).filter(t => !q || `${t.term} ${t.path} ${t.description || ''}`.toLowerCase().includes(q.toLowerCase()));
   const del = useMutation({ mutationFn: (id: string) => api.del(`/platform/vocabulary/${id}`), onSuccess: () => { qc.invalidateQueries({ queryKey: ['vocab', projectId] }); qc.invalidateQueries({ queryKey: ['vocab-sug', projectId] }); } });
   return (
     <div className="space-y-4">
@@ -116,8 +122,25 @@ function Terms({ projectId }: { projectId: string }) {
           <Input id="t-vals" label="Allowed values (comma separated)" value={f.values} onChange={(v: string) => setF({ ...f, values: v })} />
         </div>
       </Modal>}
-      <Table head={['Term', 'Means', 'Type', 'Unit', 'Allowed values', '']}>
-        {(terms as any[]).map(t => <tr key={t.id} className="cursor-pointer hover:bg-[#f4f4f4]" onClick={() => { setF({ id: t.id, term: t.term, path: t.path, type: t.type, unit: t.unit || '', values: (t.values || []).join(', ') }); setAddOpen(true); }}><Td>{t.term}</Td><Td mono>{t.path}</Td><Td>{t.type}</Td><Td>{t.unit || ''}</Td><Td>{t.values.join(', ')}</Td><Td><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={e => { e.stopPropagation(); del.mutate(t.id); }}>Remove</button></Td></tr>)}
+      <div className="flex items-center gap-3">
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Find words" aria-label="Find words" className="h-10 w-[280px] px-4 bg-white border-b border-[#8d8d8d] text-[14px] outline-none focus:outline focus:outline-2 focus:outline-[#0f62fe]" />
+        <span className="text-[13px] text-[#525252] tabular-nums">{shown.length.toLocaleString()} word{shown.length === 1 ? '' : 's'}</span>
+      </div>
+      <Table head={['Word', ...(dev ? ['Data path'] : []), 'Type', 'Comes from', 'Used in', '']}>
+        {shown.map(t => {
+          const by = (usage as any)?.[t.path] || [];
+          const requested = String(t.description || '').startsWith('Requested');
+          return (
+            <tr key={t.id} className="cursor-pointer hover:bg-[#f4f4f4]" onClick={() => { setF({ id: t.id, term: t.term, path: t.path, type: t.type, unit: t.unit || '', values: (t.values || []).join(', ') }); setAddOpen(true); }}>
+              <Td><span className="text-[#161616]">{t.term}</span>{t.values?.length > 0 && <div className="text-[12px] text-[#525252] whitespace-normal">{t.values.slice(0, 6).join(', ')}{t.values.length > 6 ? ` and ${t.values.length - 6} more` : ''}</div>}</Td>
+              {dev && <Td mono>{t.path}</Td>}
+              <Td>{TYPE_NAME[t.type] || t.type}{t.unit ? ` · ${t.unit}` : ''}</Td>
+              <Td className="!whitespace-normal">{requested ? <span className="text-[#8a3800]">Asked from IT</span> : <span className="text-[#525252]">{t.description || ''}</span>}</Td>
+              <Td className="!whitespace-normal">{by.length ? <span className="flex flex-wrap gap-x-3 gap-y-1" onClick={e => e.stopPropagation()}>{by.slice(0, 4).map((u: any) => <Chip key={u.id} item={{ kind: u.kind, id: u.id, name: u.name, href: u.href }} />)}{by.length > 4 && <span className="text-[#525252]">and {by.length - 4} more</span>}</span> : <span className="text-[#6f6f6f]">Not used yet</span>}</Td>
+              <Td><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1]" onClick={e => { e.stopPropagation(); del.mutate(t.id); }}>Remove</button></Td>
+            </tr>
+          );
+        })}
       </Table>
       {(sug as any[]).length > 0 && <>
         <h2 className="text-[16px] mt-6">Fields seen in real requests that have no term yet</h2>
