@@ -4,7 +4,7 @@ import { useListRemove } from '@/lib/listRemove';
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { api , downloadFile } from '@/lib/api';
 import { PageHead, Table, Td, Tag, Btn, Input, TextArea, Panel, Notice, Tabs, Modal } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { TraceView } from '@/components/pipeline/TraceView';
@@ -108,6 +108,7 @@ function Docs({ specId }: { specId: string }) {
   if (!data) return null;
   return (
     <div className="space-y-3">
+      <div><button className="h-8 px-3 text-[14px] text-[#0f62fe] hover:bg-[#e0e0e0]" onClick={() => downloadFile(`/platform/specs/${specId}/openapi.json`, `openapi-${specId}.json`)}>Download OpenAPI 3</button></div>
       {Object.entries(data.paths || {}).flatMap(([p, ms]: any) => Object.entries(ms).map(([m, op]: any) => (
         <Panel key={`${m}${p}`} title={<span className="font-mono text-[14px]"><Tag tone={METHOD_TONE[m.toUpperCase()]}>{m.toUpperCase()}</Tag> {data.servers?.[0]?.url}{p}</span>}>
           <div className="text-[14px] mb-2">{op.summary}</div>

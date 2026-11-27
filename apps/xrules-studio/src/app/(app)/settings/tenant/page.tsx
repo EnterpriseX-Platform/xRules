@@ -99,6 +99,7 @@ function Members({ me, admin }: { me: any; admin: boolean }) {
   const onErr = (e: any) => setErr(e.message);
   const [issued, setIssued] = useState<{ email: string; password: string } | null>(null);
   const addM = useMutation({ mutationFn: () => tenantApi.addMember(add), onSuccess: (m: any) => { setIssued(m?.tempPassword ? { email: m.email, password: m.tempPassword } : null); setAdd({ email: '', role: 'MEMBER' }); setErr(null); setOpen(false); inv(); }, onError: onErr });
+  const tuneM = useMutation({ mutationFn: (v: { userId: string; canTune: boolean }) => api.put(`/tenant/members/${v.userId}`, { canTune: v.canTune }), onSuccess: () => { setErr(null); inv(); }, onError: onErr });
   const approveM = useMutation({ mutationFn: (v: { userId: string; canApprove: boolean }) => api.put(`/tenant/members/${v.userId}`, { canApprove: v.canApprove }), onSuccess: () => { setErr(null); inv(); }, onError: onErr });
   const roleM = useMutation({ mutationFn: (v: { userId: string; role: string }) => tenantApi.setRole(v.userId, v.role), onSuccess: () => { setErr(null); inv(); }, onError: onErr });
   const delM = useMutation({ mutationFn: (userId: string) => tenantApi.removeMember(userId), onSuccess: () => { setErr(null); setRemoving(null); inv(); qc.invalidateQueries({ queryKey: ['tenant-removed'] }); }, onError: onErr });
@@ -152,6 +153,8 @@ function Members({ me, admin }: { me: any; admin: boolean }) {
               <div className="w-[150px]">{canEdit && !self ? <Dropdown value={m.role} options={opts} onChange={v => v !== m.role && roleM.mutate({ userId: m.userId, role: v })} /> : <span className="text-[14px]">{roleLabel(m.role)}</span>}</div>
               {!always && (canEdit ? <label className="flex items-center gap-2 text-[13px] text-[#525252] cursor-pointer"><input type="checkbox" className="h-4 w-4 accent-[#161616]" aria-label={`Approver ${m.email}`} checked={!!m.canApprove} onChange={e => approveM.mutate({ userId: m.userId, canApprove: e.target.checked })} />Approver</label>
                 : m.canApprove ? <span className="text-[13px] text-[#525252]">Approver</span> : null)}
+              {!always && (canEdit ? <label className="flex items-center gap-2 text-[13px] text-[#525252] cursor-pointer"><input type="checkbox" className="h-4 w-4 accent-[#161616]" aria-label={`Can tune live parameters ${m.email}`} checked={!!m.canTune} onChange={e => tuneM.mutate({ userId: m.userId, canTune: e.target.checked })} />Can tune live parameters</label>
+                : m.canTune ? <span className="text-[13px] text-[#525252]">Can tune live parameters</span> : null)}
               {(canEdit || self) && <Btn kind="ghost" onClick={() => { setErr(null); setRemoving({ ...m, self }); }}>{self ? 'Leave' : 'Remove'}</Btn>}
             </div>
           );

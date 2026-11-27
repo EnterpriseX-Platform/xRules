@@ -242,3 +242,16 @@ export const executeApi = {
   run: (ruleId: string, input: any, context: any = {}) =>
     api.post<any>(`/execute`, { rule_id: ruleId, input, context }),
 };
+
+/** Fetch a file from the API with the session and hand it to the browser as a download. */
+export async function downloadFile(path: string, fallbackName = 'download') {
+  const headers: Record<string, string> = {};
+  const t = token(); if (t) headers['Authorization'] = `Bearer ${t}`;
+  const tenant = activeTenant(); if (tenant) headers['X-Tenant'] = tenant;
+  const res = await fetch(`${BASE_URL}${path}`, { headers, cache: 'no-store' });
+  if (!res.ok) { let m = `Download failed (${res.status})`; try { m = (await res.json())?.error?.message || m; } catch {} throw new ApiError(m, res.status); }
+  const name = res.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1] || fallbackName;
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
