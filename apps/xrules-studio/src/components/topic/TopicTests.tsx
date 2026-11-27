@@ -14,7 +14,11 @@ export function TopicTests({ projectId, topicId, runKey, focusId, canWrite = tru
 }) {
   const qc = useQueryClient();
   const { label } = useTerms(projectId);
-  const [open, setOpen] = useState<string | null>(null);
+  const [openSet, setOpenSet] = useState<Set<string>>(new Set());
+  const [all, setAll] = useState(false);
+  const [asTable, setAsTable] = useState(false);
+  const isOpen = (id: string) => all || openSet.has(id);
+  const toggle = (id: string) => setOpenSet(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [importing, setImporting] = useState(false);
   const { data: cases = [] } = useQuery({ queryKey: ['topic-tests', topicId], queryFn: () => api.get<any[]>(`/platform/tests/target/topic/${topicId}`) });
   const run = useMutation({ meta: { failLabel: "Couldn't run" }, mutationFn: () => api.post<any>(`/platform/topics/${topicId}/tests/run`),
@@ -23,6 +27,16 @@ export function TopicTests({ projectId, topicId, runKey, focusId, canWrite = tru
   const first = useRef(true);
   useEffect(() => { if (first.current) { first.current = false; return; } if (!(cases as any[]).length) return; const t = setTimeout(() => run.mutate(), 900); return () => clearTimeout(t); }, [runKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const list = cases as any[];
+  // per expected field: how many of the cases that were run match it
+  const fields: { path: string; ok: number; of: number }[] = [];
+  for (const c of list) {
+    const checks: any[] = c.lastResult?.checks || [];
+    (c.expectations || []).forEach((e: any, i: number) => {
+      if (!e?.path || !checks[i]) return;
+      let f = fields.find(x => x.path === e.path); if (!f) fields.push(f = { path: e.path, ok: 0, of: 0 });
+      f.of++; if (checks[i].ok) f.ok++;
+    });
+  }
   const pass = list.filter(c => c.lastStatus === 'PASS').length; const fail = list.filter(c => c.lastStatus === 'FAIL' || c.lastStatus === 'ERROR').length;
 
   return (
@@ -34,19 +48,41 @@ export function TopicTests({ projectId, topicId, runKey, focusId, canWrite = tru
         {canWrite && <button type="button" className="h-8 px-3 text-[14px] text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => setImporting(true)}>Import</button>}
       </div>
       {!list.length && <div className="px-4 py-4 text-[14px] text-[#6f6f6f]">No test cases yet</div>}
-      <div className="max-h-[70vh] overflow-auto">
+      {fields.length > 0 && (
+        <div className="px-4 py-2 border-b border-[#e0e0e0] text-[13px]">
+          {fields.map(f => <div key={f.path} className="grid grid-cols-[1fr_auto] gap-x-3 h-7 items-center"><span className="text-[#525252] truncate">{label(String(f.path).replace(/^\$\.?/, ''))}</span>
+            <span className={`tabular-nums ${f.ok === f.of ? 'text-[#198038]' : 'text-[#da1e28]'}`}>matched {f.ok} of {f.of}</span></div>)}
+          <div className="flex gap-1 pt-1">
+            <button type="button" className="h-8 px-2 text-[13px] text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => { setAsTable(false); setAll(a => !a); setOpenSet(new Set()); }}>{all ? 'Collapse all' : 'Expand all'}</button>
+            <button type="button" className="h-8 px-2 text-[13px] text-[#0f62fe] hover:bg-[#e8e8e8]" onClick={() => setAsTable(t => !t)}>{asTable ? 'Show as list' : 'Show as table'}</button>
+          </div>
+        </div>
+      )}
+      {asTable && fields.length > 0 && (
+        <div className="max-h-[70vh] overflow-auto">
+          <table className="text-[13px] border-collapse">
+            <thead className="sticky top-0 bg-[#e0e0e0]"><tr><th className="h-9 px-3 text-left font-semibold whitespace-nowrap">Case</th>{fields.map(f => <th key={f.path} className="h-9 px-3 text-left font-semibold whitespace-nowrap">{label(String(f.path).replace(/^\$\.?/, ''))}</th>)}</tr></thead>
+            <tbody>{list.map(c => { const r = c.lastResult || {}; return (
+              <tr key={c.id} className="border-b border-[#e0e0e0]"><td className="h-9 px-3 whitespace-nowrap">{c.name}</td>
+                {fields.map(f => { const i = (c.expectations || []).findIndex((e: any) => e?.path === f.path); const k = i >= 0 ? (r.checks || [])[i] : null; const e = i >= 0 ? c.expectations[i] : null;
+                  return <td key={f.path} className={`h-9 px-3 whitespace-nowrap ${!k ? 'text-[#8d8d8d]' : k.ok ? 'text-[#198038]' : 'text-[#da1e28]'}`}>{!k ? '—' : k.ok ? show(e.value) : `${show(readPath(r.output, e.path))} · expected ${show(e.value)}`}</td>; })}
+              </tr>); })}</tbody>
+          </table>
+        </div>
+      )}
+      {!asTable && <div className="max-h-[70vh] overflow-auto">
         {list.map(c => {
           const r = c.lastResult || {}; const bad = c.lastStatus === 'FAIL' || c.lastStatus === 'ERROR';
           const trace: any[] = r.output?._trace || [];
           const here = focusId ? trace.find(t => t.id === focusId) : null;
           return (
             <div key={c.id} className="border-b border-[#e0e0e0] last:border-b-0">
-              <button type="button" className="w-full flex items-center gap-3 px-4 h-10 text-left hover:bg-[#f4f4f4]" onClick={() => setOpen(open === c.id ? null : c.id)} aria-expanded={open === c.id}>
+              <button type="button" className="w-full flex items-center gap-3 px-4 h-10 text-left hover:bg-[#f4f4f4]" onClick={() => toggle(c.id)} aria-expanded={isOpen(c.id)}>
                 <span className={`w-12 text-[13px] ${c.lastStatus === 'PASS' ? 'text-[#198038]' : bad ? 'text-[#da1e28]' : 'text-[#6f6f6f]'}`}>{c.lastStatus === 'PASS' ? 'Pass' : c.lastStatus === 'ERROR' ? 'Error' : bad ? 'Fail' : 'Not run'}</span>
                 <span className="flex-1 truncate text-[14px] text-[#161616]">{c.name}</span>
                 {here?.lines?.length ? <span className="text-[12px] text-[#525252] tabular-nums">line {here.lines.join(', ')}</span> : null}
               </button>
-              {open === c.id && (
+              {isOpen(c.id) && (
                 <div className="px-4 pb-3 text-[13px] space-y-2">
                   {(r.checks || []).map((k: any, i: number) => {
                     const e = (c.expectations || [])[i];
@@ -63,7 +99,7 @@ export function TopicTests({ projectId, topicId, runKey, focusId, canWrite = tru
             </div>
           );
         })}
-      </div>
+      </div>}
       {importing && <CaseImport projectId={projectId} topicId={topicId} outputs={outputs} onClose={() => setImporting(false)} />}
     </section>
   );
