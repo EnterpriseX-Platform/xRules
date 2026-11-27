@@ -79,6 +79,7 @@ export function TopicMap({ projectId, topic, onTab }: { projectId: string; topic
   // connecting lines, measured from the drawn boxes
   const wrap = useRef<HTMLDivElement>(null);
   const [paths, setPaths] = useState<{ d: string; on: string[] }[]>([]);
+  const last = useRef('');
   useLayoutEffect(() => {
     const el = wrap.current; if (!el || open) return;
     const draw = () => {
@@ -89,7 +90,7 @@ export function TopicMap({ projectId, topic, onTab }: { projectId: string; topic
       words.forEach(wd => wd.by.forEach(id => { const a = at(`w:${wd.id}`), b = at(`b:${id}`); if (a && b) out.push({ d: curve(a, b), on: [id] }); }));
       outs.forEach(ot => ot.from.forEach(id => { const a = at(`b:${id}`), b = at(`o:${ot.id}`); if (a && b) out.push({ d: curve(a, b), on: [id] }); }));
       inner.forEach(([from, to]) => { const a = at(`b:${from}`), b = at(`b:${to}`); if (a && b) { const x = a.r + 14; out.push({ d: `M${a.r},${a.y} C${x},${a.y} ${x},${b.y} ${b.r},${b.y}`, on: [from, to] }); } });
-      setPaths(out);
+      const sig = JSON.stringify(out); if (sig !== last.current) { last.current = sig; setPaths(out); }
     };
     draw(); const ro = new ResizeObserver(draw); ro.observe(el); return () => ro.disconnect();
   }, [words, outs, inner, open]);
