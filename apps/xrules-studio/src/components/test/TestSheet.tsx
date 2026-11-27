@@ -204,6 +204,9 @@ export function TestSheet({ targetType, targetId, inputs, outputs, projectId }: 
                         ✗ Got {outCols.map(o => r.expect[o] !== undefined ? `${label(o)} = ${toText(read(r.output, o))}` : null).filter(Boolean).join(' · ') || (r.checks || []).find((x: any) => !x.ok)?.message || 'Failed'}
                       </span>
                     )}
+                    {/* the list item that fired, and values the word's value set does not know */}
+                    {Array.isArray(r.output?._trace) && r.output._trace.length > 0 && <div className="text-[12px] text-[#525252]">{r.output._trace.slice(0, 3).join(' · ')}</div>}
+                    {Array.isArray(r.output?._unknown) && r.output._unknown.length > 0 && <div className="text-[12px] text-[#8a3800]">{r.output._unknown.join(' · ')}</div>}
                   </td>
                   <td className={td}>
                     <button type="button" aria-label={`Remove row ${ri + 1}`} className="h-9 w-9 flex items-center justify-center text-[#525252] hover:bg-[#e8e8e8]"

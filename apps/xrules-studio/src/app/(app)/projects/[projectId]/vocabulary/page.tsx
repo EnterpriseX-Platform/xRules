@@ -2,18 +2,20 @@
 import { useSearchParams } from 'next/navigation';
 import { useDevMode } from '@/lib/devmode';
 import { Chip } from '@/components/links/Links';
-const TYPE_NAME: Record<string, string> = { text: 'Text', number: 'Number', money: 'Money', date: 'Date', enum: 'List of values', boolean: 'Yes / no' };
+const TYPE_NAME: Record<string, string> = { text: 'Text', number: 'Number', money: 'Money', date: 'Date', enum: 'List of values', boolean: 'Yes / no', list: 'List' };
 import { useEffect, useState } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { ImportTerms } from '@/components/vocab/ImportTerms';
 import { ReasonCodes } from '@/components/vocab/ReasonCodes';
+import { ValueSets } from '@/components/vocab/ValueSets';
+import { AggregateWord } from '@/components/vocab/AggregateWord';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { PageHead, Table, Td, Tag, Btn, Input, TextArea, Panel, Notice, Tabs, DropZone, Modal } from '@/components/pipeline/ui';
 import { Dropdown } from '@/components/pipeline/Dropdown';
 import { useListRemove, RemovedCell } from '@/lib/listRemove';
 
-const TABS = [{ key: '', label: 'Vocabulary' }, { key: 'reasons', label: 'Reason codes' }, { key: 'write', label: 'Write rules' }, { key: 'cowork', label: 'Rule Cowork' }];
+const TABS = [{ key: '', label: 'Vocabulary' }, { key: 'values', label: 'Value sets' }, { key: 'reasons', label: 'Reason codes' }, { key: 'write', label: 'Write rules' }, { key: 'cowork', label: 'Rule Cowork' }];
 
 export default function VocabularyPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -25,6 +27,7 @@ export default function VocabularyPage() {
       <PageHead title="Words" />
       <Tabs tabs={TABS.map(t => t.label)} value={tab.label} onChange={l => { const k = TABS.find(t => t.label === l)!.key; router.replace(`/p/${projectId}/vocabulary${k ? `/${k}` : ''}`, { scroll: false }); }} />
       {tab.key === '' && <Terms projectId={projectId} />}
+      {tab.key === 'values' && <ValueSets projectId={projectId} />}
       {tab.key === 'reasons' && <ReasonCodes projectId={projectId} />}
       {tab.key === 'write' && <Writer projectId={projectId} />}
       {tab.key === 'cowork' && <Cowork projectId={projectId} />}
@@ -104,29 +107,36 @@ function Terms({ projectId }: { projectId: string }) {
   const [importOpen, setImportOpen] = useState(false);
   const askImport = useSearchParams()?.get('import') === '1';
   useEffect(() => { if (askImport) setImportOpen(true); }, [askImport]);
-  const blankT = { id: '', term: '', path: '', type: 'text', values: '', unit: '' };
+  const [aggOpen, setAggOpen] = useState<any>(null);
+  const { data: sets = [] } = useQuery({ queryKey: ['value-sets', projectId], queryFn: () => api.get<any[]>(`/platform/value-sets?project_id=${projectId}`) });
+  const blankT = { id: '', term: '', path: '', type: 'text', values: '', unit: '', valueSetId: '' };
   const [f, setF] = useState<any>(blankT);
   const { data: terms = [] } = useQuery({ queryKey: ['vocab', projectId], queryFn: () => api.get<any[]>(`/platform/vocabulary?project_id=${projectId}`) });
   const { data: sug = [] } = useQuery({ queryKey: ['vocab-sug', projectId], queryFn: () => api.get<any[]>(`/platform/vocabulary/suggest?project_id=${projectId}`) });
   const save = useMutation({ mutationFn: (t: any) => api.post('/platform/vocabulary', { projectId, ...t }), onSuccess: () => { setAddOpen(false); qc.invalidateQueries({ queryKey: ['vocab', projectId] }); qc.invalidateQueries({ queryKey: ['vocab-sug', projectId] }); setF(blankT); } });
   const [dev] = useDevMode(); const [q, setQ] = useState('');
   const { data: usage } = useQuery({ queryKey: ['vocab-usage', projectId], queryFn: () => api.get<any>(`/platform/vocabulary-usage?project_id=${projectId}`) });
-  const shown = (terms as any[]).filter(t => !q || `${t.term} ${t.path} ${t.description || ''}`.toLowerCase().includes(q.toLowerCase()));
+  // a tree that follows the data: a list, then its fields and inner lists; totals over lists last
+  const depth = (p: string) => (p.startsWith('@') ? 0 : (p.match(/\[\]\./g) || []).length);
+  const sortKey = (p: string) => (p.startsWith('@') ? `~${p}` : p.replace(/\[\]/g, '\u0001'));
+  const shown = (terms as any[]).filter(t => !q || `${t.term} ${t.path} ${t.description || ''}`.toLowerCase().includes(q.toLowerCase())).sort((a, b) => sortKey(a.path).localeCompare(sortKey(b.path)));
   const del = useListRemove<any>({ queryKey: ['vocab', projectId], also: [['vocab-sug', projectId]], noun: 'word', name: t => `"${t.term}"`,
     remove: t => api.del(`/platform/vocabulary/${t.id}`),
-    restore: t => api.post('/platform/vocabulary', { projectId, term: t.term, path: t.path, type: t.type, unit: t.unit, description: t.description, values: t.values || [] }) });
-  const edit = (t: any) => { save.reset(); setF({ id: t.id, term: t.term, path: t.path, type: t.type, unit: t.unit || '', values: (t.values || []).join(', '), description: t.description }); setAddOpen(true); };
+    restore: t => api.post('/platform/vocabulary', { projectId, term: t.term, path: t.path, type: t.type, unit: t.unit, description: t.description, values: t.labels ? [] : t.values || [], valueSetId: t.valueSetId || null, aggregate: t.aggregate || null }) });
+  const edit = (t: any) => { if (t.aggregate) { setAggOpen(t); return; } save.reset(); setF({ id: t.id, term: t.term, path: t.path, type: t.type, unit: t.unit || '', values: t.labels ? '' : (t.values || []).join(', '), description: t.description, valueSetId: t.valueSetId || '' }); setAddOpen(true); };
   return (
     <div className="space-y-4">
-      <div className="flex gap-2"><Btn onClick={() => { setF(blankT); setAddOpen(true); }}>Add term</Btn><Btn kind="tertiary" onClick={() => setImportOpen(true)}>Import</Btn></div>
+      <div className="flex gap-2"><Btn onClick={() => { setF(blankT); setAddOpen(true); }}>Add term</Btn><Btn kind="tertiary" onClick={() => setImportOpen(true)}>Import</Btn><Btn kind="tertiary" onClick={() => setAggOpen({})}>Add a total over a list</Btn></div>
+      {aggOpen && <AggregateWord projectId={projectId} word={aggOpen.id ? aggOpen : undefined} onClose={() => setAggOpen(null)} />}
       {importOpen && <ImportTerms projectId={projectId} known={terms as any[]} onClose={() => setImportOpen(false)} />}
-      {addOpen && <Modal title={f.id ? 'Edit term' : 'Add term'} onClose={() => setAddOpen(false)} wide onSubmit={() => save.mutate({ id: f.id || undefined, term: f.term, path: f.path, type: f.type, unit: f.unit, description: f.description, values: String(f.values || '').split(',').map((s: string) => s.trim()).filter(Boolean) })} submitLabel={f.id ? 'Save' : 'Add'} submitDisabled={!f.term || !f.path} error={save.error ? String((save.error as any).message) : null}>
+      {addOpen && <Modal title={f.id ? 'Edit term' : 'Add term'} onClose={() => setAddOpen(false)} wide onSubmit={() => save.mutate({ id: f.id || undefined, term: f.term, path: f.path, type: f.type, unit: f.unit, description: f.description, values: f.valueSetId ? [] : String(f.values || '').split(',').map((s: string) => s.trim()).filter(Boolean), valueSetId: f.valueSetId || null, ...(f.valueSetId ? { type: 'enum' } : {}) })} submitLabel={f.id ? 'Save' : 'Add'} submitDisabled={!f.term || !f.path} error={save.error ? String((save.error as any).message) : null}>
         <div className="grid gap-4">
           <Input id="t-term" label="Term" value={f.term} onChange={(v: string) => setF({ ...f, term: v })} />
           <Input id="t-path" label="Data path" mono value={f.path} onChange={(v: string) => setF({ ...f, path: v })} placeholder="item.unitPrice" />
           <div><div className="text-[12px] text-[#525252] mb-1.5">Type</div><Dropdown value={f.type} onChange={v => setF({ ...f, type: v })} options={[{ value: 'text', label: 'Text' }, { value: 'number', label: 'Number' }, { value: 'money', label: 'Money' }, { value: 'date', label: 'Date' }, { value: 'enum', label: 'List of values' }, { value: 'boolean', label: 'Yes / no' }]} /></div>
           <Input id="t-unit" label="Unit" value={f.unit} onChange={(v: string) => setF({ ...f, unit: v })} placeholder="THB" />
-          <Input id="t-vals" label="Allowed values" placeholder="Y, N" value={f.values} onChange={(v: string) => setF({ ...f, values: v })} />
+          <div><div className="text-[12px] text-[#525252] mb-1.5">Values from</div><Dropdown value={f.valueSetId || ''} onChange={v => setF({ ...f, valueSetId: v })} options={[{ value: '', label: 'Typed below' }, ...(sets as any[]).map(s => ({ value: s.id, label: `${s.name} · ${s.rows.length} values` }))]} /></div>
+          {!f.valueSetId && <Input id="t-vals" label="Allowed values" placeholder="Y, N" value={f.values} onChange={(v: string) => setF({ ...f, values: v })} />}
         </div>
       </Modal>}
       <div className="flex items-center gap-3">
@@ -139,9 +149,9 @@ function Terms({ projectId }: { projectId: string }) {
           const requested = String(t.description || '').startsWith('Requested');
           return (
             <tr key={t.id} className={del.isRemoved(t) ? 'text-[#8d8d8d] [&>td:not(:last-child)]:line-through' : 'cursor-pointer hover:bg-[#f4f4f4]'} onClick={() => !del.isBusy(t) && edit(t)}>
-              <Td><span className="text-[#161616]">{t.term}</span>{t.values?.length > 0 && <div className="text-[12px] text-[#525252] whitespace-normal">{t.values.slice(0, 6).join(', ')}{t.values.length > 6 ? ` and ${t.values.length - 6} more` : ''}</div>}</Td>
+              <Td><div style={{ paddingLeft: depth(t.path) * 20 }} className={depth(t.path) ? 'border-l border-[#c6c6c6] ml-1' : ''}><span className={`text-[#161616] ${depth(t.path) ? 'pl-2' : ''}`}>{t.term}</span>{t.valueSet ? <div className={`text-[12px] text-[#525252] whitespace-normal ${depth(t.path) ? 'pl-2' : ''}`}>Values from {t.valueSet.name}</div> : t.values?.length > 0 && <div className={`text-[12px] text-[#525252] whitespace-normal ${depth(t.path) ? 'pl-2' : ''}`}>{t.values.slice(0, 6).join(', ')}{t.values.length > 6 ? ` and ${t.values.length - 6} more` : ''}</div>}</div></Td>
               {dev && <Td mono>{t.path}</Td>}
-              <Td>{TYPE_NAME[t.type] || t.type}{t.unit ? ` · ${t.unit}` : ''}</Td>
+              <Td>{t.aggregate ? 'Total over a list' : String(t.path).endsWith('[]') ? 'List' : TYPE_NAME[t.type] || t.type}{t.unit ? ` · ${t.unit}` : ''}</Td>
               <Td className="!whitespace-normal">{requested ? <span className="text-[#8a3800]">Asked from IT</span> : <span className="text-[#525252]">{t.description || ''}</span>}</Td>
               <Td className="!whitespace-normal">{by.length ? <span className="flex flex-wrap gap-x-3 gap-y-1" onClick={e => e.stopPropagation()}>{by.slice(0, 4).map((u: any) => <Chip key={u.id} item={{ kind: u.kind, id: u.id, name: u.name, href: u.href }} />)}{by.length > 4 && <span className="text-[#525252]">and {by.length - 4} more</span>}</span> : <span className="text-[#6f6f6f]">Not used yet</span>}</Td>
               <Td className="whitespace-nowrap">{del.isRemoved(t) ? <RemovedCell onUndo={() => del.undo(t)} /> : <><button className="h-8 px-3 text-[#0f62fe] hover:bg-[#e8e8e8] disabled:text-[#8d8d8d]" disabled={del.isBusy(t)} onClick={e => { e.stopPropagation(); edit(t); }}>Edit</button><button className="h-8 px-3 text-[#da1e28] hover:bg-[#fff1f1] disabled:text-[#8d8d8d]" disabled={del.isBusy(t)} onClick={e => { e.stopPropagation(); del.request(t); }}>Remove</button></>}</Td>

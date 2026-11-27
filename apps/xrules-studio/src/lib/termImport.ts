@@ -1,11 +1,11 @@
-// Read field paths from a sample (JSON / xlsx / csv) and propose terms: nested keys flattened with dots,
+// Read field paths from a sample (JSON / xlsx / csv) and propose terms: nested keys joined with dots, lists kept as [] (a[].b[].c),
 // type inferred from the sample values, name humanised from the last path segment.
 export type Proposed = { path: string; term: string; type: string; values: string[]; samples: string[]; keep: boolean };
 
 const DATE = /^\d{4}-\d{2}-\d{2}([T ][\d:.]+Z?)?$|^\d{1,2}\/\d{1,2}\/\d{2,4}$/;
 
 export function humanise(path: string): string {
-  const last = path.split('.').filter(s => !/^\d+$/.test(s) && s !== '[]').pop() || path;
+  const last = path.split('.').filter(s => !/^\d+$/.test(s) && s !== '[]').pop()?.replace(/\[\]$/, '') || path;
   return last.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
@@ -44,11 +44,16 @@ function collect(rows: Record<string, any>[]): Map<string, any[]> {
 export function propose(rows: Record<string, any>[], known: { path: string; term: string }[]): Proposed[] {
   const have = new Set(known.map(k => k.path)); const names = new Set(known.map(k => k.term.toLowerCase()));
   const out: Proposed[] = [];
-  collect(rows).forEach((vals, rawPath) => {
-    // lines of input.items are read per line as item.* (as the rule sentences do)
-    const path = rawPath.replace(/^items\[\]\./, 'item.').replace(/\[\]/g, '').replace(/\.\./g, '.').replace(/^\./, '');
+  const found = collect(rows);
+  // every list on the way to a field is a word too (bureau_accounts[], bureau_accounts[].payments[])
+  const lists = new Set<string>();
+  found.forEach((_, p) => { const parts = p.split('.'); parts.forEach((seg, i) => { if (seg.endsWith('[]') && !p.startsWith('items[]')) lists.add(parts.slice(0, i + 1).join('.')); }); });
+  lists.forEach(l => { if (!found.has(l)) found.set(l, []); });
+  found.forEach((vals, rawPath) => {
+    // lines of input.items are read per line as item.* (as the rule sentences do); other lists keep their structure
+    const path = rawPath.replace(/^items\[\]\./, 'item.').replace(/\.\./g, '.').replace(/^\./, '');
     if (!path || out.some(o => o.path === path)) return;
-    const { type, values } = infer(vals);
+    const { type, values } = lists.has(rawPath) ? { type: 'list', values: [] as string[] } : infer(vals);
     const existing = known.find(k => k.path === path);
     let term = existing?.term || humanise(path); let i = 2; const base = term;
     if (!existing) { while (names.has(term.toLowerCase())) term = `${base} ${i++}`; names.add(term.toLowerCase()); }
