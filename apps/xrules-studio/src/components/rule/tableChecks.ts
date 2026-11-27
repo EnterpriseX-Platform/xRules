@@ -1,6 +1,7 @@
 // Overlap and gap checks for a decision table, told in plain words.
 // Only claims what it can prove: cells it cannot read (text patterns, arrays) stop the check for that pair or column.
 import { parseCellExpression } from './operators';
+import { setOf } from '@/lib/terms';
 
 type Num = { k: 'num'; lo: number; loIn: boolean; hi: number; hiIn: boolean };
 type Cond = { k: 'any' } | Num | { k: 'set'; vals: string[]; neg: boolean } | { k: 'null'; neg: boolean } | { k: '?' };
@@ -73,6 +74,36 @@ export function rangeText(c: Cond, fmt: (n: number) => string): string {
 }
 
 export function tableChecks(def: any, label: (name: string) => string, fmt: (name: string, n: number) => string): Finding[] {
+  return [...plainChecks(def, label, fmt), ...setCoverage(def, label)];
+}
+
+/** A table that decides by a value set (first match / only one) should have a line for every value of the set. */
+function setCoverage(def: any, label: (name: string) => string): Finding[] {
+  const cols: any[] = def?.inputs || []; const rows: any[] = def?.rules || [];
+  const policy = String(def?.hitPolicy || '').toUpperCase();
+  if (!['FIRST', 'FIRST_MATCH', 'UNIQUE'].includes(policy) || !rows.length) return [];
+  if (rows.some(r => (r.inputs || []).some((c: any) => /^\s*(else|_else_)\s*$/i.test(String(c ?? ''))))) return [];
+  const out: Finding[] = [];
+  cols.forEach((col, k) => {
+    const vs = setOf(col.name); if (!vs || !vs.codes.length) return;
+    const covered = new Set<string>();
+    const expand = (v: string) => (/^GROUP:/i.test(v) ? [] : [v]);
+    for (const r of rows) {
+      const { operator: op, args } = parseCellExpression(r.inputs?.[k]);
+      const vals = (op === 'IN' || op === '!IN' ? list(args[0]) : [String(args[0] ?? '')]).flatMap(v => (/^GROUP:/i.test(v) ? [v] : expand(v)));
+      const codes = (v: string) => (/^GROUP:/i.test(v) ? [] : [v]);
+      if (op === 'ANY' || op === 'ELSE') return;
+      if (op === '=' || op === 'IN') vals.forEach(v => codes(v).forEach(c => covered.add(c)));
+      if (op === '!=' || op === '!IN') vs.codes.filter(c => !vals.includes(c)).forEach(c => covered.add(c));
+      if (vals.some(v => /^GROUP:/i.test(v))) return; // group members are not known here: cannot prove a gap
+    }
+    const missing = vs.codes.filter(c => !covered.has(c));
+    if (missing.length) out.push({ kind: 'gap', rows: [], text: `No line covers ${label(col.name)} ${missing.slice(0, 8).map(c => vs.labels[c] || c).join(', ')}${missing.length > 8 ? ` and ${missing.length - 8} more` : ''}` });
+  });
+  return out;
+}
+
+function plainChecks(def: any, label: (name: string) => string, fmt: (name: string, n: number) => string): Finding[] {
   const cols: any[] = def?.inputs || [];
   const rows: any[] = (def?.rules || []);
   if (!cols.length || !rows.length) return [];

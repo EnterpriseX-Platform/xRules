@@ -8,7 +8,7 @@ import { Dropdown } from '@/components/pipeline/Dropdown';
 import { ValueCombo } from './ValueCombo';
 import { parseCellExpression, formatCellExpression } from './operators';
 import { tableChecks } from './tableChecks';
-import { showValue, type Term } from '@/lib/terms';
+import { showValue, valueLabel, type Term } from '@/lib/terms';
 import { FmtInput } from '@/components/ui/FmtInput';
 import { DropZone } from '@/components/pipeline/ui';
 import { tableSentences } from '@/components/review/sentences';
@@ -182,7 +182,7 @@ export function RuleSentences({ def, onChange, label, term, terms, onAddTerm, re
           // one of several values: each value a removable piece, Enter adds the next one
           const vals = String(args[0] ?? '').split(',').map(x => x.trim()).filter(Boolean);
           return <>
-            {vals.map((v, k) => <span key={v} className="inline-flex items-center"><Chip>{v}</Chip><button type="button" aria-label={`Remove ${v}`} className="h-6 w-5 text-[#8d8d8d] hover:text-[#da1e28]" onClick={() => put(operator, [vals.filter((_, i) => i !== k).join(', ')])}>×</button></span>)}
+            {vals.map((v, k) => <span key={v} className="inline-flex items-center"><Chip>{valueLabel(v)}</Chip><button type="button" aria-label={`Remove ${v}`} className="h-6 w-5 text-[#8d8d8d] hover:text-[#da1e28]" onClick={() => put(operator, [vals.filter((_, i) => i !== k).join(', ')])}>×</button></span>)}
             <ValueCombo className={`${plain} min-w-[90px]`} value="" placeholder={vals.length ? 'another' : 'value'} values={(t?.values || []).filter(x => !vals.includes(x))} ariaLabel={`${label(name)} value`}
               onChange={v => { const add = v.split(',').map(x => x.trim()).filter(Boolean); if (add.length) put(operator, [Array.from(new Set([...vals, ...add])).join(', ')]); }} />
           </>;
