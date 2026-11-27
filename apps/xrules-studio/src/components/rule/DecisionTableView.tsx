@@ -27,7 +27,7 @@ export function DecisionTableView({ rule, projectId, onChange }: { rule: any; pr
   const qc = useQueryClient();
   const { data: reasons = [] } = useReasons(projectId);
   const { data: versions } = useQuery({ queryKey: ['rule-versions', rule.id], queryFn: () => api.get<any[]>(`/rules/${rule.id}/versions`), enabled: !!rule.id });
-  const live = (versions as any[] | undefined)?.[0]?.definition || null;
+  const live = (versions as any[] | undefined)?.find(v => String(v.status).toUpperCase() === 'PUBLISHED')?.definition || null;
   // a new term typed in "Choose data": its path is the name in snake case
   const addTerm = async (name: string) => {
     const path = name.trim().toLowerCase().replace(new RegExp('[^\\p{L}\\p{N}]+', 'gu'), '_').replace(/^_|_$/g, '') || `field_${Date.now().toString(36)}`;

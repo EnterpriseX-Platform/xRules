@@ -26,7 +26,7 @@ export function TopicRipple({ projectId, topic }: { projectId: string; topic: an
         let diff: { added: number; removed: number } | null = null;
         if (d.kind === 'rule' && d.type === 'DECISION_TABLE' && changed.includes(d)) {
           const vs = await api.get<any[]>(`/rules/${d.id}/versions`).catch(() => []);
-          const before = vs?.[0]?.definition ? tableSentences(vs[0].definition, label) : []; const after = tableSentences(d.definition, label);
+          const lv = (vs || []).find((v: any) => String(v.status).toUpperCase() === 'PUBLISHED'); const before = lv?.definition ? tableSentences(lv.definition, label) : []; const after = tableSentences(d.definition, label);
           diff = { added: after.filter(t => !before.includes(t)).length, removed: before.filter(t => !after.includes(t)).length };
         }
         m[d.id] = { links, diff };
