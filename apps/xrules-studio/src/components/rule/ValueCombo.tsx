@@ -19,7 +19,8 @@ export function ValueCombo({ value, values, onChange, className = '', ariaLabel,
   return (
     <span className={`relative ${block ? 'block' : 'inline-block'}`}>
       <input ref={ref} aria-label={ariaLabel} placeholder={placeholder} className={className} value={text} role="combobox" aria-expanded={open} autoComplete="off"
-        onFocus={e => { const el = e.currentTarget; requestAnimationFrame(() => { if (document.activeElement === el) el.select(); }); setOpen(true); setHi(0); }}
+        onMouseDown={e => { if (document.activeElement !== e.currentTarget) { e.preventDefault(); e.currentTarget.focus(); } }}
+        onFocus={e => { e.currentTarget.select(); setOpen(true); setHi(0); }}
         onChange={e => { typed.current = e.target.value; setQ(e.target.value); setOpen(true); setHi(0); }}
         onBlur={() => setTimeout(() => { setOpen(false); const v = typed.current; typed.current = null; if (v != null) { if (v.trim() !== String(value ?? '')) onChange(v.trim()); setQ(null); } }, 120)}
         onKeyDown={e => {
@@ -31,7 +32,7 @@ export function ValueCombo({ value, values, onChange, className = '', ariaLabel,
       {open && items.length > 0 && (
         <span role="listbox" className="absolute left-0 top-full z-20 mt-px min-w-full w-max max-w-[320px] max-h-[260px] overflow-auto bg-white shadow-[0_2px_6px_rgba(0,0,0,.3)] text-[14px] text-[#161616] leading-normal">
           {items.map((it, i) => (
-            <button key={it.label} type="button" role="option" aria-selected={i === hi} onMouseDown={e => e.preventDefault()} onClick={() => pick(it.v)}
+            <button key={it.label} type="button" tabIndex={-1} role="option" aria-selected={i === hi} onMouseDown={e => e.preventDefault()} onClick={() => pick(it.v)}
               className={`block w-full text-left px-3 h-9 truncate ${i === hi ? 'bg-[#e8e8e8]' : 'hover:bg-[#e8e8e8]'} ${it.label.startsWith('Use "') ? 'text-[#0f62fe] border-t border-[#e0e0e0]' : ''}`}>{it.label}</button>
           ))}
         </span>
