@@ -152,12 +152,24 @@ export function runCalc(def: any, input: any, words: string[] = []): any {
   const types: Record<string, string> = (words as any).types || {};
   const raw = getter(ctx); const made = new Set<string>();
   const get = (p: string) => (made.has(p) ? raw(p) : asWordValue(raw(p), types[p]));
-  for (const line of def.lines || []) {
-    if (!line?.name || !String(line.expr || '').trim()) continue;
-    const v = evalExpression(compileExpr(line.expr, paths, Object.keys(CALC_FUNCS)), { __get: get, ...CALC_FUNCS, Math });
-    made.add(line.name);
-    ctx[line.name] = v; out[line.name] = v;
-  }
+  // each line on its own: a line that fails, or has no name or formula, is reported with its message; a line that
+  // uses a failed word says which, and the lines that do not depend on it still work out
+  const errors: Record<string, { error: string; line: number; dependsOn?: string }> = {}; const bad = new Set<string>();
+  (def.lines || []).forEach((line: any, i: number) => {
+    const name = String(line?.name || '').trim(); const expr = String(line?.expr || '').trim();
+    if (!name && !expr) return;
+    if (!name) { errors[`line ${i + 1}`] = { error: 'has a formula but no result name', line: i + 1 }; return; }
+    if (!expr) { errors[name] = { error: 'has no formula', line: i + 1 }; bad.add(name); return; }
+    let code: string;
+    try { code = compileExpr(expr, paths, Object.keys(CALC_FUNCS)); } catch (e: any) { errors[name] = { error: String(e?.message || e), line: i + 1 }; bad.add(name); return; }
+    const dep = Array.from(bad).find(b => code.includes(`__get(${JSON.stringify(b)})`));
+    if (dep) { errors[name] = { error: `depends on ${dep} (error)`, line: i + 1, dependsOn: dep }; bad.add(name); return; }
+    try {
+      const v = evalExpression(code, { __get: get, ...CALC_FUNCS, Math });
+      made.add(name); ctx[name] = v; out[name] = v;
+    } catch (e: any) { errors[name] = { error: String(e?.message || e).replace(/^.*?:\s*(?=[A-Z_]+ is not defined)/, ''), line: i + 1 }; bad.add(name); }
+  });
+  if (Object.keys(errors).length) Object.defineProperty(out, '_errors', { value: errors, enumerable: true });
   return out;
 }
 /** The project's word paths, so formulas can name words with dots and spaces. */

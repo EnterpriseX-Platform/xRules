@@ -42,7 +42,11 @@ function check(exp: Expectation, r: { status: number; body: any; ms: number }): 
 }
 
 /** Steps of a topic run that failed: each fails on its own, the other steps and fields are still judged. */
-const stepErrors = (trace: any[]) => (trace || []).filter((x: any) => x.error).map((x: any) => ({ ok: false, step: x.id, message: `${x.name}: ${x.error}` }));
+const stepErrors = (trace: any[]) => (trace || []).flatMap((x: any) => [
+  ...(x.error ? [{ ok: false, step: x.id, message: `${x.name}: ${x.error}` }] : []),
+  // a calculation line that failed names its word; lines that depend on it say so
+  ...Object.entries(x.lineErrors || {}).map(([w, e]: [string, any]) => ({ ok: false, step: x.id, word: w, message: `${x.name} · line ${e?.line ?? ''} ${w}: ${e?.error ?? e}` })),
+]);
 /** Checks for a run: a run that did not happen is one error; a failed step adds its own failed check after the fields. */
 function judge(exps: Expectation[], r: { status: number; body: any; ms: number; error?: string; steps?: any[] }) {
   const checks: any[] = r.error ? [{ ok: false, message: r.error }] : [...exps.map(e => check(e, r)), ...(r.steps || [])];

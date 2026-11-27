@@ -49,10 +49,25 @@ function ifThenElse(text: string): string {
   return out;
 }
 
+/** Reasons raised by earlier steps of the run: "has reason M005", "has a Reject reason" / "has reason of outcome Reject",
+ *  "no Reject reason", HAS_REASON("M005", "E002") and HAS_OUTCOME("Reject"). They read the run's "reasons so far" and
+ *  "outcomes so far" lists. Quoted text is left alone. */
+export function reasonWords(src: string): string {
+  const R = '__get("reasons so far")', O = '__get("outcomes so far")';
+  return src.split(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/).map((part, i) => (i % 2 ? part : part
+    .replace(/\bno\s+(?:reason\s+of\s+outcome\s+)?([A-Za-z]+)\s+reasons?\b/gi, (_m, o) => `!HAS_OUTCOME(${JSON.stringify(o)})`)
+    .replace(/\bno\s+reason\s+of\s+outcome\s+([A-Za-z]+)/gi, (_m, o) => `!HAS_OUTCOME(${JSON.stringify(o)})`)
+    .replace(/\bhas\s+(?:a\s+|any\s+)?reason\s+of\s+outcome\s+([A-Za-z]+)/gi, (_m, o) => `HAS_OUTCOME(${JSON.stringify(o)})`)
+    .replace(/\bhas\s+(?:a\s+|any\s+)?(?!reason\b)([A-Za-z]+)\s+reasons?\b/gi, (_m, o) => `HAS_OUTCOME(${JSON.stringify(o)})`)
+    .replace(/\bhas\s+reasons?\s+([A-Za-z]+\d\w*(?:\s*(?:,|\bor\b)\s*[A-Za-z]+\d\w*)*)/gi, (_m, cs) => `HAS_REASON(${cs.split(/\s*(?:,|\bor\b)\s*/i).filter(Boolean).map((c: string) => JSON.stringify(c)).join(', ')})`)
+    .replace(/\bHAS_REASON\s*\(/gi, `__has(${R}, `)
+    .replace(/\bHAS_OUTCOME\s*\(/gi, `__has(${O}, `))).join('');
+}
+
 /** Business formula → JavaScript. `paths` are the known words (data paths), `funcs` the function names. */
 export function compileExpr(src: string, paths: string[] = [], funcs: string[] = []): string {
   const strs: string[] = []; const ps: string[] = [];
-  let s = String(src ?? '')
+  let s = reasonWords(String(src ?? ''))
     .replace(/“([^”]*)”/g, (_m, x) => JSON.stringify(x))
     .replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, m => { strs.push(m[0] === '"' ? m : JSON.stringify(m.slice(1, -1))); return `\u0001${strs.length - 1}\u0001`; });
   // known words that are not plain identifiers (dots, spaces, dashes) — longest first
@@ -69,8 +84,8 @@ export function compileExpr(src: string, paths: string[] = [], funcs: string[] =
   s = s.replace(/(^|[^=!<>])=(?!=)/g, '$1==');
   const fn = new Set(funcs.map(f => f.toUpperCase()));
   s = s.replace(/(?<![\w.$\u0001\u0002])([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)(?![\w$])(\s*\()?/g, (m, id: string, call?: string) => {
-    if (call) return fn.has(id.toUpperCase()) && !/^[A-Z_]+$/.test(id) ? id.toUpperCase() + call : m;
-    if (KEEP.has(id) || id.startsWith('Math.') || id === '__get') return m;
+    if (call) return fn.has(id.toUpperCase()) && !id.startsWith("__") && !/^[A-Z_]+$/.test(id) ? id.toUpperCase() + call : m;
+    if (KEEP.has(id) || id.startsWith('Math.') || id === '__get' || id === '__has') return m;
     return `__get(${JSON.stringify(id)})`;
   });
   return s.replace(/\u0002(\d+)\u0002/g, (_m, i) => `__get(${JSON.stringify(ps[+i])})`).replace(/\u0001(\d+)\u0001/g, (_m, i) => strs[+i]);

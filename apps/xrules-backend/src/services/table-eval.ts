@@ -121,6 +121,26 @@ export function toDate(v: any): Date | null {
 }
 const today = () => { const a = AS_OF.getStore()?.asOf; if (a) return new Date(a.getTime()); const n = new Date(); return new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate())); };
 const DAY = 86400000;
+const txt = (v: any) => (v === null || v === undefined ? '' : v instanceof Date ? v.toISOString().slice(0, 10).replace(/-/g, '') : String(v));
+const cnt = (n: any, d = 1) => { const x = Number(n); return n === undefined || n === null || n === '' || isNaN(x) ? d : Math.max(0, Math.floor(x)); };
+/** Text and list functions. Positions count from 1. A list is a real list or text split by ":" (SPLIT and ITEM take
+ *  another separator as their last value). CONTAINS reads a list when the value is one (or has ":" / ","), else text. */
+export const TEXT_FUNCS = {
+  LEFT: (t: any, n?: any) => txt(t).slice(0, cnt(n)),
+  RIGHT: (t: any, n?: any) => { const s = txt(t), k = cnt(n); return k ? s.slice(-k) : ''; },
+  MID: (t: any, start: any, n?: any) => { const s = txt(t), a = Math.max(1, cnt(start)); return n === undefined ? s.slice(a - 1) : s.slice(a - 1, a - 1 + cnt(n, 0)); },
+  LEN: (t: any) => (Array.isArray(t) ? t.length : txt(t).length),
+  UPPER: (t: any) => txt(t).toUpperCase(),
+  LOWER: (t: any) => txt(t).toLowerCase(),
+  TRIM: (t: any) => txt(t).trim().replace(/\s+/g, ' '),
+  STARTSWITH: (t: any, p: any) => txt(t).startsWith(txt(p)),
+  ENDSWITH: (t: any, p: any) => txt(t).endsWith(txt(p)),
+  SPLIT: (v: any, sep: any = ':') => (Array.isArray(v) ? v : txt(v).split(txt(sep) || ':').map(s => s.trim()).filter(s => s !== '')),
+  ITEM: (list: any, i: any, sep: any = ':') => { const xs = Array.isArray(list) ? list : txt(list).split(txt(sep) || ':').map(s => s.trim()); const k = Number(i); return !isNaN(k) && k >= 1 ? xs[k - 1] ?? null : k < 0 ? xs[xs.length + k] ?? null : null; },
+  // reasons raised so far in the run ("has reason M005", "has a Reject reason"); outcomes compare without case
+  __has: (list: any, ...xs: any[]) => { const have = (Array.isArray(list) ? list : []).map(x => txt(x).trim().toLowerCase()); return xs.flat().some(x => have.includes(txt(x).trim().toLowerCase())); },
+  CONTAINS: (list: any, v: any) => (Array.isArray(list) ? list.map(x => txt(x).trim()).includes(txt(v).trim()) : /[:,]/.test(txt(list)) ? txt(list).split(/[:,]/).map(s => s.trim()).includes(txt(v).trim()) : txt(list).includes(txt(v))),
+};
 /** Functions a calculation or a line's value can use. */
 export const DATE_FUNCS = {
   TODAY: () => today(),
@@ -129,9 +149,7 @@ export const DATE_FUNCS = {
   MONTHS: (a: any, b?: any) => { const x = toDate(a), y = b === undefined ? today() : toDate(b); return x && y ? (y.getUTCFullYear() - x.getUTCFullYear()) * 12 + (y.getUTCMonth() - x.getUTCMonth()) - (y.getUTCDate() < x.getUTCDate() ? 1 : 0) : null; },
   YEARS: (a: any, b?: any) => { const m = DATE_FUNCS.MONTHS(a, b); return m === null ? null : Math.floor(m / 12); },
   ADD_DAYS: (a: any, n: any) => { const x = toDate(a); return x ? new Date(x.getTime() + Number(n) * DAY) : null; },
-  SPLIT: (v: any, sep = ':') => (Array.isArray(v) ? v : String(v ?? '').split(sep).map(s => s.trim()).filter(s => s !== '')),
-  CONTAINS: (list: any, v: any) => (Array.isArray(list) ? list : String(list ?? '').split(/[:,]/)).map((s: any) => String(s).trim()).includes(String(v)),
-  ITEM: (list: any, i: any) => (Array.isArray(list) ? list : String(list ?? '').split(':'))[Number(i) - 1] ?? null,
+  ...TEXT_FUNCS,
   TEXT: (v: any) => (v instanceof Date ? v.toISOString().slice(0, 10).replace(/-/g, '') : String(v ?? '')),
   // two lists read side by side: codes "003:004" with dates "20251015:20251101" (code k goes with date k)
   ZIP: (a: any, b: any, na = 'code', nb = 'date') => { const x = asList(a), y = asList(b); return x.map((v, i) => ({ [na]: v, [nb]: y[i] ?? null })); },
@@ -215,7 +233,14 @@ export function matchCell(cell: any, actual: any, scope?: any): boolean {
   if (blank(cell) || isElseCell(cell)) return true;
   if (typeof cell !== 'string') return actual === cell || String(actual) === String(cell);
   const s = cell.trim(); const u = s.toUpperCase();
-  const empty = actual === undefined || actual === null || actual === '';
+  const empty = actual === undefined || actual === null || actual === '' || (Array.isArray(actual) && !actual.length);
+  // a list (such as the reasons so far): "is" / "is one of" hold when any item does, "is not" when none does
+  if (Array.isArray(actual) && !/^!?NULL$|^NOT NULL$/.test(u)) {
+    const neg = /^(!=|!IN)/i.test(s);
+    const pos = neg ? s.replace(/^!(=|IN)/i, (_m, x) => (x === '=' ? '=' : 'IN')) : s;
+    const anyHit = actual.some(a => matchCell(pos, a, scope));
+    return neg ? !anyHit : anyHit;
+  }
   if (u === 'NULL') return empty;
   if (u === '!NULL' || u === 'NOT NULL') return !empty;
   const btw = s.match(/^(!?BTW(?:\s+LO|\s+RO)?)\s*(.*?)\s+AND\s*(.*)$/i);
@@ -251,7 +276,9 @@ export function matchCell(cell: any, actual: any, scope?: any): boolean {
 
 export function groupsOf(def: any, row: any): Group[] {
   const cols: any[] = def?.inputs || [];
-  const main: Group = { match: row?.match, cells: cols.map((c, i) => ({ name: c.name, cell: row?.inputs?.[i] })).filter(x => !blank(x.cell) && !isElseCell(x.cell)) };
+  // "more": further conditions on a word that already has one in this line ("line is less than prod min and line is at least 0")
+  const more = (Array.isArray(row?.more) ? row.more : []).map((m: any) => ({ name: String(m?.name || ''), cell: m?.cell })).filter((x: any) => x.name && !blank(x.cell));
+  const main: Group = { match: row?.match, cells: [...cols.map((c, i) => ({ name: c.name, cell: row?.inputs?.[i] })).filter(x => !blank(x.cell) && !isElseCell(x.cell)), ...more] };
   const extra: Group[] = (Array.isArray(row?.or) ? row.or : []).map((g: any) => ({ match: g?.match, cells: Object.entries(g?.when || {}).map(([name, cell]) => ({ name, cell })).filter(x => !blank(x.cell)) }));
   return [main, ...extra].filter(g => g.cells.length);
 }
@@ -279,8 +306,8 @@ export const usesFormulas = (def: any) => (def?.rules || []).some((r: any) => (r
 export const usesLists = (def: any) => !!def?.perItem?.list || (def?.inputs || []).some((c: any) => /\[\]|^@|^(any|all):/.test(String(c?.name || ''))) || /GROUP:|@[A-Za-z_]| of [A-Za-z_]/.test(JSON.stringify(def?.rules || []));
 /** A result cell that is a word or formula rather than a plain value (or quoted text). */
 export const usesResultFormulas = (def: any) => (def?.rules || []).some((r: any) => (r?.outputs || []).some((c: any) => typeof c === 'string' && isNaN(num(c)) && !/^"[^"]*"$/.test(c.trim()) && (/[*/+×÷()−]|\s-\s|^if\b/i.test(c) || /\s|[._]/.test(c.trim()))));
-export const usesGroupsOrReasons = (def: any) => usesFormulas(def) || usesResultFormulas(def) || usesLists(def) || (def?.rules || []).some((r: any) => (Array.isArray(r?.or) && r.or.length) || r?.match === 'any' || (Array.isArray(r?.reasons) && r.reasons.length));
-export const usesReasons = (def: any) => (def?.rules || []).some((r: any) => Array.isArray(r?.reasons) && r.reasons.length);
+export const usesGroupsOrReasons = (def: any) => usesFormulas(def) || usesResultFormulas(def) || usesLists(def) || (def?.rules || []).some((r: any) => (Array.isArray(r?.or) && r.or.length) || r?.match === 'any' || (Array.isArray(r?.reasons) && r.reasons.length) || (Array.isArray(r?.more) && r.more.length)) || usesReasons(def);
+export const usesReasons = (def: any) => (def?.rules || []).some((r: any) => (Array.isArray(r?.reasons) && r.reasons.length) || (Array.isArray(r?.clear) && r.clear.length) || (typeof r?.decision === 'string' && r.decision.trim()));
 
 /** Lines with "or" groups as plain rows for an engine that only knows AND rows (one row per alternative). */
 export function expandForEngine(def: any): any[] {
@@ -361,8 +388,13 @@ function evaluateIn(def: any, input: any, catalogue: Reason[]): any {
   const withExtra = (x: any) => (!Object.keys(extra).length ? x : x && typeof x === 'object' && !Array.isArray(x) ? { ...x, ...extra } : { result: x, ...extra });
   if (!usesReasons(def)) return withExtra(result);
 
-  // reasons: every code the matching lines raise, the top one by priority, and its outcome
+  // reasons: every code the matching lines raise, the top one by priority, and its outcome; lines can also clear
+  // reasons raised by earlier steps (codes, "outcome:Reject" or "all") and set the decision
   const codes = Array.from(new Set(hits.flatMap((h: any) => (Array.isArray(h.reasons) ? h.reasons : []).map(String))));
+  const clears = Array.from(new Set(hits.flatMap((h: any) => (Array.isArray(h.clear) ? h.clear : []).map(String))));
+  const decided = [...hits].reverse().find((h: any) => typeof h?.decision === 'string' && h.decision.trim())?.decision?.trim();
+  if (clears.length) extra.clear = clears;
+  if (decided) extra.setDecision = decided;
   const known = codes.map(c => catalogue.find(x => x.code === c) || { code: c, text: c, outcome: 'Decline', priority: Number.MAX_SAFE_INTEGER });
   const top = [...known].sort((a, b) => a.priority - b.priority)[0];
   const none = (catalogue as any)?.noReason || {};

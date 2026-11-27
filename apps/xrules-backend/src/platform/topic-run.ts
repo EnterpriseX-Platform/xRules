@@ -5,10 +5,18 @@ import { prisma } from '../config/database.js';
 import { NotFoundError } from '../utils/errors.js';
 
 const SYSTEM = { userId: '__system__', email: 'test@xrules', tenantId: '*', roles: ['OWNER'] } as any;
-const REASON_KEYS = new Set(['reasons', 'reason', 'reasonText', 'outcome', 'decisionResult']);
+const REASON_KEYS = new Set(['reasons', 'reason', 'reasonText', 'outcome', 'decisionResult', 'clear', 'setDecision', '_errors', '_trace', '_unknown']);
+/** Words every step can read: what earlier steps raised. */
+export const RUN_WORDS = ['reasons so far', 'outcomes so far', 'top reason so far', 'top outcome so far'];
 
 /** What a topic answers when no reason fires, and its decision date. */
 export const topicSettings = (t: any) => { const s = t?.settings && typeof t.settings === 'object' ? t.settings : {}; return { decisionDate: s.decisionDate || null, outputs: { result: s.outputs?.result || null, decision: s.outputs?.decision || null, reasons: s.outputs?.reasons || null } as Record<'result' | 'decision' | 'reasons', string | null>, noReason: { outcome: s.noReason?.outcome || 'Approve', result: s.noReason?.result || s.noReason?.outcome || 'Approve' } }; };
+
+/** Take reasons out of the running list: codes, "outcome:Reject" (every code of that outcome) or "all". */
+export function clearReasons(codes: string[], specs: string[], info: (c: string) => { outcome?: any }): string[] {
+  const gone = codes.filter(c => specs.some(sp => { const t = String(sp).trim(); if (/^all$/i.test(t)) return true; const m = t.match(/^outcome\s*[:=]?\s*(.+)$/i); return m ? String(info(c).outcome).toLowerCase() === m[1].trim().toLowerCase() : t === c; }));
+  gone.forEach(c => codes.splice(codes.indexOf(c), 1)); return gone;
+}
 
 export async function runTopic(topicId: string, input: any, opts: { overrides?: Record<string, any> } = {}) {
   const t = await prisma.topic.findFirst({ where: { id: topicId, deletedAt: null } });
@@ -42,11 +50,23 @@ async function runSteps(t: any, input: any, set: ReturnType<typeof topicSettings
   const catalogue = Object.assign(await reasonCatalogue(t.projectId), { noReason: set.noReason });
   const ctx: any = JSON.parse(JSON.stringify(input || {}));
   const out: Record<string, any> = {}; const codes: string[] = []; const trace: any[] = [];
+  const info = (c: string) => catalogue.find((x: any) => x.code === c) || { code: c, text: c, outcome: 'Decline', result: null, priority: Number.MAX_SAFE_INTEGER };
+  const topOf = (cs: string[]) => [...cs.map(info)].sort((a: any, b: any) => a.priority - b.priority)[0] as any;
+  // what earlier steps raised, readable by the later steps as words
+  const soFar = () => { const top = topOf(codes); ctx['reasons so far'] = [...codes]; ctx['outcomes so far'] = Array.from(new Set(codes.map(c => String(info(c).outcome)))); ctx['top reason so far'] = top?.code ?? null; ctx['top outcome so far'] = top?.outcome ?? null; };
+  soFar();
+  let decision: { value: string; step: string } | null = null;
+  // a step's lines clear what earlier steps raised first ("M005", "outcome:Reject", "all"), then add their own
+  const clearing = (specs: string[]) => clearReasons(codes, specs, info);
+  let step: { added: string[]; cleared: string[]; errors?: any } = { added: [], cleared: [] };
   const take = (o: any) => {
     if (!o || typeof o !== 'object') return;
     if (Array.isArray(o)) { o.forEach(take); return; }
+    if (Array.isArray(o.clear)) step.cleared.push(...clearing(o.clear.map(String)));
+    if (o._errors && typeof o._errors === 'object') step.errors = { ...(step.errors || {}), ...o._errors };
     for (const [k, v] of Object.entries(o)) {
-      if (k === 'reasons' && Array.isArray(v)) { v.forEach(c => { if (!codes.includes(String(c))) codes.push(String(c)); }); continue; }
+      if (k === 'reasons' && Array.isArray(v)) { v.forEach(c => { if (!codes.includes(String(c))) { codes.push(String(c)); step.added.push(String(c)); } }); continue; }
+      if (k === 'setDecision' && typeof v === 'string' && v.trim()) { decision = { value: v.trim(), step: '' }; continue; }
       if (REASON_KEYS.has(k) || k === 'lines' || k === '_match') { if (k === 'lines') take(v); continue; }
       ctx[k] = v; out[k] = v;
     }
@@ -55,6 +75,7 @@ async function runSteps(t: any, input: any, set: ReturnType<typeof topicSettings
     const r = rules.find(x => x.id === id);
     const f = r ? null : flows.find(x => x.id === id);
     if (!r && !f) continue;
+    step = { added: [], cleared: [] }; const before = decision;
     try {
       let o: any; let lines: number[] | undefined;
       if ((r as any)?.settingError) throw new Error((r as any).settingError);
@@ -69,18 +90,23 @@ async function runSteps(t: any, input: any, set: ReturnType<typeof topicSettings
         o = res.output;
       }
       take(o);
+      if (decision && decision !== before) (decision as any).step = r?.name || f?.name || '';
+      soFar();
       // where each line came from: the library (and its version) or this product
       const origins: string[] | undefined = (r as any)?.libraryRef?.origins;
       const from = origins && lines ? lines.map(n => origins[n - 1] || '') : origins && r?.type === 'FORMULA' ? origins : undefined;
-      trace.push({ id, name: r?.name || f?.name, lines, output: o, ...(from && { from }), ...((r as any)?.libraryRef?.itemId && { origin: (r as any).libraryRef.mode }) });
+      trace.push({ id, name: r?.name || f?.name, lines, output: o, ...(from && { from }), ...((r as any)?.libraryRef?.itemId && { origin: (r as any).libraryRef.mode }),
+        ...(step.added.length && { added: step.added }), ...(step.cleared.length && { cleared: step.cleared }), ...(decision && decision !== before ? { decision: (decision as any).value } : {}),
+        ...(step.errors && { lineErrors: step.errors }) });
     } catch (e: any) {
+      soFar();
       trace.push({ id, name: r?.name || f?.name, error: String(e?.response?.data?.error?.message || e?.message || e) });
     }
   }
-  const known = codes.map(c => catalogue.find((x: any) => x.code === c) || { code: c, text: c, outcome: 'Decline', result: null, priority: Number.MAX_SAFE_INTEGER });
-  const top = [...known].sort((a: any, b: any) => a.priority - b.priority)[0] as any;
-  const final: any = { ...out, reasons: codes, reason: top?.code ?? null, reasonText: top?.text ?? null, outcome: top ? top.outcome : set.noReason.outcome,
-    decisionResult: top ? top.result || top.outcome : set.noReason.result };
+  const top = topOf(codes);
+  const d = decision as { value: string; step: string } | null;
+  const final: any = { ...out, reasons: codes, reason: top?.code ?? null, reasonText: top?.text ?? null, outcome: d ? d.value : top ? top.outcome : set.noReason.outcome,
+    decisionResult: d ? d.value : top ? top.result || top.outcome : set.noReason.result };
   // the topic names the words that receive the top reason's result, the final decision and the reasons list
   if (set.outputs.result) final[set.outputs.result] = final.decisionResult;
   if (set.outputs.decision) final[set.outputs.decision] = final.outcome;
