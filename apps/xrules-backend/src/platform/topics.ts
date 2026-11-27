@@ -24,10 +24,10 @@ export async function list(projectIdOrSlug: string, user: AuthUser) {
   const topics = await prisma.topic.findMany({ where: { projectId: p.id, deletedAt: null }, orderBy: { createdAt: 'asc' } });
   const rules = await prisma.rule.findMany({ where: { projectId: p.id, topicId: { in: topics.map(t => t.id) } }, select: { id: true, topicId: true, status: true, reviewState: true } });
   const flows = await prisma.flow.findMany({ where: { projectId: p.id, topicId: { in: topics.map(t => t.id) } }, select: { id: true, topicId: true, status: true, reviewState: true } });
-  const rt = await testsFor('rule', rules.map(r => r.id)); const ft = await testsFor('decision_flow', flows.map(f => f.id));
+  const rt = await testsFor('rule', rules.map(r => r.id)); const ft = await testsFor('decision_flow', flows.map(f => f.id)); const tt = await testsFor('topic', topics.map(t => t.id));
   return topics.map(t => {
     const rs = rules.filter(r => r.topicId === t.id), fs = flows.filter(f => f.topicId === t.id);
-    const tests = [...rs.map(r => rt.get(r.id)), ...fs.map(f => ft.get(f.id))].filter(Boolean) as { total: number; pass: number }[];
+    const tests = [...rs.map(r => rt.get(r.id)), ...fs.map(f => ft.get(f.id)), tt.get(t.id)].filter(Boolean) as { total: number; pass: number }[];
     const items = [...rs, ...fs];
     return { id: t.id, name: t.name, description: t.description, goal: t.goal, updatedAt: t.updatedAt, shape: t.shape, stages: t.shape === 'steps' ? stagesOf(t).length : 0,
       decisions: items.length, live: items.filter(i => String(i.status).toUpperCase() === 'PUBLISHED').length,
@@ -75,7 +75,9 @@ export async function create(data: { projectId: string; name: string; descriptio
   const name = String(data.name || '').trim(); if (!name) throw new ValidationError('A topic needs a name');
   const shape = data.shape === 'steps' ? 'steps' : 'questions';
   const stages = shape === 'steps' ? cleanStages((data.stages?.length ? data.stages : DEFAULT_STAGES).map(n => ({ name: n }))) : undefined;
-  return prisma.topic.create({ data: { projectId: p.id, name, description: data.description?.trim() || null, goal: data.goal?.trim() || null, createdById: user.userId, shape, ...(stages && { stages: stages as any }) } });
+  const t = await prisma.topic.create({ data: { projectId: p.id, name, description: data.description?.trim() || null, goal: data.goal?.trim() || null, createdById: user.userId, shape, ...(stages && { stages: stages as any }) } });
+  await (await import('./topic-run.js')).adoptProjectCases(p.id, t.id);
+  return t;
 }
 
 /** Replace the ordered steps of a steps topic (names, order and which decisions each holds). */

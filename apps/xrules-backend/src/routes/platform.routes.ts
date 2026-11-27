@@ -45,6 +45,9 @@ r.get('/topics/:id', authMiddleware, h(async req => (await import('../platform/t
 r.post('/topics/:id/update', authMiddleware, h(async req => (await import('../platform/topics.js')).update(req.params.id, req.body, req.user)));
 r.post('/topics/:id/remove', authMiddleware, h(async req => (await import('../platform/topics.js')).remove(req.params.id, req.user)));
 r.post('/topics/assign', authMiddleware, h(async req => (await import('../platform/topics.js')).assign(req.body, req.user)));
+r.post('/topics/:id/run', authMiddleware, h(async req => { const t = await prisma.topic.findFirst({ where: { id: req.params.id, deletedAt: null } }); if (!t) throw new NotFoundError('Topic'); await assertProjectAccess(t.projectId, req.user); return (await import('../platform/topic-run.js')).runTopic(t.id, req.body?.input || {}); }));
+r.post('/topics/:id/tests/run', authMiddleware, h(async req => { const t = await prisma.topic.findFirst({ where: { id: req.params.id, deletedAt: null } }); if (!t) throw new NotFoundError('Topic'); await assertProjectAccess(t.projectId, req.user); return (await import('../platform/testing.js')).runForTarget('topic', t.id); }));
+r.post('/tests/import', authMiddleware, h(async req => (await import('../platform/topic-run.js')).importCases(req.body, req.user), 201));
 r.post('/topics/:id/simulate', authMiddleware, h(async req => (await import('../platform/topics.js')).simulate(req.params.id, req.body, req.user)));
 r.get('/reviews', authMiddleware, h(req => gov.list(String(req.query.project_id), req.user, req.query.status as string | undefined)));
 r.post('/reviews', authMiddleware, h(req => gov.submit(req.body, req.user), 201));

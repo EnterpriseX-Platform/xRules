@@ -12,11 +12,22 @@ export interface Expectation { kind: 'status' | 'equals' | 'has_finding' | 'no_f
 
 const read = (o: any, path = '') => path.replace(/^\$\.?/, '').split('.').filter(Boolean).reduce((a, k) => a?.[k], o);
 
+// 1000 = "1000", "Y" = "Y", ["M004"] = "M004" (a list matches a single expected code it holds alone, or "M004 M010")
+function sameValue(v: any, e: any): boolean {
+  if (JSON.stringify(v) === JSON.stringify(e)) return true;
+  const n = (x: any) => (x === '' || x === null || x === undefined || typeof x === 'boolean' ? NaN : Number(String(x).replace(/,/g, '')));
+  if (!isNaN(n(v)) && !isNaN(n(e))) return Math.abs(n(v) - n(e)) < 1e-9;
+  if (Array.isArray(v) && !Array.isArray(e)) { const want = String(e ?? '').split(/[\s,]+/).filter(Boolean); return want.length === v.length && want.every(w => v.map(String).includes(w)); }
+  const blank = (x: any) => x === null || x === undefined || x === '';
+  if (blank(v) && blank(e)) return true;
+  return String(v ?? '').trim() === String(e ?? '').trim();
+}
+
 function check(exp: Expectation, r: { status: number; body: any; ms: number }): { ok: boolean; message: string } {
   const findings: any[] = r.body?.findings || [];
   switch (exp.kind) {
     case 'status': return { ok: r.status === Number(exp.value), message: `status ${r.status} (expected ${exp.value})` };
-    case 'equals': { const v = read(r.body, exp.path); return { ok: JSON.stringify(v) === JSON.stringify(exp.value), message: `${exp.path} = ${JSON.stringify(v)} (expected ${JSON.stringify(exp.value)})` }; }
+    case 'equals': { const v = read(r.body, exp.path); return { ok: sameValue(v, exp.value), message: `${exp.path} = ${JSON.stringify(v)} (expected ${JSON.stringify(exp.value)})` }; }
     case 'has_finding': { const hit = findings.some(f => f.ruleCode === exp.code && (!exp.severity || f.severity === exp.severity)); return { ok: hit, message: hit ? `has ${exp.code}` : `missing ${exp.code}${exp.severity ? ` at ${exp.severity}` : ''}` }; }
     case 'no_finding': { const hit = findings.some(f => f.ruleCode === exp.code); return { ok: !hit, message: hit ? `should not have ${exp.code}` : `no ${exp.code}` }; }
     case 'max_ms': return { ok: r.ms <= Number(exp.value), message: `${r.ms} ms (max ${exp.value})` };
@@ -29,6 +40,11 @@ async function execute(c: any): Promise<{ status: number; body: any; ms: number;
   if (c.targetType === 'rule' || (!c.targetType && c.ruleId)) {
     const { executeRule } = await import('../services/execute.service.js');
     try { const out = (await executeRule(c.ruleId || c.targetId, c.input, {}, { userId: '__system__', email: 'test@xrules', tenantId: '*', roles: ['OWNER'] } as any) as any).output; return { status: 200, body: out, ms: Date.now() - t0 }; }
+    catch (e: any) { return { status: 500, body: null, ms: Date.now() - t0, error: e.message }; }
+  }
+  if (c.targetType === 'topic') {
+    const { runTopic } = await import('./topic-run.js');
+    try { const r = await runTopic(c.targetId, c.input); const failed = r.trace.find((x: any) => x.error); return { status: 200, body: { ...r.output, _trace: r.trace }, ms: Date.now() - t0, ...(failed && { error: `${failed.name}: ${failed.error}` }) }; }
     catch (e: any) { return { status: 500, body: null, ms: Date.now() - t0, error: e.message }; }
   }
   let projectId = c.projectId; let flowId = c.targetId; let input = c.input;
