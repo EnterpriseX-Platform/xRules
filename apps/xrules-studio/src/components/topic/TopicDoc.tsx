@@ -17,7 +17,7 @@ const H2 = ({ n, children }: { n: number; children: React.ReactNode }) => (
 function Checks({ t }: { t: { total: number; pass: number; fail?: number } }) {
   if (!t.total) return <span className="text-[13px] text-[#6f6f6f]">No examples yet</span>;
   const bad = (t.fail || 0) > 0;
-  return <span className={`text-[13px] ${bad ? 'text-[#da1e28]' : t.pass === t.total ? 'text-[#198038]' : 'text-[#6f6f6f]'}`}>{bad ? `${t.pass} of ${t.total} examples pass` : t.pass === t.total ? `${t.total} examples pass` : `${t.total - t.pass} examples not run`}</span>;
+  return <span className={`text-[13px] ${bad ? 'text-[#da1e28]' : t.pass === t.total ? 'text-[#198038]' : 'text-[#6f6f6f]'}`}>{bad ? `${t.pass} of ${t.total} example${t.total === 1 ? '' : 's'} pass` : t.pass === t.total ? `${t.total} example${t.total === 1 ? '' : 's'} pass${t.total === 1 ? 'es' : ''}` : `${t.total - t.pass} examples not run`}</span>;
 }
 function State({ d }: { d: any }) {
   return <span className="text-[13px] text-[#6f6f6f]">{d.reviewState === 'PENDING' ? 'Waiting for approval' : d.status === 'published' ? `Live v${d.version}` : 'Draft'}</span>;
@@ -39,9 +39,7 @@ export function TopicDoc({ projectId, topic, onTab }: { projectId: string; topic
   return (
     <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_300px] -mt-2">
       <article className="max-w-[860px] min-w-0">
-        <p className="m-0 text-[22px] leading-[34px] text-[#3b3a36]" style={{ fontFamily: SERIF }}>{topic.goal || 'What this topic decides'}</p>
-
-        <section className="mt-10">
+        <section className="mt-2">
           <H2 n={1}>WHO QUALIFIES</H2>
           {q('qualify').map(d => {
             const lines = d.type === 'DECISION_TABLE' ? tableSentences(d.definition, label) : [];

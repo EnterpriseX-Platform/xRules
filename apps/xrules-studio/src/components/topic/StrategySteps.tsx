@@ -38,11 +38,11 @@ export function StrategySteps({ graph, label, run, ruleChip, onPick, picked }: {
   if (!steps.length) return <div className="text-[14px] text-[#525252]">This strategy has no steps yet</div>;
   const count = (t: string) => t === 'items' ? run?.start : t === 'screen' ? run?.kept : t === 'pick' ? run?.picked : undefined;
   return (
-    <div className="flex flex-wrap items-stretch gap-y-4">
+    <div className="flex items-stretch overflow-x-auto pb-3">
       {steps.map((s, i) => {
         const st = STYLE[s.type]; const d = s.data || {}; const c = count(s.type);
         return (
-          <div key={s.id} className="flex items-stretch">
+          <div key={s.id} className="flex items-stretch shrink-0">
             <div onClick={onPick ? () => onPick(s.id) : undefined} className={`w-[230px] bg-white rounded-[12px] overflow-hidden shadow-[0_1px_2px_rgba(16,24,40,.06),0_6px_18px_rgba(16,24,40,.07)] flex flex-col ${onPick ? 'cursor-pointer hover:-translate-y-0.5 transition-transform' : ''}`} style={{ ...(s.type === 'pick' ? { background: '#0f62fe', color: '#fff' } : {}), ...(picked === s.id ? { boxShadow: '0 0 0 3px #161616, 0 10px 24px rgba(16,24,40,.15)' } : {}) }}>
               <div className="h-1.5" style={{ background: s.type === 'pick' ? 'rgba(255,255,255,.35)' : st.bar }} />
               <div className="px-4 py-3.5 flex flex-col gap-2 flex-1">
@@ -50,7 +50,7 @@ export function StrategySteps({ graph, label, run, ruleChip, onPick, picked }: {
                 <div className="text-[15px] leading-[21px] font-medium">
                   {s.type === 'items' && <>{d.dataset ? `Every row of ${d.dataset}` : `Every item in ${label(String(d.from || 'input.items').replace(/^input\./, ''))}`}</>}
                   {s.type === 'screen' && <>{d.ruleSlug && ruleChip?.(d.ruleSlug) ? <Chip item={ruleChip(d.ruleSlug)!} /> : <>{d.label || 'Keep those that pass'}</>}{d.reason && <div className="text-[12px] font-normal text-[#525252] mt-1">{d.reason}</div>}</>}
-                  {s.type === 'score' && <>{label(d.outputAs || 'score')} = {d.expression ? String(d.expression).replace(/\*/g, '×') : d.ruleSlug}</>}
+                  {s.type === 'score' && <>{label(d.outputAs || 'score')} = {d.expression ? String(d.expression).replace(/[A-Za-z_][\w]*/g, (w: string) => label(w)).replace(/\*/g, '×') : d.ruleSlug}</>}
                   {s.type === 'rank' && <>{(d.weights || []).filter((w: any) => w.term).map((w: any) => `${w.weight} × ${label(w.term)}`).join(' + ') || 'Not set'}</>}
                   {s.type === 'pick' && <>{d.mode === 'budget' ? `Until ${label(String(d.budget || 'budget'))} is used` : `Top ${d.n || 1}`}</>}
                 </div>

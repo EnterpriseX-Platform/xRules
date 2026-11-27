@@ -73,7 +73,7 @@ function BesidePanel({ item, onClose }: { item: LinkItem; onClose: () => void })
         </div>
       )}
       <div className="mt-auto px-6 py-4 border-t border-[#e0e0e0]">
-        {item.href && <Link href={item.href} onClick={onClose} className="inline-flex items-center h-10 px-4 pr-12 bg-[#0f62fe] text-white text-[14px] hover:bg-[#0353e9] hover:no-underline">Open {s.label.toLowerCase()}</Link>}
+        {item.href && <Link href={item.href} onClick={onClose} className="inline-flex items-center h-10 px-4 pr-12 bg-[#0f62fe] text-white text-[14px] hover:bg-[#0353e9] hover:no-underline">Open</Link>}
       </div>
     </aside>
   );
