@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useProject, useAuth } from '@/lib/store';
 import { projectsApi, rulesApi, flowsApi } from '@/lib/api';
+import { useDevMode } from '@/lib/devmode';
 
 type Item = {
   id: string;
@@ -20,6 +21,7 @@ type Item = {
   group: string;
   icon: any;
   href: string;
+  run?: () => void;
 };
 
 const TYPE_ICON: Record<string, any> = {
@@ -87,7 +89,9 @@ export function CommandPalette() {
     enabled: open && !!projectId,
     staleTime: 30_000,
   });
+  const [dev, setDev] = useDevMode();
   const actions: Item[] = [
+    { id: 'act-view', title: dev ? 'Switch to Business view' : 'Switch to Developer view', group: 'Actions', icon: Wrench, href: '', run: () => setDev(!dev) },
     ...(projectId ? [{ id: 'act-topic', title: 'New topic', group: 'Actions', icon: Sparkles, href: `/p/${projectId}/topics?new=1` }] : []),
     { id: 'act-approvals', title: 'Approvals waiting', group: 'Actions', icon: ScrollText, href: projectId ? `/p/${projectId}/approvals` : '/approvals' },
     { id: 'act-home', title: 'Home', group: 'Actions', icon: LayoutDashboard, href: '/' },
@@ -146,6 +150,7 @@ export function CommandPalette() {
 
   function go(item: Item) {
     setOpen(false);
+    if (item.run) { item.run(); return; }
     router.push(item.href);
   }
 

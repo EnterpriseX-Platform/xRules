@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { Sparkles, Search, Sun, Moon, ChevronDown, ChevronRight, Settings, LogOut, Shield } from 'lucide-react';
+import { Sparkles, Search, Sun, Moon, ChevronDown, ChevronRight, Settings, LogOut, Shield, Check } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme, useAuth, useProject } from '@/lib/store';
 import { api, projectsApi } from '@/lib/api';
@@ -11,6 +11,7 @@ import { Logo } from '@/components/ui/Logo';
 import { ProjectPicker } from './Sidebar';
 import { TenantSwitcher } from './TenantSwitcher';
 import { usePerms } from '@/lib/perms';
+import { useDevMode } from '@/lib/devmode';
 
 export function Topbar() {
   const pathname = usePathname();
@@ -23,6 +24,7 @@ export function Topbar() {
   const projectId = useProject((s) => s.currentProjectId);
   const setProject = useProject((s) => s.setCurrentProject);
   const perms = usePerms();
+  const [dev, setDev] = useDevMode();
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: projectsApi.list, retry: false });
   const current = (projects as any[]).find((p: any) => p.id === projectId);
   const [menu, setMenu] = useState(false);
@@ -53,6 +55,7 @@ export function Topbar() {
           <div className="w-52 min-w-0 [&>div>button>span:first-child]:hidden [&>div>button]:h-8 [&>div>button]:border-0 [&>div>button]:bg-transparent [&>div>button]:text-white [&>div>button:hover]:bg-[#262626] [&>div>button]:rounded-none">
             <ProjectPicker projects={projects as any[]} current={current} onPick={(p) => setProject(p.id)} />
           </div>
+          {dev && <span className="pl-2 text-[12px] text-[#a8a8a8] whitespace-nowrap">Developer</span>}
         </>}
       </nav>
 
@@ -88,6 +91,15 @@ export function Topbar() {
             <div className="px-3 py-2.5 border-b border-[#393939]">
               <div className="text-[14px] truncate">{name}</div>
               <div className="text-[12px] text-[#a8a8a8] truncate">{user?.email}</div>
+            </div>
+            <div role="group" aria-label="View" className="py-1 border-b border-[#393939]">
+              <div className="px-3 pt-1 pb-1 text-[12px] text-[#a8a8a8]">View</div>
+              {([['Business', false], ['Developer', true]] as const).map(([l, v]) => (
+                <button key={l} role="menuitemradio" aria-checked={dev === v} type="button" onClick={() => { setDev(v); setMenu(false); }}
+                  className="w-full flex items-center gap-2 px-3 h-9 text-[14px] hover:bg-[#393939] focus:bg-[#393939] focus:outline focus:outline-2 focus:outline-[#ffffff] focus:-outline-offset-2">
+                  <span className="w-4 h-4 shrink-0">{dev === v && <Check className="h-4 w-4" />}</span>{l}
+                </button>
+              ))}
             </div>
             <button role="menuitem" type="button" onClick={() => { setMenu(false); router.push('/settings'); }} hidden={!perms.admin} className="w-full flex items-center gap-2 px-3 h-10 text-[14px] hover:bg-[#393939]"><Settings className="h-4 w-4" />Organization settings</button>
             {isSys && <button role="menuitem" type="button" onClick={() => { setMenu(false); router.push('/admin'); }} className="w-full flex items-center gap-2 px-3 h-10 text-[14px] hover:bg-[#393939]"><Shield className="h-4 w-4" />System admin</button>}

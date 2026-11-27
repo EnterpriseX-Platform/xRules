@@ -61,7 +61,7 @@ export function Sidebar() {
   const projBase = `/p/${currentProject?.id || project || '_'}`;
 
   const perms = usePerms();
-  const [dev, setDev] = useDevMode();
+  const [dev] = useDevMode();
 
   // Which level the page belongs to: system (/admin), project (/p/<cuid>) or organization (everything else)
   const level: 'system' | 'project' | 'org' = pathname.startsWith('/admin') ? 'system' : pathname.startsWith('/p/') ? 'project' : 'org';
@@ -152,13 +152,6 @@ export function Sidebar() {
           </div>
         ))}
       </div>
-      {level !== 'system' && (
-        <label className="h-10 px-4 flex items-center gap-3 text-[13px] text-[#525252] border-t border-[#e0e0e0] cursor-pointer select-none">
-          <input type="checkbox" className="sr-only peer" checked={dev} onChange={e => setDev(e.target.checked)} />
-          <span aria-hidden className={`relative w-8 h-4 rounded-full transition-colors ${dev ? 'bg-[#0f62fe]' : 'bg-[#8d8d8d]'}`}><span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${dev ? 'left-[18px]' : 'left-0.5'}`} /></span>
-          Developer view
-        </label>
-      )}
       {foot && (
         <div className="py-2 border-t border-[#e0e0e0]">
           <NavRow item={foot} pathname={pathname} />
