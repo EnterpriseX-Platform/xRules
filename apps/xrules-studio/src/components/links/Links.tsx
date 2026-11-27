@@ -29,8 +29,7 @@ export function Chip({ item, onClick }: { item: LinkItem; onClick?: () => void }
   const s = KIND_STYLE[item.kind] || KIND_STYLE.word;
   return (
     <button type="button" onClick={onClick || (() => open(item))} title={`${s.label}${item.note ? ` · ${item.note}` : ''}`}
-      className="inline-flex items-center h-7 px-2.5 text-[13px] font-medium whitespace-nowrap hover:brightness-95"
-      style={{ background: s.bg, color: s.fg, borderRadius: 14 }}>
+      className="inline text-[inherit] text-[#0f62fe] underline decoration-[#a6c8ff] underline-offset-[3px] hover:decoration-[#0f62fe] whitespace-nowrap">
       {item.name}{item.note === 'requested' && <span className="ml-1.5 text-[11px] opacity-75">requested</span>}
     </button>
   );
@@ -54,10 +53,9 @@ function BesidePanel({ item, onClose }: { item: LinkItem; onClose: () => void })
     queryFn: () => api.get<any>(`/platform/links/${item.kind === 'flow' || item.kind === 'strategy' ? 'flow' : 'rule'}/${item.id}`) });
   return (
     <aside aria-label={item.name} className="fixed right-0 top-12 bottom-0 z-40 w-[420px] max-w-full bg-white border-l border-[#e0e0e0] shadow-[-8px_0_24px_rgba(0,0,0,.08)] flex flex-col">
-      <div className="h-1.5" style={{ background: s.fg }} />
       <div className="px-6 pt-5 pb-4 flex items-start gap-3 border-b border-[#e0e0e0]">
         <div className="flex-1 min-w-0">
-          <div className="text-[12px] font-semibold tracking-[.4px]" style={{ color: s.fg }}>{s.label.toUpperCase()}</div>
+          <div className="text-[12px] text-[#525252]">{s.label}</div>
           <div className="text-[20px] leading-7 mt-1 break-words">{item.name}</div>
           {item.note && item.note !== 'requested' && <div className="text-[13px] text-[#525252] mt-1">{item.note}</div>}
           {item.note === 'requested' && <div className="text-[13px] text-[#8a5300] mt-1">Asked from IT · tested with a sample value meanwhile</div>}
@@ -83,7 +81,7 @@ function Group({ title, items, empty }: { title: string; items: LinkItem[]; empt
   return (
     <div>
       <div className="text-[12px] font-semibold tracking-[.4px] text-[#525252] mb-2">{title.toUpperCase()}</div>
-      {items.length ? <div className="flex flex-wrap gap-1.5">{items.map(it => <Chip key={`${it.kind}:${it.id}`} item={it} />)}</div> : <div className="text-[14px] text-[#6f6f6f]">{empty}</div>}
+      {items.length ? <ul className="m-0 p-0 list-none space-y-1.5 text-[14px]">{items.map(it => <li key={`${it.kind}:${it.id}`} className="flex gap-3"><Chip item={it} /><span className="text-[#6f6f6f]">{(KIND_STYLE[it.kind] || KIND_STYLE.word).label}</span></li>)}</ul> : <div className="text-[14px] text-[#6f6f6f]">{empty}</div>}
     </div>
   );
 }

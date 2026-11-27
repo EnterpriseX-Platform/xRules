@@ -37,30 +37,31 @@ export function StrategySteps({ graph, label, run, ruleChip, onPick, picked }: {
   const steps = orderSteps(graph);
   if (!steps.length) return <div className="text-[14px] text-[#525252]">This strategy has no steps yet</div>;
   const count = (t: string) => t === 'items' ? run?.start : t === 'screen' ? run?.kept : t === 'pick' ? run?.picked : undefined;
+  const CAPTION: Record<string, string> = { items: 'Start with', screen: 'Keep', score: 'Score', rank: 'Rank by', pick: 'Fund' };
   return (
-    <div className="flex items-stretch overflow-x-auto pb-3">
+    <ol className="m-0 p-0 list-none bg-white border border-[#e0e0e0]">
       {steps.map((s, i) => {
-        const st = STYLE[s.type]; const d = s.data || {}; const c = count(s.type);
+        const d = s.data || {}; const c = count(s.type);
         return (
-          <div key={s.id} className="flex items-stretch shrink-0">
-            <div onClick={onPick ? () => onPick(s.id) : undefined} className={`w-[230px] bg-white rounded-[12px] overflow-hidden shadow-[0_1px_2px_rgba(16,24,40,.06),0_6px_18px_rgba(16,24,40,.07)] flex flex-col ${onPick ? 'cursor-pointer hover:-translate-y-0.5 transition-transform' : ''}`} style={{ ...(s.type === 'pick' ? { background: '#0f62fe', color: '#fff' } : {}), ...(picked === s.id ? { boxShadow: '0 0 0 3px #161616, 0 10px 24px rgba(16,24,40,.15)' } : {}) }}>
-              <div className="h-1.5" style={{ background: s.type === 'pick' ? 'rgba(255,255,255,.35)' : st.bar }} />
-              <div className="px-4 py-3.5 flex flex-col gap-2 flex-1">
-                <div className="text-[11px] font-semibold tracking-[.5px]" style={{ color: s.type === 'pick' ? 'rgba(255,255,255,.85)' : st.ink }}>{i + 1} · {st.label}</div>
-                <div className="text-[15px] leading-[21px] font-medium">
-                  {s.type === 'items' && <>{d.dataset ? `Every row of ${d.dataset}` : `Every item in ${label(String(d.from || 'input.items').replace(/^input\./, ''))}`}</>}
-                  {s.type === 'screen' && <>{d.ruleSlug && ruleChip?.(d.ruleSlug) ? <Chip item={ruleChip(d.ruleSlug)!} /> : <>{d.label || 'Keep those that pass'}</>}{d.reason && <div className="text-[12px] font-normal text-[#525252] mt-1">{d.reason}</div>}</>}
-                  {s.type === 'score' && <>{label(d.outputAs || 'score')} = {d.expression ? String(d.expression).replace(/[A-Za-z_][\w]*/g, (w: string) => label(w)).replace(/\*/g, '×') : d.ruleSlug}</>}
-                  {s.type === 'rank' && <>{(d.weights || []).filter((w: any) => w.term).map((w: any) => `${w.weight} × ${label(w.term)}`).join(' + ') || 'Not set'}</>}
-                  {s.type === 'pick' && <>{d.mode === 'budget' ? `Until ${label(String(d.budget || 'budget'))} is used` : `Top ${d.n || 1}`}</>}
-                </div>
-                {c != null && <div className="mt-auto pt-1 text-[24px] font-semibold tabular-nums leading-none">{fmt(c)}{s.type === 'pick' && run?.used != null && <span className="text-[13px] font-normal opacity-85 ml-2">{fmt(run.used)} used</span>}</div>}
+          <li key={s.id} onClick={onPick ? () => onPick(s.id) : undefined}
+            className={`grid grid-cols-[48px_minmax(0,1fr)_160px] items-center min-h-[64px] border-t border-[#e0e0e0] first:border-t-0 ${onPick ? 'cursor-pointer hover:bg-[#e8e8e8]' : ''} ${picked === s.id ? 'bg-[#e0e0e0]' : ''}`}>
+            <span className="self-stretch flex items-center justify-center text-[14px] text-[#525252] border-r border-[#e0e0e0]">{i + 1}</span>
+            <div className="px-4 py-3 min-w-0">
+              <div className="text-[12px] text-[#525252]">{CAPTION[s.type]}</div>
+              <div className="text-[15px] leading-[22px] text-[#161616] mt-0.5">
+                {s.type === 'items' && <>{d.dataset ? `Every row of ${d.dataset}` : `Every item in ${label(String(d.from || 'input.items').replace(/^input\./, ''))}`}</>}
+                {s.type === 'screen' && <>{d.ruleSlug && ruleChip?.(d.ruleSlug) ? <>Those that pass <Chip item={ruleChip(d.ruleSlug)!} /></> : <>{d.label || 'Those that pass'}</>}{d.reason && <span className="text-[13px] text-[#525252]"> · {d.reason}</span>}</>}
+                {s.type === 'score' && <>{label(d.outputAs || 'score')} = {d.expression ? String(d.expression).replace(/[A-Za-z_][\w]*/g, (w: string) => label(w)).replace(/\*/g, '×') : d.ruleSlug}</>}
+                {s.type === 'rank' && <>{(d.weights || []).filter((w: any) => w.term).map((w: any) => `${w.weight} × ${label(w.term)}`).join(' + ') || 'Not set'}</>}
+                {s.type === 'pick' && <>{d.mode === 'budget' ? `Down the ranking until ${label(String(d.budget || 'budget'))} is used` : `The top ${d.n || 1}`}</>}
               </div>
             </div>
-            {i < steps.length - 1 && <div className="w-8 self-center flex items-center"><div className="h-[3px] w-full bg-[#0f62fe] opacity-60" /></div>}
-          </div>
+            <div className="px-4 text-right tabular-nums">
+              {c != null && <><span className="text-[20px] text-[#161616]">{fmt(c)}</span>{s.type === 'pick' && run?.used != null && <div className="text-[12px] text-[#525252]">{fmt(run.used)} used</div>}</>}
+            </div>
+          </li>
         );
       })}
-    </div>
+    </ol>
   );
 }
